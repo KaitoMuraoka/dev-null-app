@@ -9,7 +9,7 @@ use Native\Mobile\Attributes\Lazy;
 use Native\Mobile\Edge\NativeComponent;
 
 /**
- * New followers and replies to your commits.
+ * Follows, replies, mentions, and moderation updates for your commits.
  */
 #[Lazy]
 class Notifications extends NativeComponent
@@ -71,7 +71,7 @@ class Notifications extends NativeComponent
                 continue;
             }
 
-            $this->navigate($notification->isReply()
+            $this->navigate($notification->opensCommit()
                 ? '/commits/'.$notification->commitId
                 : '/users/'.$notification->actor->username);
 

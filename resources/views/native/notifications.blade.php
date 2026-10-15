@@ -6,23 +6,31 @@
 
     <native:list class="w-full flex-1 bg-theme-surface" on-refresh="load" on-end-reached="loadMore" :end-reached-buffer="5">
         @if ($loaded && $notifications === [] && $error === null)
-            @include('native.partials.empty', ['command' => '$ cat /dev/notifications', 'message' => 'Nothing here yet. Follows and replies to your commits will show up here.'])
+            @include('native.partials.empty', ['command' => '$ cat /dev/notifications', 'message' => 'Nothing here yet. Follows, replies, mentions, and moderation updates for your commits will show up here.'])
         @endif
 
         @foreach ($notifications as $notification)
+            @php($icon = match ($notification->type) {
+                'followed' => [Ios::PersonBadgePlus, Android::PersonAdd],
+                'mentioned' => [Ios::At, Android::AlternateEmail],
+                'approved' => [Ios::Checkmark, Android::Check],
+                'rejected' => [Ios::Xmark, Android::Close],
+                default => [Ios::ArrowshapeTurnUpLeft, Android::Reply],
+            })
             <native:pressable ref="notification-{{ $notification->id }}" @press="open('{{ $notification->id }}')" class="w-full {{ $notification->isUnread ? 'bg-theme-primary-soft' : 'bg-theme-surface' }}" :press-opacity="0.7">
                 <native:row class="w-full px-4 py-3 gap-3">
                     <native:column :width="24" class="items-center pt-1">
-                        @if ($notification->isReply())
-                            <native:icon :ios="Ios::ArrowshapeTurnUpLeft" :android="Android::Reply" :size="20" class="text-theme-lane-{{ $notification->actor->lane() }}" />
-                        @else
-                            <native:icon :ios="Ios::PersonBadgePlus" :android="Android::PersonAdd" :size="20" class="text-theme-lane-{{ $notification->actor->lane() }}" />
-                        @endif
+                        {{-- A person's notification wears their lane; a moderator's stays muted. --}}
+                        <native:icon :ios="$icon[0]" :android="$icon[1]" :size="20" class="{{ $notification->isModeration() ? 'text-theme-ink-muted' : 'text-theme-lane-'.$notification->actor->lane() }}" />
                     </native:column>
 
                     <native:column class="flex-1 gap-2">
                         <native:row class="w-full items-center">
-                            @include('native.partials.avatar', ['user' => $notification->actor, 'size' => 32])
+                            @if ($notification->isModeration())
+                                <native:text font="semibold" class="text-sm text-theme-ink">Moderation update</native:text>
+                            @else
+                                @include('native.partials.avatar', ['user' => $notification->actor, 'size' => 32])
+                            @endif
                             <native:spacer />
                             @if ($notification->isUnread)
                                 <native:column :width="8" :height="8" class="rounded-full bg-theme-primary" a11y-label="Unread" />
@@ -30,19 +38,28 @@
                         </native:row>
 
                         <native:text class="w-full text-[15px] text-theme-ink">
-                            <native:text font="semibold">{{ $notification->actor->name }}</native:text>
-                            {{ $notification->isReply() ? 'replied to your commit' : 'followed you' }}
+                            @unless ($notification->isModeration())
+                                <native:text font="semibold">{{ $notification->actor->name }}</native:text>
+                            @endunless
+                            {{ $notification->sentence() }}
                             <native:text class="text-theme-ink-muted"> · </native:text>
                             <native:text font="mono" class="text-[13px] text-theme-ink-muted">{{ \App\Devnull\Display::relativeTime($notification->createdAt) }}</native:text>
                         </native:text>
 
-                        @if ($notification->isReply())
-                            @if ($notification->body)
-                                <native:text class="w-full text-[15px] leading-relaxed text-theme-ink whitespace-pre-line">{{ $notification->body }}</native:text>
-                            @endif
-                            @if ($notification->parentBody)
-                                <native:text class="w-full text-sm text-theme-ink-muted" :max-lines="1">↳ {{ $notification->parentBody }}</native:text>
-                            @endif
+                        @if ($notification->opensCommit() && $notification->body)
+                            <native:text class="w-full text-[15px] leading-relaxed text-theme-ink" :max-lines="3">{{ $notification->body }}</native:text>
+                        @endif
+                        @if ($notification->isReply() && $notification->parentBody)
+                            <native:text class="w-full text-sm text-theme-ink-muted" :max-lines="1">↳ {{ $notification->parentBody }}</native:text>
+                        @endif
+
+                        @if ($notification->isRejection())
+                            <native:column ref="rejection-{{ $notification->id }}" class="w-full gap-1">
+                                @if ($notification->reason)
+                                    <native:text class="w-full text-sm text-theme-ink whitespace-pre-line"><native:text font="semibold">Reason: </native:text>{{ $notification->reason }}</native:text>
+                                @endif
+                                <native:text class="w-full text-sm text-theme-ink-muted">Only you can see this update and your rejected commit.</native:text>
+                            </native:column>
                         @endif
                     </native:column>
                 </native:row>
