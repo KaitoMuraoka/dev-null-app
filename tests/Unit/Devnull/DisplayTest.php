@@ -24,3 +24,17 @@ it('prints full dates the way git log does', function () {
     expect(Display::gitDate(CarbonImmutable::parse('2026-10-14T20:13:05Z')))->toBe('Wed Oct 14 20:13:05 2026 +0000')
         ->and(Display::gitDate(null))->toBe('');
 });
+
+it('labels days the way the web day markers do', function (string $date, string $expected) {
+    $now = CarbonImmutable::parse('2026-10-15T12:00:00Z');
+
+    expect(Display::dayLabel(CarbonImmutable::parse($date), $now))->toBe($expected);
+})->with([
+    ['2026-10-15T00:00:00Z', 'Today'],
+    ['2026-10-15T23:59:59Z', 'Today'],
+    ['2026-10-14T23:59:59Z', 'Yesterday'],
+    ['2026-10-13T08:00:00Z', 'Tue, Oct 13'],
+    ['2025-12-31T08:00:00Z', 'Wed, Dec 31, 2025'],
+    // Counted in the app's time zone, whatever offset the API sent.
+    ['2026-10-15T01:30:00+02:00', 'Yesterday'],
+]);
