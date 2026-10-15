@@ -39,81 +39,115 @@ return [
 
     'theme' => [
 
+        // devnull's tokens from DESIGN.md: a cool, nearly colourless shell, one
+        // working blue, and six author lanes that only ever mark the graph.
         'light' => [
-            // Primary brand color — used for filled buttons, active states, key accents.
-            'primary' => '#0F766E',
-            'on-primary' => '#FFFFFF',
+            // Commit Blue: the primary button, links, the active tab underline.
+            'primary' => '#3b6fe0',
+            'on-primary' => '#ffffff',
 
-            // Secondary / muted action color.
-            'secondary' => '#475569',
-            'on-secondary' => '#FFFFFF',
+            // Outline-style buttons ("Following") sit on the hover wash.
+            'secondary' => '#eef0f2',
+            'on-secondary' => '#121417',
 
-            // Surface = cards, sheets, dialogs. Background = page root.
-            'surface' => '#FFFFFF',
-            'on-surface' => '#1B1B18',
-            'background' => '#FAFAFA',
-            'on-background' => '#1B1B18',
+            // Feed white on a cool shell.
+            'surface' => '#ffffff',
+            'on-surface' => '#121417',
+            'background' => '#f6f7f8',
+            'on-background' => '#121417',
 
-            // Surface variant = filled text fields, muted tonal surfaces.
-            // on-surface-variant = muted label/hint text on those surfaces.
-            'surface-variant' => '#FAFAFA',
-            'on-surface-variant' => '#706F6C',
+            'surface-variant' => '#eef0f2',
+            'on-surface-variant' => '#5b616b',
 
-            // Outline = neutral borders (text fields, dividers, cards).
-            'outline' => '#E5E5E5',
+            'outline' => '#d3d7dd',
 
-            // Destructive actions — maps to `variant="destructive"` on components.
-            'destructive' => '#B91C1C',
-            'on-destructive' => '#FFFFFF',
+            // Rm Red.
+            'destructive' => '#c92a2a',
+            'on-destructive' => '#ffffff',
 
-            // Tertiary accent — for highlights, badges, emphasis not covered by primary.
-            'accent' => '#C2410C',
-            'on-accent' => '#FFFFFF',
+            'accent' => '#e8effc',
+            'on-accent' => '#3b6fe0',
+
+            // devnull's own tokens, used as bg-theme-*, text-theme-* and border-theme-*.
+            'ink' => '#121417',
+            'ink-muted' => '#5b616b',
+            'hairline' => '#e1e4e8',
+            'rail' => '#d3d7dd',
+            'wash' => '#eef0f2',
+            'primary-soft' => '#e8effc',
+            'pending' => '#b45309',
+            'pending-soft' => '#fef3c7',
+
+            // Author lanes. Identity only: graph nodes, rail segments, avatar rings.
+            'lane-0' => '#d9480f',
+            'lane-1' => '#2f9e44',
+            'lane-2' => '#9c36b5',
+            'lane-3' => '#0c8599',
+            'lane-4' => '#c2255c',
+            'lane-5' => '#b7791f',
         ],
 
+        // A faithful mirror on graphite, with the lanes and primary lifted.
         'dark' => [
-            // Leave empty or partial to auto-derive from `light` (luminance inversion).
-            // Specify any token here to override the derived value.
-            'primary' => '#14B8A6',
-            'on-primary' => '#FFFFFF',
+            'primary' => '#7aa2f7',
+            'on-primary' => '#111112',
 
-            'secondary' => '#94A3B8',
-            'on-secondary' => '#0F172A',
+            'secondary' => '#232326',
+            'on-secondary' => '#ececec',
 
-            'surface' => '#161615',
-            'on-surface' => '#EDEDEC',
-            'background' => '#0A0A0A',
-            'on-background' => '#EDEDEC',
+            'surface' => '#18181a',
+            'on-surface' => '#ececec',
+            'background' => '#111112',
+            'on-background' => '#ececec',
 
-            'surface-variant' => '#1F1F1E',
-            'on-surface-variant' => '#A1A09A',
+            'surface-variant' => '#232326',
+            'on-surface-variant' => '#a1a1a6',
 
-            'outline' => '#3E3E3A',
+            'outline' => '#36363a',
 
-            'destructive' => '#F87171',
-            'on-destructive' => '#0F172A',
+            'destructive' => '#ff6b6b',
+            'on-destructive' => '#111112',
 
-            'accent' => '#FDBA74',
-            'on-accent' => '#0F172A',
+            'accent' => '#18233a',
+            'on-accent' => '#7aa2f7',
+
+            'ink' => '#ececec',
+            'ink-muted' => '#a1a1a6',
+            'hairline' => '#2a2a2d',
+            'rail' => '#36363a',
+            'wash' => '#232326',
+            'primary-soft' => '#18233a',
+            'pending' => '#fbbf24',
+            'pending-soft' => '#3a2a0a',
+
+            'lane-0' => '#ff8a4c',
+            'lane-1' => '#51cf66',
+            'lane-2' => '#da77f2',
+            'lane-3' => '#3bc9db',
+            'lane-4' => '#f06595',
+            'lane-5' => '#fcc419',
         ],
 
-        // Corner radii (points / dp).
+        // Corner radii (points / dp): 6px controls, 8px groups, circles for people and commits.
         'radius-sm' => 4,
-        'radius-md' => 8,
-        'radius-lg' => 16,
+        'radius-md' => 6,
+        'radius-lg' => 8,
         'radius-full' => 9999,
 
         // Font size scale (points / sp).
         'font-sm' => 14,
-        'font-md' => 16,
-        'font-lg' => 20,
+        'font-md' => 15,
+        'font-lg' => 17,
         'font-xl' => 24,
     ],
 
+    // Geist for people, Geist Mono for the machine. The files are the web app's,
+    // under the SIL Open Font License (resources/fonts/OFL.txt).
     'fonts' => [
-        'default' => 'System',
-        'accent' => 'Archivo+Black-Regular',
-        'lobster' => 'Lobster+Two-Regular',
+        'default' => 'Geist-Regular',
+        'semibold' => 'Geist-SemiBold',
+        'mono' => 'GeistMono-Regular',
+        'mono-medium' => 'GeistMono-Medium',
     ],
 
 ];
