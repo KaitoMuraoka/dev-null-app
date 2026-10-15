@@ -385,6 +385,26 @@ it('opens a thread in place, as the web does, and closes it again', function () 
     Native::visit('/log')->tap('replies-c2')->tap('thread-reply-r1')->assertNavigatedTo('/log/commits/r1');
 });
 
+it('closes a thread whose replies have all gone', function () {
+    $repliesGone = false;
+
+    Http::fake(function (Request $request) use (&$repliesGone) {
+        return match (parse_url($request->url(), PHP_URL_PATH)) {
+            '/api/v1/log/following' => Http::response(pageJson([commitJson(['id' => 'c1', 'replies_count' => $repliesGone ? 0 : 1])])),
+            '/api/v1/commits/c1/replies' => Http::response(pageJson($repliesGone ? [] : [commitJson(['id' => 'r1', 'parent_id' => 'c1'])])),
+            default => Http::response(['message' => 'No fake.'], 404),
+        };
+    });
+
+    $screen = Native::visit('/log')->tap('replies-c1');
+    expect($screen->instance()->threads)->toHaveKey('c1');
+
+    $repliesGone = true;
+    $screen->call('load');
+
+    expect($screen->instance()->threads)->toBe([]);
+});
+
 it('copies a commit link through the share sheet', function () {
     Http::fake(['devnull.test/*' => Http::response(pageJson([commitJson(['id' => 'c1'])]))]);
 

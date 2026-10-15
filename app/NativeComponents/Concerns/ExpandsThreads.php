@@ -51,8 +51,17 @@ trait ExpandsThreads
     {
         $page = $this->attempt(fn ($devnull) => $devnull->replies($id));
 
-        if ($page !== null) {
-            $this->threads[$id] = $page->items;
+        if ($page === null) {
+            return;
         }
+
+        // A thread whose last reply went closes, so its commit gets its hairline back.
+        if ($page->items === []) {
+            unset($this->threads[$id]);
+
+            return;
+        }
+
+        $this->threads[$id] = $page->items;
     }
 }
