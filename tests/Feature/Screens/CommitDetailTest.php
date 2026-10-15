@@ -132,6 +132,32 @@ it('opens ancestors, replies and profiles', function () {
     Native::visit('/commits/c2')->call('openProfile', 'ada')->assertNavigatedTo('/users/ada');
 });
 
+it('draws code blocks as mono text in a hairline box, from the body rather than the HTML', function () {
+    $body = "Fixed it, @ada:\n```php\nreturn \$a <=> \$b;\n```\nShip it";
+
+    fakeThread([
+        'body' => $body,
+        'body_segments' => [
+            ['type' => 'text', 'text' => 'Fixed it, @ada:'],
+            ['type' => 'block', 'language' => 'php', 'html' => '<span class="hl-keyword">return</span> $a &lt;=&gt; $b;'],
+            ['type' => 'text', 'text' => 'Ship it'],
+        ],
+        'mentions' => [['username' => 'ada', 'offset' => 10, 'length' => 4]],
+    ]);
+
+    $screen = Native::visit('/commits/c2')
+        ->assertSee('return $a <=> $b;')
+        ->assertSee('php')
+        ->assertSee('Ship it')
+        ->assertDontSee('hl-keyword')
+        ->assertElement('text', fn (array $node): bool => ($node['props']['text'] ?? null) === 'return $a <=> $b;'
+            && ($node['props']['font_name'] ?? null) === 'mono');
+
+    expect(paragraphRuns($screen, 'Fixed it'))->toBe([['Fixed it, '], ['@ada', 'mention'], [':']]);
+
+    $screen->press("openProfile('ada')")->assertNavigatedTo('/users/ada');
+});
+
 it('goes back to onboarding when the key stops working', function () {
     fakeApi(['GET /api/v1/commits/c2' => [['message' => 'This SSH key is not on the GitHub account of a devnull user.'], 401]]);
 

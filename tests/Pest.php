@@ -8,6 +8,7 @@ use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Native\Mobile\Testing\FakeBridge;
 use Native\Mobile\Testing\Native;
+use Native\Mobile\Testing\TestableComponent;
 use Tests\TestCase;
 
 /*
@@ -233,4 +234,38 @@ function gitHubKeyInUseJson(): array
         'documentation_url' => 'https://docs.github.com/rest/users/ssh-signing-keys#create-a-ssh-signing-key-for-the-authenticated-user',
         'status' => '422',
     ];
+}
+
+/**
+ * The runs of the first paragraph whose text contains $text, as [text, style]:
+ * 'mention' for a pressable run, 'code' for one on a wash, or nothing for prose.
+ *
+ * @return list<array{0: string, 1?: string}>
+ */
+function paragraphRuns(TestableComponent $screen, string $text): array
+{
+    $find = function (array $node) use (&$find, $text): ?array {
+        if (($node['type'] ?? null) === 'text' && ($node['children'] ?? []) !== []
+            && str_contains(implode('', array_map(fn (array $run): string => $run['props']['text'] ?? '', $node['children'])), $text)) {
+            return $node;
+        }
+
+        foreach ($node['children'] ?? [] as $child) {
+            if (($found = $find($child)) !== null) {
+                return $found;
+            }
+        }
+
+        return null;
+    };
+
+    $paragraph = $find($screen->tree());
+
+    expect($paragraph)->not->toBeNull("No paragraph with [{$text}] was rendered.");
+
+    return array_map(fn (array $run): array => match (true) {
+        isset($run['on_press']) => [$run['props']['text'], 'mention'],
+        isset($run['style']['bg_color']) => [$run['props']['text'], 'code'],
+        default => [$run['props']['text']],
+    }, $paragraph['children']);
 }

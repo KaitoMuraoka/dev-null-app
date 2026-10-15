@@ -26,7 +26,7 @@
                         @endunless
                     </native:row>
 
-                    <native:text class="w-full text-[15px] leading-relaxed text-theme-ink whitespace-pre-line">{{ $commit->body }}</native:text>
+                    @include('native.partials.commit-body')
 
                     @if ($commit->repliesCount > 0)
                         <native:text class="text-sm text-theme-primary">{{ \App\Devnull\Display::count($commit->repliesCount, 'reply', 'replies') }}</native:text>

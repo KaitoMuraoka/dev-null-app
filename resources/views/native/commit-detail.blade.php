@@ -25,7 +25,9 @@
                             </native:row>
                         </native:pressable>
 
-                        <native:text class="w-full text-[17px] leading-snug text-theme-ink whitespace-pre-line select-text">{{ $commit->body }}</native:text>
+                        <native:column class="w-full gap-1">
+                            @include('native.partials.commit-body', ['size' => 'text-[17px]'])
+                        </native:column>
 
                         <native:row class="w-full gap-2 items-center">
                             <native:text font="mono" class="text-[13px] text-theme-ink-muted">{{ \App\Devnull\Display::gitDate($commit->createdAt) }} · {{ $commit->shortHash() }}</native:text>
@@ -66,7 +68,7 @@
                                         </native:column>
                                     @endunless
                                 </native:row>
-                                <native:text class="w-full text-[15px] leading-relaxed text-theme-ink whitespace-pre-line">{{ $replyCommit->body }}</native:text>
+                                @include('native.partials.commit-body', ['commit' => $replyCommit])
                                 @if ($replyCommit->repliesCount > 0)
                                     <native:text class="text-sm text-theme-primary">{{ \App\Devnull\Display::count($replyCommit->repliesCount, 'reply', 'replies') }}</native:text>
                                 @endif

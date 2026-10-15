@@ -137,6 +137,52 @@ it('prints other errors and keeps the screen', function () {
     Native::visit('/log')->assertSee('Too Many Attempts.')->assertNoNavigation();
 });
 
+it('links mentions to profiles, counting code points so emoji before them do not shift them', function () {
+    // Each "🚀" is one code point, two UTF-16 units and four bytes.
+    $body = '🚀🚀 pairing with @ada and @Grace-H today';
+
+    Http::fake(['devnull.test/*' => Http::response(pageJson([commitJson([
+        'id' => 'c1',
+        'body' => $body,
+        'mentions' => [
+            ['username' => 'ada', 'offset' => 16, 'length' => 4],
+            ['username' => 'Grace-H', 'offset' => 25, 'length' => 8],
+        ],
+    ])]))]);
+
+    $screen = Native::visit('/log');
+
+    expect(paragraphRuns($screen, 'pairing with'))->toBe([
+        ['🚀🚀 pairing with '],
+        ['@ada', 'mention'],
+        [' and '],
+        ['@Grace-H', 'mention'],
+        [' today'],
+    ]);
+
+    $screen->press("openProfile('Grace-H')")->assertNavigatedTo('/users/Grace-H');
+});
+
+it('shows inline code on a wash and keeps mentions on both sides of it', function () {
+    Http::fake(['devnull.test/*' => Http::response(pageJson([commitJson([
+        'body' => '@ada ran `composer test` for @bob',
+        'body_segments' => [
+            ['type' => 'text', 'text' => '@ada ran '],
+            ['type' => 'code', 'code' => 'composer test'],
+            ['type' => 'text', 'text' => ' for @bob'],
+        ],
+        'mentions' => [['username' => 'ada', 'offset' => 0, 'length' => 4], ['username' => 'bob', 'offset' => 29, 'length' => 4]],
+    ])]))]);
+
+    expect(paragraphRuns(Native::visit('/log'), 'composer test'))->toBe([
+        ['@ada', 'mention'],
+        [' ran '],
+        ['composer test', 'code'],
+        [' for '],
+        ['@bob', 'mention'],
+    ]);
+});
+
 it('is accessible', function () {
     Http::fake(['devnull.test/*' => Http::response(pageJson([commitJson()]))]);
 
