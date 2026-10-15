@@ -424,8 +424,6 @@ it('starts the log with your avatar staged on the rail, like the web composer', 
 
     expect($dashes)->toHaveCount(16)
         ->and(array_unique(array_map(fn (array $dash): ?string => $dash['style']['bg_color'] ?? null, $dashes)))->toBe([config('native-ui.theme.light.lane-3')]);
-
-    $screen->tap('composer')->assertNavigatedTo('/compose')->assertTransition('slide_from_bottom');
 });
 
 it('shows an author once per run, and starts a new run at each day', function () {

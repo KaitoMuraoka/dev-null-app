@@ -19,9 +19,14 @@ use Native\Mobile\Edge\Layouts\Builders\NavAction;
 use Native\Mobile\Edge\Layouts\Builders\NavBarOptions;
 use Native\Mobile\Edge\NativeComponent;
 use Native\Mobile\Edge\Transition;
+use Native\Mobile\Facades\Dialog;
 
 /**
- * The log: commits from you and the people you follow, or from everyone.
+ * The log: commits from you and the people you follow, or from everyone, under
+ * a composer you type into where it is, as on the web.
+ *
+ * EDGE tells PHP nothing about focus, so a touch on the field is taken as
+ * being in it.
  */
 #[Lazy]
 class Log extends NativeComponent
@@ -47,6 +52,22 @@ class Log extends NativeComponent
      * The last-visit marker stays put against it while the screen is open, as on the web.
      */
     public ?string $lastVisitAt = null;
+
+    /**
+     * The commit you're writing. It stays when the keyboard goes, until it's committed.
+     */
+    public string $body = '';
+
+    /**
+     * Whether the composer shows its budget and Commit button: from the moment you're
+     * in it until you commit, or leave it empty and the log reloads.
+     */
+    public bool $composing = false;
+
+    /**
+     * Mounts a fresh field when it changes, so a committed field starts clean.
+     */
+    public int $composerKey = 0;
 
     public function mount(): void
     {
@@ -94,6 +115,8 @@ class Log extends NativeComponent
      */
     public function load(): void
     {
+        $this->closeEmptyComposer();
+
         $page = $this->attempt(fn ($devnull) => $devnull->log($this->log));
 
         if ($page !== null) {
@@ -130,6 +153,52 @@ class Log extends NativeComponent
         $this->navigate('/compose')->transition(Transition::SlideFromBottom);
     }
 
+    /**
+     * A touch on the composer's field puts you in it.
+     */
+    public function composerFocused(): void
+    {
+        $this->composing = true;
+    }
+
+    public function remaining(): int
+    {
+        return Commit::MaxLength - mb_strlen($this->body);
+    }
+
+    public function canCommit(): bool
+    {
+        $length = mb_strlen(trim($this->body));
+
+        return $length >= Commit::MinLength && $length <= Commit::MaxLength;
+    }
+
+    /**
+     * Commits the draft and puts it at the top of the log. Pressing Commit has
+     * already put the keyboard away. The draft stays if devnull says no.
+     */
+    public function commit(): void
+    {
+        if (! $this->canCommit()) {
+            return;
+        }
+
+        $commit = $this->attempt(fn ($devnull) => $devnull->createCommit(trim($this->body)));
+
+        if ($commit === null) {
+            return;
+        }
+
+        $this->body = '';
+        $this->composing = false;
+        $this->composerKey++;
+        $this->commits = [$commit, ...$this->commits];
+
+        Dialog::toast($commit->isPending()
+            ? "[log {$commit->shortHash()}] pending: only you can see it until it's approved."
+            : "[log {$commit->shortHash()}] {$commit->body}");
+    }
+
     public function openCommit(string $id): void
     {
         $this->openInTab('/commits/'.$id);
@@ -154,6 +223,20 @@ class Log extends NativeComponent
         $this->threads = array_map(fn (array $replies): array => array_map($update, $replies), $this->threads);
     }
 
+    /**
+     * An empty composer you've left closes again. Nothing says when you leave it,
+     * so this waits for the log to reload: on returning to it, or pulling to refresh.
+     */
+    private function closeEmptyComposer(): void
+    {
+        if (! $this->composing || $this->body !== '') {
+            return;
+        }
+
+        $this->composing = false;
+        $this->composerKey++;
+    }
+
     private function lastVisitSeenAt(): ?string
     {
         $viewer = $this->me();
@@ -167,6 +250,9 @@ class Log extends NativeComponent
 
         return view('native.log', [
             'viewer' => $viewer,
+            'composerOpen' => $this->composing || $this->body !== '',
+            'remaining' => $this->remaining(),
+            'canCommit' => $this->canCommit(),
             'rows' => Timeline::feed(
                 $this->commits,
                 firstLane: Lane::Rail,

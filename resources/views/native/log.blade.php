@@ -8,7 +8,7 @@
 
     <native:list class="w-full flex-1 bg-theme-surface" on-refresh="load" on-end-reached="loadMore" :end-reached-buffer="5">
         @if ($viewer)
-            @include('native.partials.composer-row', ['me' => $viewer])
+            @include('native.partials.composer', ['me' => $viewer])
         @endif
 
         @if ($loaded && $commits === [] && $error === null)
