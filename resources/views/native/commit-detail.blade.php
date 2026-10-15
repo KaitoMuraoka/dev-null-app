@@ -27,6 +27,7 @@
 
                         <native:column class="w-full gap-1">
                             @include('native.partials.commit-body', ['size' => 'text-[17px]'])
+                            @include('native.partials.commit-media')
                         </native:column>
 
                         <native:row class="w-full gap-2 items-center">
@@ -37,6 +38,8 @@
                                 </native:column>
                             @endunless
                         </native:row>
+
+                        @include('native.partials.commit-actions', ['withReplies' => false])
                     </native:column>
 
                     @include('native.partials.rail', ['previous' => $ancestors === [] ? null : end($ancestors)->lane(), 'lane' => $commit->lane()])
@@ -69,9 +72,8 @@
                                     @endunless
                                 </native:row>
                                 @include('native.partials.commit-body', ['commit' => $replyCommit])
-                                @if ($replyCommit->repliesCount > 0)
-                                    <native:text class="text-sm text-theme-primary">{{ \App\Devnull\Display::count($replyCommit->repliesCount, 'reply', 'replies') }}</native:text>
-                                @endif
+                                @include('native.partials.commit-media', ['commit' => $replyCommit])
+                                @include('native.partials.commit-actions', ['commit' => $replyCommit])
                             </native:column>
                         </native:row>
                     </native:pressable>

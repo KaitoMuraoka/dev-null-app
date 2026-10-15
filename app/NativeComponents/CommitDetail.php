@@ -6,6 +6,7 @@ use App\Devnull\Data\Commit;
 use App\Devnull\Display;
 use App\Icons\Android;
 use App\Icons\Ios;
+use App\NativeComponents\Concerns\ShowsCommits;
 use App\NativeComponents\Concerns\TalksToDevnull;
 use Illuminate\View\View;
 use Native\Mobile\Attributes\Lazy;
@@ -22,6 +23,7 @@ use Native\Mobile\Facades\Dialog;
 #[Lazy]
 class CommitDetail extends NativeComponent
 {
+    use ShowsCommits;
     use TalksToDevnull;
 
     public const string DeleteAlert = 'delete-commit';
@@ -174,6 +176,14 @@ class CommitDetail extends NativeComponent
     public function openProfile(string $username): void
     {
         $this->navigate('/users/'.$username);
+    }
+
+    /**
+     * @return iterable<Commit>
+     */
+    protected function shownCommits(): iterable
+    {
+        return [...($this->commit === null ? [] : [$this->commit]), ...$this->ancestors, ...$this->replies];
     }
 
     public function isOwn(): bool

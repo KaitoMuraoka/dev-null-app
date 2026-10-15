@@ -183,6 +183,92 @@ it('shows inline code on a wash and keeps mentions on both sides of it', functio
     ]);
 });
 
+it('shows a link preview as a compact row and opens it in the browser', function () {
+    Http::fake(['devnull.test/*' => Http::response(pageJson([commitJson([
+        'id' => 'c1',
+        'body' => 'Read https://laravel.com/docs?a=1&b=2',
+        'link_preview' => [
+            'url' => 'https://laravel.com/docs?a=1&b=2',
+            'title' => 'Laravel - The PHP Framework',
+            'description' => 'Laravel is a web application framework.',
+            'image_url' => 'https://laravel.com/og.png',
+            'site_name' => null,
+        ],
+    ])]))]);
+
+    Native::visit('/log')
+        ->assertSee('laravel.com')
+        ->assertSee('Laravel - The PHP Framework')
+        ->assertSee('Laravel is a web application framework.')
+        ->assertElement('image', fn (array $node): bool => ($node['props']['src'] ?? null) === 'https://laravel.com/og.png')
+        ->tap('link-preview-c1')
+        ->assertNativeCalled('Browser.OpenInApp', fn (array $params): bool => $params['url'] === 'https://laravel.com/docs?a=1&b=2')
+        ->assertNoNavigation();
+});
+
+it('waits for a link preview to have a title, as the web does', function () {
+    Http::fake(['devnull.test/*' => Http::response(pageJson([commitJson([
+        'id' => 'c1',
+        'link_preview' => ['url' => 'https://example.com', 'title' => null, 'description' => null, 'image_url' => null, 'site_name' => null],
+    ])]))]);
+
+    Native::visit('/log')->assertMissingElement('pressable', fn (array $node): bool => ($node['ref'] ?? null) === 'link-preview-c1');
+});
+
+it('holds images at their aspect ratio, so one that never loads leaves the row intact', function () {
+    // Your own pending commit's images 404 for now. The space is held on a wash either way.
+    Http::fake(['devnull.test/*' => Http::response(pageJson([commitJson([
+        'id' => 'c1',
+        'status' => 'pending',
+        'body' => 'Look at this',
+        'images' => [['id' => 'i1', 'url' => 'http://devnull.test/commit-images/i1', 'width' => 640, 'height' => 480]],
+    ])]))]);
+
+    Native::visit('/log')
+        ->assertSee('Look at this')
+        ->assertSee('pending')
+        ->assertElement('column', fn (array $node): bool => abs(($node['layout']['aspect_ratio'] ?? 0) - 640 / 480) < 0.001
+            && ($node['style']['bg_color'] ?? null) === config('native-ui.theme.light.wash'))
+        ->assertElement('image', fn (array $node): bool => ($node['props']['src'] ?? null) === 'http://devnull.test/commit-images/i1')
+        ->tap('image-i1')
+        ->assertNativeCalled('Browser.OpenInApp', fn (array $params): bool => $params['url'] === 'http://devnull.test/commit-images/i1');
+});
+
+it('lays out several images in the web grid', function () {
+    Http::fake(['devnull.test/*' => Http::response(pageJson([commitJson([
+        'id' => 'c1',
+        'images' => [
+            ['id' => 'i1', 'url' => 'https://img.test/1', 'width' => 10, 'height' => 10],
+            ['id' => 'i2', 'url' => 'https://img.test/2', 'width' => 10, 'height' => 10],
+            ['id' => 'i3', 'url' => 'https://img.test/3', 'width' => 10, 'height' => 10],
+        ],
+    ])]))]);
+
+    Native::visit('/log')
+        ->assertElement('pressable', fn (array $node): bool => ($node['ref'] ?? null) === 'image-i3' && ($node['a11y']['label'] ?? $node['props']['a11y_label'] ?? null) !== null)
+        ->tap('image-i3')
+        ->assertNativeCalled('Browser.OpenInApp', fn (array $params): bool => $params['url'] === 'https://img.test/3');
+});
+
+it('prints stars and saves without offering to change them', function () {
+    Http::fake(['devnull.test/*' => Http::response(pageJson([
+        commitJson(['id' => 'c2', 'stars_count' => 3, 'starred' => true, 'is_saved' => true, 'replies_count' => 1]),
+        commitJson(['id' => 'c1', 'stars_count' => 1, 'starred' => false]),
+        commitJson(['id' => 'c0']),
+    ]))]);
+
+    Native::visit('/log')
+        ->assertSee('★ 3')
+        ->assertSee('☆ 1')
+        ->assertSee('1 reply')
+        ->assertElement('text', fn (array $node): bool => ($node['ref'] ?? null) === 'stars-c2'
+            && ($node['props']['color'] ?? null) === config('native-ui.theme.light.primary'))
+        ->assertElement('icon', fn (array $node): bool => ($node['ref'] ?? null) === 'saved-c2')
+        ->assertMissingElement('icon', fn (array $node): bool => ($node['ref'] ?? null) === 'saved-c1')
+        ->assertMissingElement('row', fn (array $node): bool => ($node['ref'] ?? null) === 'actions-c0')
+        ->assertMissingElement('pressable', fn (array $node): bool => str_starts_with($node['ref'] ?? '', 'stars-'));
+});
+
 it('is accessible', function () {
     Http::fake(['devnull.test/*' => Http::response(pageJson([commitJson()]))]);
 

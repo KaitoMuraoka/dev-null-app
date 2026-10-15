@@ -5,6 +5,7 @@ namespace App\NativeComponents;
 use App\Devnull\Data\Commit;
 use App\Icons\Android;
 use App\Icons\Ios;
+use App\NativeComponents\Concerns\ShowsCommits;
 use App\NativeComponents\Concerns\TalksToDevnull;
 use Illuminate\View\View;
 use Native\Mobile\Attributes\Lazy;
@@ -19,6 +20,7 @@ use Native\Mobile\Edge\Transition;
 #[Lazy]
 class Log extends NativeComponent
 {
+    use ShowsCommits;
     use TalksToDevnull;
 
     public const array Logs = ['following', 'everyone'];
@@ -108,6 +110,14 @@ class Log extends NativeComponent
     public function openProfile(string $username): void
     {
         $this->navigate('/users/'.$username);
+    }
+
+    /**
+     * @return iterable<Commit>
+     */
+    protected function shownCommits(): iterable
+    {
+        return $this->commits;
     }
 
     public function render(): View

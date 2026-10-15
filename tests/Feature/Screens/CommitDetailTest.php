@@ -158,6 +158,19 @@ it('draws code blocks as mono text in a hairline box, from the body rather than 
     $screen->press("openProfile('ada')")->assertNavigatedTo('/users/ada');
 });
 
+it('shows the focused commit with its media and stars', function () {
+    fakeThread([
+        'stars_count' => 2,
+        'link_preview' => ['url' => 'https://nativephp.com', 'title' => 'NativePHP', 'description' => null, 'image_url' => null, 'site_name' => 'NativePHP'],
+    ]);
+
+    Native::visit('/commits/c2')
+        ->assertSee('NativePHP')
+        ->assertSee('☆ 2')
+        ->tap('link-preview-c2')
+        ->assertNativeCalled('Browser.OpenInApp', fn (array $params): bool => $params['url'] === 'https://nativephp.com');
+});
+
 it('goes back to onboarding when the key stops working', function () {
     fakeApi(['GET /api/v1/commits/c2' => [['message' => 'This SSH key is not on the GitHub account of a devnull user.'], 401]]);
 

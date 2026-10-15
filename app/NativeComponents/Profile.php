@@ -4,6 +4,7 @@ namespace App\NativeComponents;
 
 use App\Devnull\Data\Commit;
 use App\Devnull\Data\Profile as ProfileData;
+use App\NativeComponents\Concerns\ShowsCommits;
 use App\NativeComponents\Concerns\TalksToDevnull;
 use Illuminate\View\View;
 use Native\Mobile\Attributes\Lazy;
@@ -15,6 +16,7 @@ use Native\Mobile\Edge\NativeComponent;
 #[Lazy]
 class Profile extends NativeComponent
 {
+    use ShowsCommits;
     use TalksToDevnull;
 
     public string $username = '';
@@ -113,6 +115,14 @@ class Profile extends NativeComponent
         if ($username !== $this->username) {
             $this->navigate('/users/'.$username);
         }
+    }
+
+    /**
+     * @return iterable<Commit>
+     */
+    protected function shownCommits(): iterable
+    {
+        return $this->commits;
     }
 
     public function render(): View

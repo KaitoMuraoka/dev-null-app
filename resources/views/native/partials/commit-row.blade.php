@@ -1,5 +1,5 @@
 {{--
-    A commit on the graph rail: [rail | avatar, header, body, replies].
+    A commit on the graph rail: [rail | avatar, header, body, media, actions].
     The segment above the node takes the previous author's lane, the one below takes this author's.
 --}}
 @php($previousLane ??= null)
@@ -27,10 +27,8 @@
                     </native:row>
 
                     @include('native.partials.commit-body')
-
-                    @if ($commit->repliesCount > 0)
-                        <native:text class="text-sm text-theme-primary">{{ \App\Devnull\Display::count($commit->repliesCount, 'reply', 'replies') }}</native:text>
-                    @endif
+                    @include('native.partials.commit-media')
+                    @include('native.partials.commit-actions')
                 </native:column>
             </native:row>
             <native:column class="w-full h-[1] bg-theme-hairline" />
