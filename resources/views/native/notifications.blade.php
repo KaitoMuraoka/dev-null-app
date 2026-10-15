@@ -38,10 +38,12 @@
                         </native:row>
 
                         <native:text class="w-full text-[15px] text-theme-ink">
-                            @unless ($notification->isModeration())
+                            @if ($notification->isModeration())
+                                <native:text>{{ $notification->sentence() }}</native:text>
+                            @else
                                 <native:text font="semibold">{{ $notification->actor->name }}</native:text>
-                            @endunless
-                            {{ $notification->sentence() }}
+                                {{ $notification->sentence() }}
+                            @endif
                             <native:text class="text-theme-ink-muted"> · </native:text>
                             <native:text font="mono" class="text-[13px] text-theme-ink-muted">{{ \App\Devnull\Display::relativeTime($notification->createdAt) }}</native:text>
                         </native:text>

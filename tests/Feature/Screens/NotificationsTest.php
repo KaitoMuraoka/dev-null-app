@@ -69,8 +69,8 @@ it('words moderation updates like the web, with the reason for a rejection', fun
 
     Native::visit('/notifications')
         ->assertSee('Moderation update')
-        ->assertSee('Your commit was approved')
-        ->assertSee('Your commit was rejected')
+        ->assertElement('text', fn (array $node): bool => ($node['props']['text'] ?? null) === 'Your commit was approved')
+        ->assertElement('text', fn (array $node): bool => ($node['props']['text'] ?? null) === 'Your commit was rejected')
         ->assertSee('About rejected')
         ->assertSee('Reason: ')
         ->assertSee('Please keep it about code.')
