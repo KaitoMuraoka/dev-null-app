@@ -6,7 +6,8 @@
 
     @include('native.partials.error')
 
-    <native:list class="w-full flex-1 bg-theme-surface" on-refresh="load" on-end-reached="loadMore" :end-reached-buffer="5">
+    {{-- Keyed so a new key puts the log back at the top, as the nav bar's compose button does. --}}
+    <native:list native:key="log-{{ $listKey }}" ref="log" class="w-full flex-1 bg-theme-surface" on-refresh="load" on-end-reached="loadMore" :end-reached-buffer="5">
         @if ($viewer)
             @include('native.partials.composer', ['me' => $viewer])
         @endif

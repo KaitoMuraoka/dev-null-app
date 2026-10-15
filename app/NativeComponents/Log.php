@@ -18,15 +18,16 @@ use Native\Mobile\Attributes\Lazy;
 use Native\Mobile\Edge\Layouts\Builders\NavAction;
 use Native\Mobile\Edge\Layouts\Builders\NavBarOptions;
 use Native\Mobile\Edge\NativeComponent;
-use Native\Mobile\Edge\Transition;
 use Native\Mobile\Facades\Dialog;
 
 /**
  * The log: commits from you and the people you follow, or from everyone, under
  * a composer you type into where it is, as on the web.
  *
- * EDGE tells PHP nothing about focus, so a touch on the field is taken as
- * being in it.
+ * EDGE tells PHP nothing about focus, and gives PHP no way to focus a field
+ * or scroll a list. So a touch on the field is taken as being in it, a fresh
+ * field (a new key) with autofocus is how focus is given, and a new key on the
+ * list is how it gets back to the top.
  */
 #[Lazy]
 class Log extends NativeComponent
@@ -68,6 +69,16 @@ class Log extends NativeComponent
      * Mounts a fresh field when it changes, so a committed field starts clean.
      */
     public int $composerKey = 0;
+
+    /**
+     * Asks the next fresh field to take the focus, until you touch it or type.
+     */
+    public bool $focusComposer = false;
+
+    /**
+     * Mounts a fresh list when it changes, which puts the log back at the top.
+     */
+    public int $listKey = 0;
 
     public function mount(): void
     {
@@ -148,9 +159,14 @@ class Log extends NativeComponent
         }
     }
 
+    /**
+     * The nav bar's compose button: back to the top of the log, into the composer.
+     */
     public function compose(): void
     {
-        $this->navigate('/compose')->transition(Transition::SlideFromBottom);
+        $this->composing = true;
+        $this->focusComposer = true;
+        $this->listKey++;
     }
 
     /**
@@ -159,6 +175,12 @@ class Log extends NativeComponent
     public function composerFocused(): void
     {
         $this->composing = true;
+        $this->focusComposer = false;
+    }
+
+    public function updatedBody(): void
+    {
+        $this->focusComposer = false;
     }
 
     public function remaining(): int
@@ -191,6 +213,7 @@ class Log extends NativeComponent
 
         $this->body = '';
         $this->composing = false;
+        $this->focusComposer = false;
         $this->composerKey++;
         $this->commits = [$commit, ...$this->commits];
 
@@ -234,6 +257,7 @@ class Log extends NativeComponent
         }
 
         $this->composing = false;
+        $this->focusComposer = false;
         $this->composerKey++;
     }
 

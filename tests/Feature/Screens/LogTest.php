@@ -118,12 +118,11 @@ it('marks pending commits', function () {
     Native::visit('/log')->assertSee('Waiting on a mod')->assertSee('pending');
 });
 
-it('opens commits, profiles and the composer', function () {
+it('opens commits and profiles', function () {
     Http::fake(['devnull.test/*' => Http::response(pageJson([commitJson(['id' => 'c1'])]))]);
 
     Native::visit('/log')->tap('commit-c1')->assertNavigatedTo('/log/commits/c1');
     Native::visit('/log')->call('openProfile', 'ada')->assertNavigatedTo('/log/users/ada');
-    Native::visit('/log')->call('compose')->assertNavigatedTo('/compose')->assertTransition('slide_from_bottom');
 });
 
 it('sends you back to onboarding with the server message on a 401', function () {
