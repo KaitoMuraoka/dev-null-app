@@ -15,9 +15,12 @@ use App\NativeComponents\Layouts\TabsLayout;
  */
 trait OpensInTab
 {
-    protected function openInTab(string $path): void
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    protected function openInTab(string $path, array $data = []): void
     {
-        $this->navigate($this->tabRoot().$path);
+        $this->navigate($this->tabRoot().$path, $data);
     }
 
     /**

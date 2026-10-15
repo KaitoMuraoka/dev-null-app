@@ -6,9 +6,11 @@ use App\Devnull\Data\Commit;
 use App\Devnull\Data\Profile as ProfileData;
 use App\Devnull\Timeline;
 use App\Icons\Lucide;
+use App\NativeComponents\Concerns\ExpandsThreads;
 use App\NativeComponents\Concerns\OpensInTab;
 use App\NativeComponents\Concerns\ShowsCommits;
 use App\NativeComponents\Concerns\TalksToDevnull;
+use Closure;
 use Illuminate\View\View;
 use Native\Mobile\Attributes\Lazy;
 use Native\Mobile\Edge\Layouts\Builders\NavAction;
@@ -27,6 +29,7 @@ use Native\Mobile\Facades\Browser;
 #[Lazy]
 class Profile extends NativeComponent
 {
+    use ExpandsThreads;
     use OpensInTab;
     use ShowsCommits;
     use TalksToDevnull;
@@ -95,6 +98,7 @@ class Profile extends NativeComponent
 
         $this->profile = $profile;
         $this->loadCommits();
+        $this->reloadThreads();
 
         if ($this->isMe()) {
             $this->refreshUnreadNotifications();
@@ -109,6 +113,7 @@ class Profile extends NativeComponent
 
         $this->tab = $tab;
         $this->commits = [];
+        $this->threads = [];
         $this->nextCursor = null;
         $this->loadCommits();
     }
@@ -192,7 +197,17 @@ class Profile extends NativeComponent
      */
     protected function shownCommits(): iterable
     {
-        return [...($this->pinnedCommit() === null ? [] : [$this->pinnedCommit()]), ...$this->commits];
+        return [...($this->pinnedCommit() === null ? [] : [$this->pinnedCommit()]), ...$this->commits, ...$this->threadCommits()];
+    }
+
+    protected function updateShownCommits(Closure $update): void
+    {
+        $this->commits = array_map($update, $this->commits);
+        $this->threads = array_map(fn (array $replies): array => array_map($update, $replies), $this->threads);
+
+        if ($this->profile?->pinnedCommit !== null) {
+            $this->profile = $this->profile->withPinnedCommit($update($this->profile->pinnedCommit));
+        }
     }
 
     private function loadCommits(): void

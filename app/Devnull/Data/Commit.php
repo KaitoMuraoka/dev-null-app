@@ -96,6 +96,35 @@ final readonly class Commit
         );
     }
 
+    /**
+     * This commit with your star flipped and its count moved to match.
+     */
+    public function withStar(bool $starred): self
+    {
+        $change = $starred === $this->starred ? 0 : ($starred ? 1 : -1);
+
+        return new self(...[...get_object_vars($this), 'starred' => $starred, 'starsCount' => max(0, $this->starsCount + $change)]);
+    }
+
+    public function withSaved(bool $isSaved): self
+    {
+        return new self(...[...get_object_vars($this), 'isSaved' => $isSaved]);
+    }
+
+    /**
+     * This commit with the star and save state of a fresher copy of it, keeping
+     * everything else, such as the parent a list loaded with it.
+     */
+    public function withReactionsFrom(self $fresh): self
+    {
+        return new self(...[
+            ...get_object_vars($this),
+            'starred' => $fresh->starred,
+            'starsCount' => $fresh->starsCount,
+            'isSaved' => $fresh->isSaved ?? $this->isSaved,
+        ]);
+    }
+
     public function isDeleted(): bool
     {
         return $this->deletedAt !== null;

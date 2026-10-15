@@ -64,3 +64,4 @@ it('pushes commits and profiles onto the tab they were opened from, so they slid
     Native::visit('/profile/commits/c1')->call('openProfile', 'ada')->assertNavigatedTo('/profile/users/ada');
     Native::visit('/notifications/commits/c1')->call('openCommit', 'c0')->assertNavigatedTo('/notifications/commits/c0');
 });
+

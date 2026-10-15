@@ -10,6 +10,7 @@ use App\Icons\Ios;
 use App\NativeComponents\Concerns\OpensInTab;
 use App\NativeComponents\Concerns\ShowsCommits;
 use App\NativeComponents\Concerns\TalksToDevnull;
+use Closure;
 use Illuminate\View\View;
 use Native\Mobile\Attributes\Lazy;
 use Native\Mobile\Attributes\On;
@@ -53,8 +54,14 @@ class CommitDetail extends NativeComponent
 
     public string $reply = '';
 
+    /**
+     * Opened from a Reply action, so the reply composer takes the focus.
+     */
+    public bool $focusReply = false;
+
     public function mount(): void
     {
+        $this->focusReply = $this->data('reply', false) === true;
         $this->load();
     }
 
@@ -205,6 +212,14 @@ class CommitDetail extends NativeComponent
     public function openProfile(string $username): void
     {
         $this->openInTab('/users/'.$username);
+    }
+
+    protected function updateShownCommits(Closure $update): void
+    {
+        $this->commit = $this->commit === null ? null : $update($this->commit);
+        $this->ancestors = array_map($update, $this->ancestors);
+        $this->replies = array_map($update, $this->replies);
+        $this->tombstoneReplies = array_map(fn (array $replies): array => array_map($update, $replies), $this->tombstoneReplies);
     }
 
     /**

@@ -222,7 +222,7 @@ it('shows the focused commit with its media and stars', function () {
 
     Native::visit('/log/commits/c2')
         ->assertSee('NativePHP')
-        ->assertElement('row', fn (array $node): bool => ($node['ref'] ?? null) === 'stars-c2' && ($node['props']['a11y_label'] ?? null) === 'Not starred, 2 stars')
+        ->assertElement('pressable', fn (array $node): bool => ($node['ref'] ?? null) === 'star-c2' && ($node['props']['a11y_label'] ?? null) === 'Star commit, 2 stars')
         // The reply composer is right there, so the focused commit has no Reply action of its own.
         ->assertMissingElement('pressable', fn (array $node): bool => ($node['ref'] ?? null) === 'reply-to-c2')
         ->tap('link-preview-c2')
@@ -285,4 +285,26 @@ it('shows your avatar once when you reply to yourself', function () {
     expect(railNode($screen, 'commit-c1'))->toBe('avatar')
         ->and(railNode($screen, 'commit-c2'))->toBe('avatar')
         ->and(railNode($screen, 'focused-commit'))->toBe('dot');
+});
+
+it('focuses the reply composer when opened from a Reply action', function () {
+    fakeThread();
+
+    $input = fn (array $node): bool => ($node['ref'] ?? null) === 'reply-input' && ($node['props']['autofocus'] ?? false) === true;
+
+    Native::visit('/log/commits/c2', ['reply' => true])->assertElement('bare_text_input', $input);
+    Native::visit('/log/commits/c2')->assertMissingElement('bare_text_input', $input);
+});
+
+it('stars the focused commit and its replies in place', function () {
+    fakeThread(replies: [commitJson(['id' => 'r1', 'parent_id' => 'c2'])], extra: [
+        'POST /api/v1/commits/c2/star' => [['data' => commitJson(['id' => 'c2', 'stars_count' => 1, 'starred' => true])]],
+        'PUT /api/v1/commits/r1/bookmark' => [['data' => commitJson(['id' => 'r1', 'is_saved' => true])]],
+    ]);
+
+    $screen = Native::visit('/log/commits/c2')->tap('star-c2')->tap('bookmark-r1');
+
+    expect($screen->instance()->commit->starred)->toBeTrue()
+        ->and($screen->instance()->commit->body)->toBe('The focused commit')
+        ->and($screen->instance()->replies[0]->isSaved)->toBeTrue();
 });

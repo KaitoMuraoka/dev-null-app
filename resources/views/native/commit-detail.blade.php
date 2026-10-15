@@ -55,6 +55,7 @@
                         class="flex-1 py-2 text-theme-ink"
                         placeholder="Reply to {{ $commit->user->handle() }}"
                         native:model.debounce.150ms="reply"
+                        :autofocus="$focusReply"
                         multiline
                         :max-lines="5"
                         :max-length="280"

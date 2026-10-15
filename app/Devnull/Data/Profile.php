@@ -58,4 +58,9 @@ final readonly class Profile
             $this->activity,
         );
     }
+
+    public function withPinnedCommit(?Commit $pinnedCommit): self
+    {
+        return new self(...[...get_object_vars($this), 'pinnedCommit' => $pinnedCommit]);
+    }
 }

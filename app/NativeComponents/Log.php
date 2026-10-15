@@ -8,9 +8,11 @@ use App\Devnull\LastVisit;
 use App\Devnull\Timeline;
 use App\Icons\Android;
 use App\Icons\Ios;
+use App\NativeComponents\Concerns\ExpandsThreads;
 use App\NativeComponents\Concerns\OpensInTab;
 use App\NativeComponents\Concerns\ShowsCommits;
 use App\NativeComponents\Concerns\TalksToDevnull;
+use Closure;
 use Illuminate\View\View;
 use Native\Mobile\Attributes\Lazy;
 use Native\Mobile\Edge\Layouts\Builders\NavAction;
@@ -24,6 +26,7 @@ use Native\Mobile\Edge\Transition;
 #[Lazy]
 class Log extends NativeComponent
 {
+    use ExpandsThreads;
     use OpensInTab;
     use ShowsCommits;
     use TalksToDevnull;
@@ -79,6 +82,7 @@ class Log extends NativeComponent
 
         $this->log = $log;
         $this->commits = [];
+        $this->threads = [];
         $this->nextCursor = null;
         $this->lastVisitAt = $this->lastVisitSeenAt();
         $this->load();
@@ -100,6 +104,7 @@ class Log extends NativeComponent
                 app(LastVisit::class)->remember($viewer->id, $this->log, $this->commits);
             }
 
+            $this->reloadThreads();
             $this->refreshUnreadNotifications();
         }
 
@@ -140,7 +145,13 @@ class Log extends NativeComponent
      */
     protected function shownCommits(): iterable
     {
-        return $this->commits;
+        return [...$this->commits, ...$this->threadCommits()];
+    }
+
+    protected function updateShownCommits(Closure $update): void
+    {
+        $this->commits = array_map($update, $this->commits);
+        $this->threads = array_map(fn (array $replies): array => array_map($update, $replies), $this->threads);
     }
 
     private function lastVisitSeenAt(): ?string

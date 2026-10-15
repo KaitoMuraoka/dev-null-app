@@ -1,5 +1,6 @@
 {{-- The inside of a commit row, for commit-row to wrap in a link or, for the focused commit, a plain row. --}}
 @php($author = $commit->user)
+@php($hairline ??= true)
 <native:column :width="64" />
 
 <native:column class="flex-1">
@@ -39,7 +40,9 @@
 
         @include('native.partials.commit-actions', ['withReply' => ! $focused, 'withReplies' => ! $focused])
     </native:column>
-    <native:column class="w-full h-[1] bg-theme-hairline" />
+    @if ($hairline)
+        <native:column class="w-full h-[1] bg-theme-hairline" />
+    @endif
 </native:column>
 
 @include('native.partials.rail', [

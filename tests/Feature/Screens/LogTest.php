@@ -262,32 +262,127 @@ it('puts the web action row under each commit: Reply, the star, replies, copy li
 
     $primary = config('native-ui.theme.light.primary');
     $muted = config('native-ui.theme.light.ink-muted');
+    $pressable = fn (string $ref, string $label): Closure => fn (array $node): bool => ($node['ref'] ?? null) === $ref && ($node['props']['a11y_label'] ?? null) === $label;
 
     $screen = Native::visit('/log', platform: 'ios')
         ->assertSee('1 reply')
-        ->assertElement('row', fn (array $node): bool => ($node['ref'] ?? null) === 'stars-c2' && ($node['props']['a11y_label'] ?? null) === 'Starred, 3 stars')
-        ->assertElement('row', fn (array $node): bool => ($node['ref'] ?? null) === 'stars-c1' && ($node['props']['a11y_label'] ?? null) === 'Not starred, 1 star')
-        ->assertElement('column', fn (array $node): bool => ($node['ref'] ?? null) === 'saved-c2' && ($node['props']['a11y_label'] ?? null) === 'Saved')
-        ->assertElement('column', fn (array $node): bool => ($node['ref'] ?? null) === 'saved-c1' && ($node['props']['a11y_label'] ?? null) === 'Not saved')
+        ->assertElement('pressable', $pressable('star-c2', 'Unstar commit, 3 stars'))
+        ->assertElement('pressable', $pressable('star-c1', 'Star commit, 1 star'))
+        ->assertElement('pressable', $pressable('bookmark-c2', 'Unsave commit'))
+        ->assertElement('pressable', $pressable('bookmark-c1', 'Save commit'))
         // Someone else's pending commit can't be starred or saved, so the web leaves both off.
-        ->assertMissingElement('row', fn (array $node): bool => ($node['ref'] ?? null) === 'stars-c0')
-        ->assertMissingElement('column', fn (array $node): bool => ($node['ref'] ?? null) === 'saved-c0')
-        ->assertMissingElement('pressable', fn (array $node): bool => str_starts_with($node['ref'] ?? '', 'stars-'));
+        ->assertMissingElement('pressable', fn (array $node): bool => in_array($node['ref'] ?? null, ['star-c0', 'bookmark-c0'], true));
 
     $icon = fn (string $ref): ?array => findNode(nodeByRef($screen, $ref), fn (array $node): bool => ($node['type'] ?? null) === 'icon');
+    $text = fn (string $ref, string $text): ?array => findNode(nodeByRef($screen, $ref), fn (array $node): bool => ($node['props']['text'] ?? null) === $text);
 
-    expect($icon('stars-c2')['props']['name'] ?? null)->toBe('star.fill')
-        ->and($icon('stars-c2')['props']['color'] ?? null)->toBe($primary)
+    expect($icon('star-c2')['props']['name'] ?? null)->toBe('star.fill')
+        ->and($icon('star-c2')['props']['color'] ?? null)->toBe($primary)
+        ->and($text('star-c2', '3')['props']['color'] ?? null)->toBe($primary)
         // iOS turns a plain "star" or "bookmark" into the filled glyph, so the outlines go another way.
-        ->and($icon('stars-c1'))->toBeNull()
-        ->and(findNode(nodeByRef($screen, 'stars-c1'), fn (array $node): bool => ($node['props']['text'] ?? null) === '☆')['props']['color'] ?? null)->toBe($muted)
-        ->and($icon('saved-c2')['props']['name'] ?? null)->toBe('bookmark.fill')
-        ->and($icon('saved-c1')['props']['name'] ?? null)->toBe('bookmark_border')
+        ->and($icon('star-c1'))->toBeNull()
+        ->and($text('star-c1', '☆')['props']['color'] ?? null)->toBe($muted)
+        ->and($text('star-c1', '1')['props']['color'] ?? null)->toBe($muted)
+        ->and($icon('bookmark-c2')['props']['name'] ?? null)->toBe('bookmark.fill')
+        ->and($icon('bookmark-c1')['props']['name'] ?? null)->toBe('bookmark_border')
         ->and($icon('reply-to-c1')['props']['name'] ?? null)->toBe('bubble.left')
+        ->and($icon('replies-c2')['props']['name'] ?? null)->toBe('chevron.right')
+        ->and($text('replies-c2', '1 reply')['props']['color'] ?? null)->toBe($primary)
         ->and($icon('copy-link-c1')['props']['name'] ?? null)->toBe('link');
 
+    // Reply opens the commit with its reply composer focused.
     $screen->tap('reply-to-c1')->assertNavigatedTo('/log/commits/c1');
-    Native::visit('/log')->tap('replies-c2')->assertNavigatedTo('/log/commits/c2');
+    expect($screen->navigationIntent()->data)->toBe(['reply' => true]);
+});
+
+it('stars and unstars from the row, taking the count devnull sends back', function () {
+    fakeApi([
+        'GET /api/v1/log/following' => [pageJson([commitJson(['id' => 'c1', 'stars_count' => 1])])],
+        'POST /api/v1/commits/c1/star' => [['data' => commitJson(['id' => 'c1', 'stars_count' => 5, 'starred' => true])]],
+        'DELETE /api/v1/commits/c1/star' => [['data' => commitJson(['id' => 'c1', 'stars_count' => 4, 'starred' => false])]],
+    ]);
+
+    $screen = Native::visit('/log')->tap('star-c1');
+
+    expect($screen->instance()->commits[0]->starred)->toBeTrue()
+        ->and($screen->instance()->commits[0]->starsCount)->toBe(5);
+
+    $screen->assertElement('pressable', fn (array $node): bool => ($node['ref'] ?? null) === 'star-c1' && ($node['props']['a11y_label'] ?? null) === 'Unstar commit, 5 stars')
+        ->tap('star-c1');
+
+    expect($screen->instance()->commits[0]->starred)->toBeFalse()
+        ->and($screen->instance()->commits[0]->starsCount)->toBe(4);
+
+    Http::assertSent(fn (Request $request): bool => $request->method() === 'POST' && $request->url() === 'http://devnull.test/api/v1/commits/c1/star');
+    Http::assertSent(fn (Request $request): bool => $request->method() === 'DELETE' && $request->url() === 'http://devnull.test/api/v1/commits/c1/star');
+});
+
+it('puts the star back when devnull says no', function () {
+    fakeApi([
+        'GET /api/v1/log/following' => [pageJson([commitJson(['id' => 'c1', 'stars_count' => 1])])],
+        'POST /api/v1/commits/c1/star' => [['message' => 'Too Many Attempts.'], 429],
+    ]);
+
+    $screen = Native::visit('/log')->tap('star-c1')->assertSee('Too Many Attempts.');
+
+    expect($screen->instance()->commits[0]->starred)->toBeFalse()
+        ->and($screen->instance()->commits[0]->starsCount)->toBe(1);
+});
+
+it('saves and unsaves from the row', function () {
+    fakeApi([
+        'GET /api/v1/log/following' => [pageJson([commitJson(['id' => 'c1', 'is_saved' => false])])],
+        'PUT /api/v1/commits/c1/bookmark' => [['data' => commitJson(['id' => 'c1', 'is_saved' => true])]],
+        'DELETE /api/v1/commits/c1/bookmark' => [['data' => commitJson(['id' => 'c1', 'is_saved' => false])]],
+    ]);
+
+    $screen = Native::visit('/log')->tap('bookmark-c1');
+    expect($screen->instance()->commits[0]->isSaved)->toBeTrue();
+
+    $screen->tap('bookmark-c1');
+    expect($screen->instance()->commits[0]->isSaved)->toBeFalse();
+
+    Http::assertSent(fn (Request $request): bool => $request->method() === 'PUT' && $request->url() === 'http://devnull.test/api/v1/commits/c1/bookmark');
+});
+
+it("leaves the star and bookmark alone on someone else's pending commit", function () {
+    fakeApi(['GET /api/v1/log/following' => [pageJson([commitJson(['id' => 'c1', 'status' => 'pending', 'user' => userJson(['id' => 'u2', 'username' => 'ada'])])])]]);
+
+    Native::visit('/log')->call('toggleStar', 'c1')->call('toggleBookmark', 'c1');
+
+    Http::assertNotSent(fn (Request $request): bool => $request->method() !== 'GET');
+});
+
+it('opens a thread in place, as the web does, and closes it again', function () {
+    fakeApi([
+        'GET /api/v1/log/following' => [pageJson([
+            commitJson(['id' => 'c2', 'replies_count' => 2]),
+            commitJson(['id' => 'c1']),
+        ])],
+        'GET /api/v1/commits/c2/replies' => [pageJson([
+            commitJson(['id' => 'r1', 'parent_id' => 'c2', 'body' => 'First reply in place', 'user' => userJson(['id' => 'u2', 'username' => 'ada', 'name' => 'Ada'])]),
+            tombstoneJson(['id' => 'r2', 'parent_id' => 'c2', 'replies_count' => 0]),
+        ])],
+        'POST /api/v1/commits/r1/star' => [['data' => commitJson(['id' => 'r1', 'stars_count' => 1, 'starred' => true])]],
+    ]);
+
+    $screen = Native::visit('/log', platform: 'ios')
+        ->assertDontSee('First reply in place')
+        ->tap('replies-c2')
+        ->assertNoNavigation()
+        ->assertSee('First reply in place')
+        ->assertSee('This commit was deleted.')
+        ->assertSee('Hide replies');
+
+    expect(findNode(nodeByRef($screen, 'replies-c2'), fn (array $node): bool => ($node['type'] ?? null) === 'icon')['props']['name'] ?? null)->toBe('chevron.down');
+
+    // Its replies get the same actions, and open their own page.
+    $screen->tap('star-r1');
+    expect($screen->instance()->threads['c2'][0]->starred)->toBeTrue();
+
+    $screen->tap('replies-c2')->assertDontSee('First reply in place')->assertSee('2 replies');
+
+    Native::visit('/log')->tap('replies-c2')->tap('thread-reply-r1')->assertNavigatedTo('/log/commits/r1');
 });
 
 it('copies a commit link through the share sheet', function () {

@@ -33,6 +33,7 @@ enum Lucide
     case Bookmark;
     case CornerDownRight;
     case ChevronRight;
+    case ChevronDown;
     case ArrowUpRight;
     case Pin;
     case Trash2;
@@ -50,6 +51,7 @@ enum Lucide
             self::Bookmark => $filled ? Ios::BookmarkFill : 'bookmark_border',
             self::CornerDownRight => Ios::ArrowTurnDownRight,
             self::ChevronRight => Ios::ChevronRight,
+            self::ChevronDown => Ios::ChevronDown,
             self::ArrowUpRight => Ios::ArrowUpRight,
             self::Pin => Ios::Pin,
             self::Trash2 => Ios::Trash,
@@ -69,6 +71,7 @@ enum Lucide
             self::Bookmark => $filled ? Android::Bookmark : AndroidOutlined::Bookmark,
             self::CornerDownRight => AndroidOutlined::SubdirectoryArrowRight,
             self::ChevronRight => AndroidOutlined::ChevronRight,
+            self::ChevronDown => AndroidOutlined::ExpandMore,
             self::ArrowUpRight => AndroidOutlined::ArrowOutward,
             self::Pin => AndroidOutlined::PushPin,
             self::Trash2 => AndroidOutlined::Delete,

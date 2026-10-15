@@ -69,6 +69,29 @@ final readonly class Client
         $this->send('DELETE', 'commits/'.rawurlencode($id));
     }
 
+    public function star(string $id): Commit
+    {
+        return Commit::fromArray($this->data($this->send('POST', 'commits/'.rawurlencode($id).'/star')));
+    }
+
+    public function unstar(string $id): Commit
+    {
+        return Commit::fromArray($this->data($this->send('DELETE', 'commits/'.rawurlencode($id).'/star')));
+    }
+
+    /**
+     * Saves a commit privately, as the web's bookmark button does.
+     */
+    public function bookmark(string $id): Commit
+    {
+        return Commit::fromArray($this->data($this->send('PUT', 'commits/'.rawurlencode($id).'/bookmark')));
+    }
+
+    public function unbookmark(string $id): Commit
+    {
+        return Commit::fromArray($this->data($this->send('DELETE', 'commits/'.rawurlencode($id).'/bookmark')));
+    }
+
     public function profile(string $username): Profile
     {
         return Profile::fromArray($this->json($this->send('GET', 'users/'.rawurlencode($username))));

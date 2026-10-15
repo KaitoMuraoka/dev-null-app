@@ -2,14 +2,16 @@
 
 namespace App\NativeComponents\Concerns;
 
+use App\Devnull\Client;
 use App\Devnull\Data\Commit;
+use Closure;
 use Native\Mobile\Facades\Browser;
 use Native\Mobile\Facades\Share;
 
 /**
- * Opens what a commit links to: its link preview, or one of its images, in
- * the in-app browser, and shares a link to the commit itself. Taps name the
- * commit rather than the URL, so the URL is never rebuilt from an attribute.
+ * The actions under a commit: Reply, the star, copy link and the bookmark,
+ * plus opening its link preview or images in the in-app browser. Taps name
+ * the commit rather than a URL, so a URL is never rebuilt from an attribute.
  */
 trait ShowsCommits
 {
@@ -19,6 +21,60 @@ trait ShowsCommits
      * @return iterable<Commit>
      */
     abstract protected function shownCommits(): iterable;
+
+    /**
+     * Runs $update over every commit the screen is showing, keeping what it returns.
+     *
+     * @param  Closure(Commit): Commit  $update
+     */
+    abstract protected function updateShownCommits(Closure $update): void;
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    abstract protected function openInTab(string $path, array $data = []): void;
+
+    /**
+     * Opens the commit with its reply composer focused.
+     */
+    public function replyTo(string $id): void
+    {
+        $this->openInTab('/commits/'.$id, ['reply' => true]);
+    }
+
+    /**
+     * Stars or unstars straight away, then takes the count devnull sends back,
+     * or puts the star back if it says no. Like the web, only an approved commit
+     * or your own can be starred.
+     */
+    public function toggleStar(string $id): void
+    {
+        $commit = $this->shownCommit($id);
+
+        if ($commit === null || ! $this->canReactTo($commit)) {
+            return;
+        }
+
+        $this->react($commit, $commit->withStar(! $commit->starred), fn ($devnull) => $commit->starred
+            ? $devnull->unstar($id)
+            : $devnull->star($id));
+    }
+
+    /**
+     * Saves or unsaves the commit privately, the same way.
+     */
+    public function toggleBookmark(string $id): void
+    {
+        $commit = $this->shownCommit($id);
+
+        if ($commit === null || $commit->isSaved === null || ! $this->canReactTo($commit)) {
+            return;
+        }
+
+        $this->react($commit, $commit->withSaved(! $commit->isSaved), fn ($devnull) => $commit->isSaved
+            ? $devnull->unbookmark($id)
+            : $devnull->bookmark($id));
+    }
 
     public function openLinkPreview(string $id): void
     {
@@ -42,6 +98,28 @@ trait ShowsCommits
         }
 
         Share::url('', '', $commit->url ?? rtrim((string) config('devnull.url'), '/')."/@{$commit->user->username}/commits/{$commit->id}");
+    }
+
+    private function canReactTo(Commit $commit): bool
+    {
+        return ! $commit->isDeleted() && ($commit->isApproved() || $commit->user->id === $this->me()?->id);
+    }
+
+    /**
+     * @param  Closure(Client): Commit  $call
+     */
+    private function react(Commit $before, Commit $optimistic, Closure $call): void
+    {
+        $this->replaceShownCommit($optimistic);
+
+        $fresh = $this->attempt($call);
+
+        $this->replaceShownCommit($fresh instanceof Commit ? $before->withReactionsFrom($fresh) : $before);
+    }
+
+    private function replaceShownCommit(Commit $replacement): void
+    {
+        $this->updateShownCommits(fn (Commit $commit): Commit => $commit->id === $replacement->id ? $replacement : $commit);
     }
 
     private function shownCommit(string $id): ?Commit
