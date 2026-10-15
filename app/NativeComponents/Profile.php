@@ -31,6 +31,11 @@ class Profile extends NativeComponent
         $this->load();
     }
 
+    public function onResume(): void
+    {
+        $this->load();
+    }
+
     public function navTitle(): string
     {
         return '@'.$this->username;

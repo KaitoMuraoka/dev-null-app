@@ -110,3 +110,19 @@ it('loads older commits by cursor', function () {
         ->call('loadMore')
         ->assertSee('Older');
 });
+
+it('reloads when you come back to it', function () {
+    fakeApi([
+        'GET /api/v1/users/ada' => [profileJson()],
+        'GET /api/v1/users/ada/commits' => [pageJson([commitJson(['id' => 'c1'])])],
+        'GET /api/v1/commits/c1' => [['data' => commitJson(['id' => 'c1']), 'ancestors' => []]],
+        'GET /api/v1/commits/c1/replies' => [pageJson([])],
+    ]);
+
+    Native::visit('/users/ada')
+        ->tap('commit-c1')
+        ->follow()
+        ->goBack();
+
+    Http::assertSentCount(6);
+});

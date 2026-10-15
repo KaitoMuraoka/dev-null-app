@@ -45,6 +45,14 @@ class CommitDetail extends NativeComponent
         $this->load();
     }
 
+    /**
+     * A reply opened from here may have been deleted, or replied to, in the meantime.
+     */
+    public function onResume(): void
+    {
+        $this->load();
+    }
+
     public function navTitle(): string
     {
         return 'Commit';
@@ -124,7 +132,7 @@ class CommitDetail extends NativeComponent
 
     public function confirmDelete(): void
     {
-        Dialog::alert('Delete this commit?', "There's no undo. Its replies go with it.", [
+        Dialog::alert('Delete this commit?', "There's no undo.", [
             ['label' => 'Cancel', 'style' => 'cancel'],
             ['label' => 'Delete', 'style' => 'destructive'],
         ])->id(self::DeleteAlert);

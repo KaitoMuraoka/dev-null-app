@@ -139,3 +139,33 @@ it('goes back to onboarding when the key stops working', function () {
 
     expect(app(Account::class)->user())->toBeNull();
 });
+
+it('reloads when you come back from a reply you deleted', function () {
+    $replyDeleted = false;
+
+    Http::fake(function (Request $request) use (&$replyDeleted) {
+        $path = parse_url($request->url(), PHP_URL_PATH);
+
+        return match (true) {
+            $request->method() === 'DELETE' => tap(Http::response(null, 204), function () use (&$replyDeleted): void {
+                $replyDeleted = true;
+            }),
+            $path === '/api/v1/commits/c2/replies' => Http::response(pageJson($replyDeleted ? [] : [commitJson(['id' => 'r1', 'parent_id' => 'c2', 'body' => 'Soon gone'])])),
+            $path === '/api/v1/commits/c2' => Http::response(['data' => commitJson(['id' => 'c2', 'body' => 'Parent']), 'ancestors' => []]),
+            $path === '/api/v1/commits/r1' => Http::response(['data' => commitJson(['id' => 'r1', 'parent_id' => 'c2', 'body' => 'Soon gone']), 'ancestors' => [commitJson(['id' => 'c2', 'body' => 'Parent'])]]),
+            default => Http::response(pageJson([])),
+        };
+    });
+
+    $reply = Native::visit('/commits/c2')
+        ->assertSee('Soon gone')
+        ->tap('reply-r1')
+        ->follow()
+        ->call('delete')
+        ->assertWentBack();
+
+    $reply->goBack()
+        ->assertSee('Parent')
+        ->assertDontSee('Soon gone')
+        ->assertSee('No replies yet.');
+});
