@@ -195,7 +195,7 @@ it('reads commits, threads, profiles and notifications into data objects', funct
             'data' => commitJson(['id' => 'c1', 'parent_id' => 'p1', 'user_id' => 'u9', 'user' => ['username' => 'ada', 'name' => null]]),
             'ancestors' => [commitJson(['id' => 'p1'])],
         ]),
-        'devnull.test/api/v1/users/ada' => Http::response(['data' => [...userJson(['username' => 'ada']), 'commits_count' => 3, 'followers_count' => 5, 'following_count' => 1, 'is_following' => true]]),
+        'devnull.test/api/v1/users/ada' => Http::response(['data' => [...userJson(['username' => 'ada']), 'commits_count' => 3, 'followers_count' => 5, 'following_count' => 1], 'is_following' => true, 'activity' => []]),
         'devnull.test/api/v1/notifications' => Http::response(pageJson([
             ['id' => 'n1', 'type' => 'replied', 'read_at' => null, 'created_at' => now()->toIso8601String(), 'actor' => userJson(), 'commit' => ['id' => 'c2', 'body' => 'Nice.', 'parent' => ['body' => 'Shipped.']]],
             ['id' => 'n2', 'type' => 'followed', 'read_at' => now()->toIso8601String(), 'actor' => userJson(), 'commit' => null],

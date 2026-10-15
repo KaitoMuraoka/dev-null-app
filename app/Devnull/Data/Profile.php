@@ -14,10 +14,14 @@ final readonly class Profile
     ) {}
 
     /**
-     * @param  array<string, mixed>  $data
+     * Reads a `GET /users/{username}` response: the user and counts in `data`,
+     * and whether you follow them alongside it.
+     *
+     * @param  array<string, mixed>  $json
      */
-    public static function fromArray(array $data): self
+    public static function fromArray(array $json): self
     {
+        $data = is_array($json['data'] ?? null) ? $json['data'] : $json;
         $counts = is_array($data['counts'] ?? null) ? $data['counts'] : [];
 
         return new self(
@@ -25,8 +29,8 @@ final readonly class Profile
             commitsCount: (int) ($data['commits_count'] ?? $counts['commits'] ?? 0),
             followersCount: (int) ($data['followers_count'] ?? $counts['followers'] ?? 0),
             followingCount: (int) ($data['following_count'] ?? $counts['following'] ?? 0),
-            isFollowing: (bool) ($data['is_following'] ?? $data['following'] ?? false),
-            followsYou: (bool) ($data['follows_you'] ?? false),
+            isFollowing: (bool) ($json['is_following'] ?? $data['is_following'] ?? false),
+            followsYou: (bool) ($json['follows_you'] ?? $data['follows_you'] ?? false),
         );
     }
 

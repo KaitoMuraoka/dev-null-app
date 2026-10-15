@@ -70,7 +70,7 @@ final readonly class Client
 
     public function profile(string $username): Profile
     {
-        return Profile::fromArray($this->data($this->send('GET', 'users/'.rawurlencode($username))));
+        return Profile::fromArray($this->json($this->send('GET', 'users/'.rawurlencode($username))));
     }
 
     /**
