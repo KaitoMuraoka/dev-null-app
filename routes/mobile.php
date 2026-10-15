@@ -1,9 +1,7 @@
 <?php
 
 use App\NativeComponents\CommitDetail;
-use App\NativeComponents\Compose;
 use App\NativeComponents\Launch;
-use App\NativeComponents\Layouts\StackLayout;
 use App\NativeComponents\Layouts\TabsLayout;
 use App\NativeComponents\Log;
 use App\NativeComponents\Notifications;
@@ -27,8 +25,4 @@ Route::nativeGroup(TabsLayout::class, function (): void {
         Route::native("{$tab}/commits/{id}", CommitDetail::class);
         Route::native("{$tab}/users/{username}", Profile::class);
     }
-});
-
-Route::nativeGroup(StackLayout::class, function (): void {
-    Route::native('/compose', Compose::class);
 });
