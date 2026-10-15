@@ -7,7 +7,7 @@
                 ref="body"
                 class="w-full text-theme-ink"
                 placeholder="What did you ship?"
-                native:model="body"
+                native:model.debounce.150ms="body"
                 multiline
                 :min-lines="4"
                 :max-lines="12"

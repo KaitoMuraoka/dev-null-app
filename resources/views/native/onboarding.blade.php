@@ -45,7 +45,7 @@
                 ref="username"
                 label="GitHub username"
                 placeholder="octocat"
-                native:model="username"
+                native:model.debounce.150ms="username"
                 keyboard="url"
                 autocapitalize="none"
                 font="mono"

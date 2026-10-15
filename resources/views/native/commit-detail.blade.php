@@ -99,7 +99,7 @@
                         ref="reply-input"
                         class="flex-1 py-2 text-theme-ink"
                         placeholder="Reply to {{ $commit->user->handle() }}"
-                        native:model="reply"
+                        native:model.debounce.150ms="reply"
                         multiline
                         :max-lines="5"
                         :max-length="280"

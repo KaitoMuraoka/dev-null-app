@@ -84,3 +84,11 @@ it('sends nothing shorter than three characters', function () {
 
     Http::assertNothingSent();
 });
+
+it('syncs the draft on a short debounce so a burst of typing arrives whole', function () {
+    // In live mode a burst of keystrokes can overflow the native event queue,
+    // and the input never resends the dropped tail. Debounce sends one trailing value.
+    Native::visit('/compose')->assertElement('bare_text_input', fn (array $node): bool => ($node['ref'] ?? null) === 'body'
+        && ($node['props']['sync_mode'] ?? null) === 'debounce'
+        && ($node['props']['debounce_ms'] ?? null) === 150);
+});
