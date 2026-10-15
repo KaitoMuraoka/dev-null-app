@@ -74,11 +74,15 @@ final readonly class Client
     }
 
     /**
+     * A tab of someone's profile: their commits, or their replies.
+     *
      * @return Page<Commit>
      */
-    public function userCommits(string $username, ?string $cursor = null): Page
+    public function userCommits(string $username, string $tab = 'commits', ?string $cursor = null): Page
     {
-        return Page::fromArray($this->json($this->send('GET', 'users/'.rawurlencode($username).'/commits', ['cursor' => $cursor])), Commit::fromArray(...));
+        $query = ['tab' => $tab === 'replies' ? 'replies' : null, 'cursor' => $cursor];
+
+        return Page::fromArray($this->json($this->send('GET', 'users/'.rawurlencode($username).'/commits', $query)), Commit::fromArray(...));
     }
 
     public function follow(string $username): void

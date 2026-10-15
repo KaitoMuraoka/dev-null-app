@@ -11,11 +11,15 @@ final readonly class Profile
         public int $followingCount = 0,
         public bool $isFollowing = false,
         public bool $followsYou = false,
+        public ?Commit $pinnedCommit = null,
+        public Streaks $streaks = new Streaks,
+        public Activity $activity = new Activity,
     ) {}
 
     /**
      * Reads a `GET /users/{username}` response: the user and counts in `data`,
-     * and whether you follow them alongside it.
+     * and alongside it whether you follow them, their pinned commit, their
+     * streaks and their activity.
      *
      * @param  array<string, mixed>  $json
      */
@@ -23,6 +27,7 @@ final readonly class Profile
     {
         $data = is_array($json['data'] ?? null) ? $json['data'] : $json;
         $counts = is_array($data['counts'] ?? null) ? $data['counts'] : [];
+        $pinned = $json['pinned_commit'] ?? $data['pinned_commit'] ?? null;
 
         return new self(
             user: User::fromArray(is_array($data['user'] ?? null) ? $data['user'] : $data),
@@ -31,6 +36,9 @@ final readonly class Profile
             followingCount: (int) ($data['following_count'] ?? $counts['following'] ?? 0),
             isFollowing: (bool) ($json['is_following'] ?? $data['is_following'] ?? false),
             followsYou: (bool) ($json['follows_you'] ?? $data['follows_you'] ?? false),
+            pinnedCommit: is_array($pinned) ? Commit::fromArray($pinned) : null,
+            streaks: Streaks::fromArray($json['streaks'] ?? $data['streaks'] ?? null),
+            activity: Activity::fromArray($json['activity'] ?? $data['activity'] ?? null),
         );
     }
 
@@ -45,6 +53,9 @@ final readonly class Profile
             $this->followingCount,
             $isFollowing,
             $this->followsYou,
+            $this->pinnedCommit,
+            $this->streaks,
+            $this->activity,
         );
     }
 }

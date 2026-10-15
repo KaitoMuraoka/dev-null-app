@@ -195,7 +195,13 @@ it('reads commits, threads, profiles and notifications into data objects', funct
             'data' => commitJson(['id' => 'c1', 'parent_id' => 'p1', 'user_id' => 'u9', 'user' => ['username' => 'ada', 'name' => null]]),
             'ancestors' => [commitJson(['id' => 'p1'])],
         ]),
-        'devnull.test/api/v1/users/ada' => Http::response(['data' => [...userJson(['username' => 'ada']), 'commits_count' => 3, 'followers_count' => 5, 'following_count' => 1], 'is_following' => true, 'activity' => []]),
+        'devnull.test/api/v1/users/ada' => Http::response([
+            'data' => [...userJson(['username' => 'ada', 'lane' => 4]), 'commits_count' => 3, 'followers_count' => 5, 'following_count' => 1],
+            'is_following' => true,
+            'activity' => ['scale' => 'day', 'buckets' => [['date' => '2026-10-15T09:00:00Z', 'count' => 2]]],
+            'streaks' => ['longest' => 4, 'current' => 1],
+            'pinned_commit' => commitJson(['id' => 'p1', 'is_pinned' => true]),
+        ]),
         'devnull.test/api/v1/notifications' => Http::response(pageJson([
             ['id' => 'n1', 'type' => 'replied', 'read_at' => null, 'created_at' => now()->toIso8601String(), 'actor' => userJson(), 'commit' => ['id' => 'c2', 'body' => 'Nice.', 'parent' => ['body' => 'Shipped.']]],
             ['id' => 'n2', 'type' => 'followed', 'read_at' => now()->toIso8601String(), 'actor' => userJson(), 'commit' => null],
@@ -214,6 +220,13 @@ it('reads commits, threads, profiles and notifications into data objects', funct
         ->and($profile->commitsCount)->toBe(3)
         ->and($profile->followersCount)->toBe(5)
         ->and($profile->isFollowing)->toBeTrue()
+        ->and($profile->user->lane())->toBe(4)
+        ->and($profile->activity->scale)->toBe('day')
+        ->and($profile->activity->total())->toBe(2)
+        ->and($profile->streaks->longest)->toBe(4)
+        ->and($profile->streaks->current)->toBe(1)
+        ->and($profile->pinnedCommit?->id)->toBe('p1')
+        ->and($profile->pinnedCommit?->isPinned)->toBeTrue()
         ->and($notifications->items[0]->isReply())->toBeTrue()
         ->and($notifications->items[0]->isUnread)->toBeTrue()
         ->and($notifications->items[0]->parentBody)->toBe('Shipped.')

@@ -50,23 +50,49 @@
                     </native:row>
                 </native:column>
                 <native:column class="w-full h-[1] bg-theme-hairline" />
+
+                @include('native.partials.activity', ['activity' => $profile->activity, 'lane' => $user->lane()])
+                @include('native.partials.streaks', ['streaks' => $profile->streaks, 'lane' => $user->lane()])
             </native:column>
 
-            @if ($commits === [] && $error === null)
-                @if ($isMe)
+            @include('native.partials.page-tabs', ['tabs' => [
+                ['key' => 'commits', 'label' => 'Commits', 'active' => $tab === 'commits', 'press' => "showTab('commits')"],
+                ['key' => 'replies', 'label' => 'Replies', 'active' => $tab === 'replies', 'press' => "showTab('replies')"],
+            ]])
+
+            @if ($commits === [] && $pinnedCommit === null && $error === null)
+                @if ($tab === 'replies')
+                    @include('native.partials.empty', ['command' => 'fatal: no replies yet', 'message' => $isMe ? 'Your replies show up here. Join a conversation from your log.' : "{$user->handle()} hasn't replied to anything yet."])
+                @elseif ($isMe)
                     @include('native.partials.empty', ['command' => 'fatal: you do not have any commits yet', 'message' => 'Your commits show up here. Make your first one from your log.'])
                 @else
                     @include('native.partials.empty', ['command' => 'fatal: no commits yet', 'message' => "{$user->handle()} hasn't committed anything yet."])
                 @endif
             @endif
 
+            @if ($pinnedCommit)
+                {{-- The pinned commit sits above the rest, marked in mono as on the web. --}}
+                <native:column ref="pinned" class="w-full bg-theme-surface">
+                    <native:row class="w-full">
+                        <native:column :width="44" />
+                        <native:row class="flex-1 pt-3 gap-[6] items-center">
+                            <native:icon :ios="\App\Icons\Ios::Pin" :android="\App\Icons\Android::PushPin" :size="12" class="text-theme-ink-muted" />
+                            <native:text font="mono" class="text-xs text-theme-ink-muted">Pinned</native:text>
+                        </native:row>
+                    </native:row>
+                    @include('native.partials.commit-row', ['commit' => $pinnedCommit, 'previousLane' => null])
+                </native:column>
+            @endif
+
             @foreach ($commits as $commit)
-                @include('native.partials.commit-row', ['commit' => $commit, 'previousLane' => $loop->first ? null : $commits[$loop->index - 1]->lane()])
+                @include('native.partials.commit-row', ['commit' => $commit, 'previousLane' => $loop->first ? $pinnedCommit?->lane() : $commits[$loop->index - 1]->lane()])
             @endforeach
 
-            @if ($commits !== [])
+            @if ($commits !== [] || $pinnedCommit)
                 @if ($nextCursor !== null)
                     @include('native.partials.rail-loading', ['count' => count($commits)])
+                @elseif ($tab === 'replies')
+                    @include('native.partials.rail-end', ['lane' => $user->lane(), 'message' => $isMe ? 'That was your first reply.' : "That's {$user->handle()}'s first reply."])
                 @else
                     @include('native.partials.rail-end', ['lane' => $user->lane(), 'message' => $isMe ? 'That was your first commit. Everyone starts somewhere.' : "That's {$user->handle()}'s root commit."])
                 @endif

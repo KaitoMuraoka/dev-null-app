@@ -10,15 +10,31 @@ beforeEach(function () {
 });
 
 /**
+ * A `GET /users/{username}` response, as the API sends it.
+ *
+ * @param  array<string, mixed>  $user
+ * @param  array<string, mixed>  $extra
  * @return array<string, mixed>
  */
-function profileJson(bool $isFollowing = false, array $user = []): array
+function profileJson(bool $isFollowing = false, array $user = [], array $extra = []): array
 {
     return [
-        'data' => [...userJson(['id' => 'u2', 'username' => 'ada', 'name' => 'Ada Lovelace', 'bio' => 'Wrote the first program.', ...$user]), 'commits_count' => 1, 'followers_count' => 5, 'following_count' => 2],
+        'data' => [...userJson(['id' => 'u2', 'username' => 'ada', 'name' => 'Ada Lovelace', 'bio' => 'Wrote the first program.', 'lane' => 1, ...$user]), 'commits_count' => 1, 'followers_count' => 5, 'following_count' => 2],
         'is_following' => $isFollowing,
-        'activity' => [],
+        'activity' => ['scale' => 'week', 'buckets' => array_map(fn (int $day): array => ['date' => now()->subDays(6 - $day)->toDateString(), 'count' => 0], range(0, 6))],
+        'streaks' => ['longest' => 0, 'current' => 0],
+        'pinned_commit' => null,
+        ...$extra,
     ];
+}
+
+/**
+ * @param  array<string, mixed>  $overrides
+ * @return array<string, mixed>
+ */
+function adaCommitJson(array $overrides = []): array
+{
+    return commitJson(['user' => userJson(['id' => 'u2', 'username' => 'ada', 'name' => 'Ada Lovelace', 'lane' => 1]), ...$overrides]);
 }
 
 it('shows who they are, their counts and their commits', function () {
@@ -125,4 +141,166 @@ it('reloads when you come back to it', function () {
         ->goBack();
 
     Http::assertSentCount(6);
+});
+
+it('shows the pinned commit above the rest, marked as pinned', function () {
+    fakeApi([
+        'GET /api/v1/users/ada' => [profileJson(extra: ['pinned_commit' => adaCommitJson(['id' => 'p1', 'body' => 'Read this first', 'is_pinned' => true])])],
+        'GET /api/v1/users/ada/commits' => [pageJson([adaCommitJson(['id' => 'c1', 'body' => 'Everything else'])])],
+    ]);
+
+    $screen = Native::visit('/users/ada')
+        ->assertSee('Pinned')
+        ->assertSee('Read this first')
+        ->assertSee('Everything else')
+        ->assertElement('column', fn (array $node): bool => ($node['ref'] ?? null) === 'pinned');
+
+    $texts = json_encode($screen->tree(), JSON_UNESCAPED_UNICODE);
+    expect(strpos($texts, 'Pinned'))->toBeLessThan(strpos($texts, 'Read this first'))
+        ->and(strpos($texts, 'Read this first'))->toBeLessThan(strpos($texts, 'Everything else'));
+
+    $screen->tap('commit-p1')->assertNavigatedTo('/commits/p1');
+});
+
+it('shows a profile with only a pinned commit without the empty state', function () {
+    fakeApi([
+        'GET /api/v1/users/ada' => [profileJson(extra: ['pinned_commit' => adaCommitJson(['id' => 'p1', 'body' => 'All there is'])])],
+        'GET /api/v1/users/ada/commits' => [pageJson([])],
+    ]);
+
+    Native::visit('/users/ada')
+        ->assertSee('All there is')
+        ->assertDontSee('fatal: no commits yet')
+        ->assertSee("That's @ada's root commit.");
+});
+
+it('switches between commits and replies like the web profile', function () {
+    Http::fake(function (Request $request) {
+        $path = parse_url($request->url(), PHP_URL_PATH);
+        parse_str((string) parse_url($request->url(), PHP_URL_QUERY), $query);
+
+        return match (true) {
+            $path === '/api/v1/users/ada' => Http::response(profileJson(extra: ['pinned_commit' => adaCommitJson(['id' => 'p1', 'body' => 'Pinned thought'])])),
+            ($query['tab'] ?? null) === 'replies' => Http::response(pageJson([adaCommitJson([
+                'id' => 'r1',
+                'parent_id' => 'c9',
+                'body' => 'Agreed',
+                'parent' => commitJson(['id' => 'c9', 'user' => userJson(['username' => 'grace'])]),
+            ])])),
+            default => Http::response(pageJson([adaCommitJson(['id' => 'c1', 'body' => 'A top-level commit'])])),
+        };
+    });
+
+    $screen = Native::visit('/users/ada')
+        ->assertSet('tab', 'commits')
+        ->assertSee('Commits')
+        ->assertSee('Replies')
+        ->assertSee('A top-level commit')
+        ->tap('tab-replies')
+        ->assertSet('tab', 'replies')
+        ->assertSee('Agreed')
+        ->assertSee('↳ replying to @grace')
+        ->assertDontSee('A top-level commit')
+        // The web keeps the pinned commit to the commits tab.
+        ->assertDontSee('Pinned thought')
+        ->assertSee("That's @ada's first reply.");
+
+    Http::assertSent(fn (Request $request): bool => $request->url() === 'http://devnull.test/api/v1/users/ada/commits?tab=replies');
+    Http::assertSent(fn (Request $request): bool => $request->url() === 'http://devnull.test/api/v1/users/ada/commits');
+
+    $screen->tap('replying-to-r1')->assertNavigatedTo('/commits/c9');
+});
+
+it('loads older replies on the replies tab', function () {
+    Http::fake(function (Request $request) {
+        return match (true) {
+            str_ends_with(parse_url($request->url(), PHP_URL_PATH), '/users/ada') => Http::response(profileJson()),
+            str_contains($request->url(), 'cursor=older') => Http::response(pageJson([adaCommitJson(['id' => 'r1', 'body' => 'Older reply'])])),
+            str_contains($request->url(), 'tab=replies') => Http::response(pageJson([adaCommitJson(['id' => 'r2', 'body' => 'Newer reply'])], 'older')),
+            default => Http::response(pageJson([])),
+        };
+    });
+
+    Native::visit('/users/ada')->tap('tab-replies')->call('loadMore')->assertSee('Older reply');
+
+    Http::assertSent(fn (Request $request): bool => $request->url() === 'http://devnull.test/api/v1/users/ada/commits?tab=replies&cursor=older');
+});
+
+it('speaks git when there are no replies yet', function () {
+    fakeApi([
+        'GET /api/v1/users/ada' => [profileJson()],
+        'GET /api/v1/users/ada/commits' => [pageJson([])],
+        'GET /api/v1/users/local_dev' => [profileJson(user: ['username' => 'local_dev'])],
+        'GET /api/v1/users/local_dev/commits' => [pageJson([])],
+    ]);
+
+    Native::visit('/users/ada')
+        ->tap('tab-replies')
+        ->assertSee('fatal: no replies yet')
+        ->assertSee("@ada hasn't replied to anything yet.");
+
+    Native::visit('/users/local_dev')
+        ->tap('tab-replies')
+        ->assertSee('Your replies show up here. Join a conversation from your log.');
+});
+
+it('prints the streaks and an activity strip in the owner lane', function () {
+    $this->travelTo(now()->setDate(2026, 10, 15)->setTime(12, 0));
+
+    fakeApi([
+        'GET /api/v1/users/ada' => [profileJson(extra: [
+            'activity' => ['scale' => 'week', 'buckets' => array_map(fn (int $day): array => [
+                'date' => now()->subDays(6 - $day)->toDateString(),
+                'count' => [0, 0, 1, 0, 2, 4, 1][$day],
+            ], range(0, 6))],
+            'streaks' => ['longest' => 3, 'current' => 2],
+        ])],
+        'GET /api/v1/users/ada/commits' => [pageJson([])],
+    ]);
+
+    $lane = config('native-ui.theme.light.lane-1');
+
+    $screen = Native::visit('/users/ada')
+        ->assertSee('Commit activity')
+        ->assertSee('8')
+        ->assertSee(' commits in the last 7 days')
+        ->assertSee('Fri 9')
+        ->assertSee('Thu 15')
+        ->assertSee('longest streak ')
+        ->assertSee('3')
+        ->assertSee(' days')
+        ->assertSee('current ')
+        ->assertElement('row', fn (array $node): bool => ($node['ref'] ?? null) === 'streaks');
+
+    $cells = [];
+    $walk = function (array $node) use (&$walk, &$cells): void {
+        if (($node['ref'] ?? null) === 'activity-strip') {
+            $cells = $node['children'];
+
+            return;
+        }
+        foreach ($node['children'] ?? [] as $child) {
+            $walk($child);
+        }
+    };
+    $walk($screen->tree());
+
+    // Seven days, the busiest at full strength in Ada's lane and the empty ones on the wash.
+    expect($cells)->toHaveCount(7)
+        ->and($cells[0]['style']['bg_color'])->toBe(config('native-ui.theme.light.wash'))
+        ->and($cells[5]['children'][0]['style']['bg_color'])->toBe($lane)
+        ->and($cells[5]['children'][0]['style']['opacity'] ?? 1.0)->toEqual(1.0)
+        ->and($cells[2]['children'][0]['style']['opacity'])->toEqual(0.32);
+});
+
+it('says no commits yet over an empty strip and leaves out the streaks', function () {
+    fakeApi([
+        'GET /api/v1/users/ada' => [profileJson()],
+        'GET /api/v1/users/ada/commits' => [pageJson([])],
+    ]);
+
+    Native::visit('/users/ada')
+        ->assertSee('No commits yet')
+        ->assertDontSee('longest streak ')
+        ->assertMissingElement('row', fn (array $node): bool => ($node['ref'] ?? null) === 'streaks');
 });

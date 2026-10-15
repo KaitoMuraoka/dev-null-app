@@ -29,6 +29,14 @@
                         @endunless
                     </native:row>
 
+                    @if ($commit->parent?->isDeleted())
+                        <native:text ref="replying-to-{{ $commit->id }}" font="mono" class="text-xs text-theme-ink-muted">↳ replying to [deleted]</native:text>
+                    @elseif ($commit->parent)
+                        <native:pressable ref="replying-to-{{ $commit->id }}" @press="openCommit('{{ $commit->parent->id }}')" a11y-label="Replying to {{ $commit->parent->user->handle() }}">
+                            <native:text font="mono" class="text-xs text-theme-ink-muted">↳ replying to {{ $commit->parent->user->handle() }}</native:text>
+                        </native:pressable>
+                    @endif
+
                     @include('native.partials.commit-body')
                     @include('native.partials.commit-media')
                     @include('native.partials.commit-actions')

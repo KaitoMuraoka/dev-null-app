@@ -11,7 +11,8 @@ use Native\Mobile\Attributes\Lazy;
 use Native\Mobile\Edge\NativeComponent;
 
 /**
- * A developer's profile: who they are on GitHub, their counts, and their commits.
+ * A developer's profile: who they are on GitHub, their counts and activity,
+ * then their commits (with the pinned one on top) or their replies.
  */
 #[Lazy]
 class Profile extends NativeComponent
@@ -21,7 +22,11 @@ class Profile extends NativeComponent
 
     public string $username = '';
 
+    public const array Tabs = ['commits', 'replies'];
+
     public ?ProfileData $profile = null;
+
+    public string $tab = 'commits';
 
     /** @var list<Commit> */
     public array $commits = [];
@@ -52,13 +57,19 @@ class Profile extends NativeComponent
         }
 
         $this->profile = $profile;
+        $this->loadCommits();
+    }
 
-        $page = $this->attempt(fn ($devnull) => $devnull->userCommits($this->username));
-
-        if ($page !== null) {
-            $this->commits = $page->items;
-            $this->nextCursor = $page->nextCursor;
+    public function showTab(string $tab): void
+    {
+        if (! in_array($tab, self::Tabs, true) || $tab === $this->tab) {
+            return;
         }
+
+        $this->tab = $tab;
+        $this->commits = [];
+        $this->nextCursor = null;
+        $this->loadCommits();
     }
 
     public function loadMore(): void
@@ -67,7 +78,7 @@ class Profile extends NativeComponent
             return;
         }
 
-        $page = $this->attempt(fn ($devnull) => $devnull->userCommits($this->username, $this->nextCursor));
+        $page = $this->attempt(fn ($devnull) => $devnull->userCommits($this->username, $this->tab, $this->nextCursor));
 
         if ($page !== null) {
             $this->commits = [...$this->commits, ...$page->items];
@@ -118,15 +129,33 @@ class Profile extends NativeComponent
     }
 
     /**
+     * The web leaves the pinned commit out of the replies tab.
+     */
+    public function pinnedCommit(): ?Commit
+    {
+        return $this->tab === 'commits' ? $this->profile?->pinnedCommit : null;
+    }
+
+    /**
      * @return iterable<Commit>
      */
     protected function shownCommits(): iterable
     {
-        return $this->commits;
+        return [...($this->pinnedCommit() === null ? [] : [$this->pinnedCommit()]), ...$this->commits];
+    }
+
+    private function loadCommits(): void
+    {
+        $page = $this->attempt(fn ($devnull) => $devnull->userCommits($this->username, $this->tab));
+
+        if ($page !== null) {
+            $this->commits = $page->items;
+            $this->nextCursor = $page->nextCursor;
+        }
     }
 
     public function render(): View
     {
-        return view('native.profile', ['isMe' => $this->isMe()]);
+        return view('native.profile', ['isMe' => $this->isMe(), 'pinnedCommit' => $this->pinnedCommit()]);
     }
 }
