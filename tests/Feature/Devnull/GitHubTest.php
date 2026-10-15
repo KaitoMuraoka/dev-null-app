@@ -92,7 +92,7 @@ it('reads each answer from the token endpoint', function (array $json, Authoriza
 
 it('hands back the token once granted, without showing it in dumps', function () {
     Http::fake(['github.com/login/oauth/access_token' => Http::response([
-        'access_token' => 'gho_16C7e42F292c6912E7710c838347Ae178B4a',
+        'access_token' => 'gho_not-a-real-token-for-tests',
         'token_type' => 'bearer',
         'scope' => 'write:ssh_signing_key',
     ])]);
@@ -100,8 +100,8 @@ it('hands back the token once granted, without showing it in dumps', function ()
     $authorization = app(GitHub::class)->requestToken('device-code');
 
     expect($authorization->status)->toBe(AuthorizationStatus::Granted)
-        ->and($authorization->token)->toBe('gho_16C7e42F292c6912E7710c838347Ae178B4a')
-        ->and(print_r($authorization, true))->not->toContain('gho_16C7e42F292c6912E7710c838347Ae178B4a');
+        ->and($authorization->token)->toBe('gho_not-a-real-token-for-tests')
+        ->and(print_r($authorization, true))->not->toContain('gho_not-a-real-token-for-tests');
 });
 
 it('treats other OAuth errors as a refusal', function () {

@@ -14,7 +14,7 @@ use Native\Mobile\Testing\FakeBridge;
 use Native\Mobile\Testing\Native;
 use Native\Mobile\Testing\TestableComponent;
 
-const GitHubToken = 'gho_16C7e42F292c6912E7710c838347Ae178B4a';
+const GitHubToken = 'gho_not-a-real-token-for-tests';
 
 beforeEach(function () {
     config(['devnull.url' => 'http://devnull.test', 'devnull.github_client_id' => 'Ov23liDevnullTest']);
