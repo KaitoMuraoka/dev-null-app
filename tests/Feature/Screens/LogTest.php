@@ -121,8 +121,8 @@ it('marks pending commits', function () {
 it('opens commits, profiles and the composer', function () {
     Http::fake(['devnull.test/*' => Http::response(pageJson([commitJson(['id' => 'c1'])]))]);
 
-    Native::visit('/log')->tap('commit-c1')->assertNavigatedTo('/commits/c1');
-    Native::visit('/log')->call('openProfile', 'ada')->assertNavigatedTo('/users/ada');
+    Native::visit('/log')->tap('commit-c1')->assertNavigatedTo('/log/commits/c1');
+    Native::visit('/log')->call('openProfile', 'ada')->assertNavigatedTo('/log/users/ada');
     Native::visit('/log')->call('compose')->assertNavigatedTo('/compose')->assertTransition('slide_from_bottom');
 });
 
@@ -163,7 +163,7 @@ it('links mentions to profiles, counting code points so emoji before them do not
         [' today'],
     ]);
 
-    $screen->press("openProfile('Grace-H')")->assertNavigatedTo('/users/Grace-H');
+    $screen->press("openProfile('Grace-H')")->assertNavigatedTo('/log/users/Grace-H');
 });
 
 it('shows inline code on a wash and keeps mentions on both sides of it', function () {
@@ -286,8 +286,8 @@ it('puts the web action row under each commit: Reply, the star, replies, copy li
         ->and($icon('reply-to-c1')['props']['name'] ?? null)->toBe('bubble.left')
         ->and($icon('copy-link-c1')['props']['name'] ?? null)->toBe('link');
 
-    $screen->tap('reply-to-c1')->assertNavigatedTo('/commits/c1');
-    Native::visit('/log')->tap('replies-c2')->assertNavigatedTo('/commits/c2');
+    $screen->tap('reply-to-c1')->assertNavigatedTo('/log/commits/c1');
+    Native::visit('/log')->tap('replies-c2')->assertNavigatedTo('/log/commits/c2');
 });
 
 it('copies a commit link through the share sheet', function () {

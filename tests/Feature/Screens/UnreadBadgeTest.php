@@ -128,7 +128,7 @@ it('picks up the count on your Profile tab and forgets it with the device', func
     expect(notificationsBadge($screen))->toBe('5')
         ->and(app(Account::class)->user()?->name)->toBe('Renamed On GitHub');
 
-    Native::visit('/device')->call('forget');
+    Native::visit('/profile/device')->call('forget');
 
     expect(app(Account::class)->unreadNotifications())->toBe(0);
 });

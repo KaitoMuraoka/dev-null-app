@@ -19,11 +19,16 @@ Route::nativeGroup(TabsLayout::class, function (): void {
     Route::native('/log', Log::class);
     Route::native('/notifications', Notifications::class);
     Route::native('/profile', Profile::class);
+    Route::native('/profile/device', ThisDevice::class);
+
+    // Commits and profiles open beneath the tab they were tapped in, so that tab's
+    // own navigation stack pushes them (see Concerns\OpensInTab).
+    foreach (TabsLayout::Tabs as $tab) {
+        Route::native("{$tab}/commits/{id}", CommitDetail::class);
+        Route::native("{$tab}/users/{username}", Profile::class);
+    }
 });
 
 Route::nativeGroup(StackLayout::class, function (): void {
     Route::native('/compose', Compose::class);
-    Route::native('/commits/{id}', CommitDetail::class);
-    Route::native('/users/{username}', Profile::class);
-    Route::native('/device', ThisDevice::class);
 });

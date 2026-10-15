@@ -93,11 +93,11 @@ it('opens the commit for everything but a follow', function (string $type, strin
 
     Native::visit('/notifications')->tap('notification-n-'.$type)->assertNavigatedTo($destination);
 })->with([
-    ['replied', '/commits/c-replied'],
-    ['mentioned', '/commits/c-mentioned'],
-    ['approved', '/commits/c-approved'],
-    ['rejected', '/commits/c-rejected'],
-    ['followed', '/users/ada'],
+    ['replied', '/notifications/commits/c-replied'],
+    ['mentioned', '/notifications/commits/c-mentioned'],
+    ['approved', '/notifications/commits/c-approved'],
+    ['rejected', '/notifications/commits/c-rejected'],
+    ['followed', '/notifications/users/ada'],
 ]);
 
 it('speaks git when there is nothing', function () {

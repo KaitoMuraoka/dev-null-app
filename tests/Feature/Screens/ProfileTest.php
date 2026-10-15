@@ -44,7 +44,7 @@ it('shows who they are, their counts and their commits', function () {
         'GET /api/v1/users/ada/commits' => [pageJson([commitJson(['body' => 'Notes on the engine', 'user' => userJson(['id' => 'u2', 'username' => 'ada'])])])],
     ]);
 
-    Native::visit('/users/ada')
+    Native::visit('/log/users/ada')
         ->assertNavTitle('@ada')
         ->assertSee('Ada Lovelace')
         ->assertSee('@ada')
@@ -63,7 +63,7 @@ it('rings the avatar in the author lane', function () {
         'GET /api/v1/users/ada/commits' => [pageJson([])],
     ]);
 
-    Native::visit('/users/ada')
+    Native::visit('/log/users/ada')
         ->assertElement('stack', fn (array $node): bool => ($node['layout']['width'] ?? null) === 92.0
             && ($node['style']['bg_color'] ?? null) === config('native-ui.theme.light.lane-5'))
         ->assertSee('fatal: no commits yet');
@@ -77,7 +77,7 @@ it('follows and unfollows', function () {
         'DELETE /api/v1/users/ada/follow' => [null, 204],
     ]);
 
-    Native::visit('/users/ada')
+    Native::visit('/log/users/ada')
         ->tap('follow')
         ->assertSee('Unfollow')
         ->assertSee('6')
@@ -96,7 +96,7 @@ it('puts the follow back when the server refuses', function () {
         'POST /api/v1/users/ada/follow' => [['message' => 'Too Many Attempts.'], 429],
     ]);
 
-    $screen = Native::visit('/users/ada')->tap('follow')->assertSee('Too Many Attempts.');
+    $screen = Native::visit('/log/users/ada')->tap('follow')->assertSee('Too Many Attempts.');
 
     expect($screen->instance()->profile->isFollowing)->toBeFalse()
         ->and($screen->instance()->profile->followersCount)->toBe(5);
@@ -108,7 +108,7 @@ it('has no follow button on your own profile', function () {
         'GET /api/v1/users/local_dev/commits' => [pageJson([])],
     ]);
 
-    Native::visit('/users/local_dev')
+    Native::visit('/log/users/local_dev')
         ->assertMissingElement('button', fn (array $node): bool => ($node['ref'] ?? null) === 'follow')
         ->assertSee('fatal: you do not have any commits yet');
 });
@@ -122,7 +122,7 @@ it('loads older commits by cursor', function () {
         };
     });
 
-    Native::visit('/users/ada')
+    Native::visit('/log/users/ada')
         ->assertDontSee('Older')
         ->call('loadMore')
         ->assertSee('Older');
@@ -136,7 +136,7 @@ it('reloads when you come back to it', function () {
         'GET /api/v1/commits/c1/replies' => [pageJson([])],
     ]);
 
-    Native::visit('/users/ada')
+    Native::visit('/log/users/ada')
         ->tap('commit-c1')
         ->follow()
         ->goBack();
@@ -150,7 +150,7 @@ it('shows the pinned commit above the rest, marked as pinned', function () {
         'GET /api/v1/users/ada/commits' => [pageJson([adaCommitJson(['id' => 'c1', 'body' => 'Everything else'])])],
     ]);
 
-    $screen = Native::visit('/users/ada')
+    $screen = Native::visit('/log/users/ada')
         ->assertSee('Pinned')
         ->assertSee('Read this first')
         ->assertSee('Everything else')
@@ -160,7 +160,7 @@ it('shows the pinned commit above the rest, marked as pinned', function () {
     expect(strpos($texts, 'Pinned'))->toBeLessThan(strpos($texts, 'Read this first'))
         ->and(strpos($texts, 'Read this first'))->toBeLessThan(strpos($texts, 'Everything else'));
 
-    $screen->tap('commit-p1')->assertNavigatedTo('/commits/p1');
+    $screen->tap('commit-p1')->assertNavigatedTo('/log/commits/p1');
 });
 
 it('shows a profile with only a pinned commit without the empty state', function () {
@@ -169,7 +169,7 @@ it('shows a profile with only a pinned commit without the empty state', function
         'GET /api/v1/users/ada/commits' => [pageJson([])],
     ]);
 
-    Native::visit('/users/ada')
+    Native::visit('/log/users/ada')
         ->assertSee('All there is')
         ->assertDontSee('fatal: no commits yet')
         ->assertSee("That's @ada's root commit.");
@@ -192,7 +192,7 @@ it('switches between commits and replies like the web profile', function () {
         };
     });
 
-    $screen = Native::visit('/users/ada')
+    $screen = Native::visit('/log/users/ada')
         ->assertSet('tab', 'commits')
         ->assertSee('Commits')
         ->assertSee('Replies')
@@ -209,7 +209,7 @@ it('switches between commits and replies like the web profile', function () {
     Http::assertSent(fn (Request $request): bool => $request->url() === 'http://devnull.test/api/v1/users/ada/commits?tab=replies');
     Http::assertSent(fn (Request $request): bool => $request->url() === 'http://devnull.test/api/v1/users/ada/commits');
 
-    $screen->tap('replying-to-r1')->assertNavigatedTo('/commits/c9');
+    $screen->tap('replying-to-r1')->assertNavigatedTo('/log/commits/c9');
 });
 
 it('loads older replies on the replies tab', function () {
@@ -222,7 +222,7 @@ it('loads older replies on the replies tab', function () {
         };
     });
 
-    Native::visit('/users/ada')->tap('tab-replies')->call('loadMore')->assertSee('Older reply');
+    Native::visit('/log/users/ada')->tap('tab-replies')->call('loadMore')->assertSee('Older reply');
 
     Http::assertSent(fn (Request $request): bool => $request->url() === 'http://devnull.test/api/v1/users/ada/commits?tab=replies&cursor=older');
 });
@@ -235,12 +235,12 @@ it('speaks git when there are no replies yet', function () {
         'GET /api/v1/users/local_dev/commits' => [pageJson([])],
     ]);
 
-    Native::visit('/users/ada')
+    Native::visit('/log/users/ada')
         ->tap('tab-replies')
         ->assertSee('fatal: no replies yet')
         ->assertSee("@ada hasn't replied to anything yet.");
 
-    Native::visit('/users/local_dev')
+    Native::visit('/log/users/local_dev')
         ->tap('tab-replies')
         ->assertSee('Your replies show up here. Join a conversation from your log.');
 });
@@ -261,7 +261,7 @@ it('prints the streaks and an activity strip in the owner lane', function () {
 
     $lane = config('native-ui.theme.light.lane-1');
 
-    $screen = Native::visit('/users/ada')
+    $screen = Native::visit('/log/users/ada')
         ->assertSee('Commit activity')
         ->assertSee('8')
         ->assertSee(' commits in the last 7 days')
@@ -300,7 +300,7 @@ it('says no commits yet over an empty strip and leaves out the streaks', functio
         'GET /api/v1/users/ada/commits' => [pageJson([])],
     ]);
 
-    Native::visit('/users/ada')
+    Native::visit('/log/users/ada')
         ->assertSee('No commits yet')
         ->assertDontSee('longest streak ')
         ->assertMissingElement('row', fn (array $node): bool => ($node['ref'] ?? null) === 'streaks');
@@ -342,7 +342,7 @@ it('leads from your own profile to this device with the Settings2 icon', functio
 
     expect($action($screen)['props'] ?? null)->toMatchArray(['icon' => 'slider.horizontal.3', 'a11y_label' => 'This device'])
         ->and($action(Native::visit('/profile', platform: 'android'))['props']['icon'] ?? null)->toBe('tune')
-        ->and($action(Native::visit('/users/ada')))->toBeNull();
+        ->and($action(Native::visit('/log/users/ada')))->toBeNull();
 
-    $screen->press('openDevice')->assertNavigatedTo('/device');
+    $screen->press('openDevice')->assertNavigatedTo('/profile/device');
 });

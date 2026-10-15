@@ -31,7 +31,7 @@ function fakeThread(array $commit = [], array $replies = [], array $extra = []):
 it('shows the ancestors above the commit and the replies below', function () {
     fakeThread(replies: [commitJson(['id' => 'r1', 'parent_id' => 'c2', 'body' => 'First reply', 'user' => userJson(['username' => 'grace', 'name' => 'Grace'])])]);
 
-    Native::visit('/commits/c2')
+    Native::visit('/log/commits/c2')
         ->assertNavTitle('Commit')
         ->assertSee('The parent commit')
         ->assertSee('The focused commit')
@@ -43,13 +43,13 @@ it('shows the ancestors above the commit and the replies below', function () {
 it('prints the date the way git log does', function () {
     fakeThread(['created_at' => '2026-10-14T20:13:05Z']);
 
-    Native::visit('/commits/c2')->assertSee('Wed Oct 14 20:13:05 2026 +0000 · c2');
+    Native::visit('/log/commits/c2')->assertSee('Wed Oct 14 20:13:05 2026 +0000 · c2');
 });
 
 it('counts down the reply budget and posts the reply', function () {
     fakeThread(extra: ['POST /api/v1/commits' => [['data' => commitJson(['id' => 'r9', 'parent_id' => 'c2', 'body' => 'A fresh reply'])], 201]]);
 
-    Native::visit('/commits/c2')
+    Native::visit('/log/commits/c2')
         ->assertSee('No replies yet.')
         ->input('reply-input', 'A fresh reply')
         ->assertSee('267')
@@ -65,7 +65,7 @@ it('counts down the reply budget and posts the reply', function () {
 it('says when a reply is waiting for approval', function () {
     fakeThread(extra: ['POST /api/v1/commits' => [['data' => commitJson(['id' => 'r9', 'status' => 'pending', 'body' => 'Hold on'])], 201]]);
 
-    Native::visit('/commits/c2')
+    Native::visit('/log/commits/c2')
         ->input('reply-input', 'Hold on')
         ->tap('send-reply')
         ->assertSee('pending')
@@ -75,7 +75,7 @@ it('says when a reply is waiting for approval', function () {
 it('shows validation messages from the server', function () {
     fakeThread(extra: ['POST /api/v1/commits' => [['message' => 'The body field must not be greater than 280 characters.', 'errors' => ['body' => ['The body field must not be greater than 280 characters.']]], 422]]);
 
-    Native::visit('/commits/c2')
+    Native::visit('/log/commits/c2')
         ->input('reply-input', 'Long enough')
         ->tap('send-reply')
         ->assertSee('The body field must not be greater than 280 characters.')
@@ -85,7 +85,7 @@ it('shows validation messages from the server', function () {
 it('turns the budget red at zero and holds back a short reply', function () {
     fakeThread();
 
-    Native::visit('/commits/c2')
+    Native::visit('/log/commits/c2')
         ->input('reply-input', 'hi')
         ->tap('send-reply')
         ->input('reply-input', str_repeat('a', 280))
@@ -99,7 +99,7 @@ it('turns the budget red at zero and holds back a short reply', function () {
 it('deletes your own commit after a confirm', function () {
     fakeThread(extra: ['DELETE /api/v1/commits/c2' => [null, 204]]);
 
-    $screen = Native::visit('/commits/c2')
+    $screen = Native::visit('/log/commits/c2')
         ->call('confirmDelete')
         ->assertNativeCalled('Dialog.Alert', fn (array $params): bool => $params['title'] === 'Delete this commit?')
         ->emitNative(ButtonPressed::class, ['index' => 0, 'label' => 'Cancel', 'id' => 'delete-commit'])
@@ -117,7 +117,7 @@ it('deletes your own commit after a confirm', function () {
 it('offers delete only on your own commits', function () {
     fakeThread(['user' => userJson(['username' => 'ada'])], extra: ['DELETE /api/v1/commits/c2' => [null, 204]]);
 
-    Native::visit('/commits/c2')
+    Native::visit('/log/commits/c2')
         ->call('delete')
         ->assertNoNavigation();
 
@@ -127,9 +127,9 @@ it('offers delete only on your own commits', function () {
 it('opens ancestors, replies and profiles', function () {
     fakeThread(replies: [commitJson(['id' => 'r1'])]);
 
-    Native::visit('/commits/c2')->tap('commit-c1')->assertNavigatedTo('/commits/c1');
-    Native::visit('/commits/c2')->tap('reply-r1')->assertNavigatedTo('/commits/r1');
-    Native::visit('/commits/c2')->call('openProfile', 'ada')->assertNavigatedTo('/users/ada');
+    Native::visit('/log/commits/c2')->tap('commit-c1')->assertNavigatedTo('/log/commits/c1');
+    Native::visit('/log/commits/c2')->tap('reply-r1')->assertNavigatedTo('/log/commits/r1');
+    Native::visit('/log/commits/c2')->call('openProfile', 'ada')->assertNavigatedTo('/log/users/ada');
 });
 
 it('keeps deleted ancestors on the rail as tombstones', function () {
@@ -146,7 +146,7 @@ it('keeps deleted ancestors on the rail as tombstones', function () {
 
     $rail = config('native-ui.theme.light.rail');
 
-    $screen = Native::visit('/commits/c2')
+    $screen = Native::visit('/log/commits/c2')
         ->assertSee('The root commit')
         ->assertSee('[deleted]')
         ->assertSee('This commit was deleted.')
@@ -170,7 +170,7 @@ it('keeps deleted replies as tombstones and opens their replies in place', funct
         'GET /api/v1/commits/r1/replies' => [pageJson([commitJson(['id' => 'r3', 'parent_id' => 'r1', 'body' => 'Answering the deleted one'])])],
     ]);
 
-    $screen = Native::visit('/commits/c2')
+    $screen = Native::visit('/log/commits/c2')
         ->assertSee('This commit was deleted.')
         ->assertSee('Still here')
         ->assertDontSee('Answering the deleted one')
@@ -179,9 +179,9 @@ it('keeps deleted replies as tombstones and opens their replies in place', funct
         ->assertSee('Answering the deleted one')
         ->assertSee('Hide replies');
 
-    $screen->tap('reply-r3')->assertNavigatedTo('/commits/r3');
+    $screen->tap('reply-r3')->assertNavigatedTo('/log/commits/r3');
 
-    Native::visit('/commits/c2')
+    Native::visit('/log/commits/c2')
         ->tap('tombstone-replies-r1')
         ->tap('tombstone-replies-r1')
         ->assertDontSee('Answering the deleted one')
@@ -201,7 +201,7 @@ it('draws code blocks as mono text in a hairline box, from the body rather than 
         'mentions' => [['username' => 'ada', 'offset' => 10, 'length' => 4]],
     ]);
 
-    $screen = Native::visit('/commits/c2')
+    $screen = Native::visit('/log/commits/c2')
         ->assertSee('return $a <=> $b;')
         ->assertSee('php')
         ->assertSee('Ship it')
@@ -211,7 +211,7 @@ it('draws code blocks as mono text in a hairline box, from the body rather than 
 
     expect(paragraphRuns($screen, 'Fixed it'))->toBe([['Fixed it, '], ['@ada', 'mention'], [':']]);
 
-    $screen->press("openProfile('ada')")->assertNavigatedTo('/users/ada');
+    $screen->press("openProfile('ada')")->assertNavigatedTo('/log/users/ada');
 });
 
 it('shows the focused commit with its media and stars', function () {
@@ -220,7 +220,7 @@ it('shows the focused commit with its media and stars', function () {
         'link_preview' => ['url' => 'https://nativephp.com', 'title' => 'NativePHP', 'description' => null, 'image_url' => null, 'site_name' => 'NativePHP'],
     ]);
 
-    Native::visit('/commits/c2')
+    Native::visit('/log/commits/c2')
         ->assertSee('NativePHP')
         ->assertElement('row', fn (array $node): bool => ($node['ref'] ?? null) === 'stars-c2' && ($node['props']['a11y_label'] ?? null) === 'Not starred, 2 stars')
         // The reply composer is right there, so the focused commit has no Reply action of its own.
@@ -232,7 +232,7 @@ it('shows the focused commit with its media and stars', function () {
 it('goes back to onboarding when the key stops working', function () {
     fakeApi(['GET /api/v1/commits/c2' => [['message' => 'This SSH key is not on the GitHub account of a devnull user.'], 401]]);
 
-    Native::visit('/commits/c2')->assertReplacedWith('/onboarding');
+    Native::visit('/log/commits/c2')->assertReplacedWith('/onboarding');
 
     expect(app(Account::class)->user())->toBeNull();
 });
@@ -254,7 +254,7 @@ it('reloads when you come back from a reply you deleted', function () {
         };
     });
 
-    $reply = Native::visit('/commits/c2')
+    $reply = Native::visit('/log/commits/c2')
         ->assertSee('Soon gone')
         ->tap('reply-r1')
         ->follow()
@@ -279,7 +279,7 @@ it('shows your avatar once when you reply to yourself', function () {
         'GET /api/v1/commits/c3/replies' => [pageJson([])],
     ]);
 
-    $screen = Native::visit('/commits/c3')
+    $screen = Native::visit('/log/commits/c3')
         ->assertSee('And one more thing');
 
     expect(railNode($screen, 'commit-c1'))->toBe('avatar')

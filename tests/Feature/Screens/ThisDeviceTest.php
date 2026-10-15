@@ -9,12 +9,12 @@ beforeEach(function () {
     config(['devnull.url' => 'http://devnull.test']);
 });
 
-it('shows this device key and where it talks to, in stack chrome', function () {
+it('shows this device key and where it talks to, pushed onto the Profile tab', function () {
     signIn();
 
-    Native::visit('/device')
+    Native::visit('/profile/device')
         ->assertNavTitle('This device')
-        ->assertMissingElement('native_root_tabs')
+        ->assertTabActive('Profile')
         ->assertSee('ssh-ed25519')
         ->assertSee('SHA256:lbmsoA0yIEcEiVDRnMWuzm+nV+3ZEEpVIURqFoeSspg')
         ->assertSee(testKey()->openSsh())
@@ -26,7 +26,7 @@ it('shows this device key and where it talks to, in stack chrome', function () {
 it('shares the public key and opens your keys on GitHub', function () {
     signIn();
 
-    Native::visit('/device')
+    Native::visit('/profile/device')
         ->tap('share-key')
         ->assertNativeCalled('Share.File', fn (array $params): bool => $params['message'] === testKey()->openSsh())
         ->tap('github-keys')
@@ -36,7 +36,7 @@ it('shares the public key and opens your keys on GitHub', function () {
 it('forgets the device only after a confirm', function () {
     signIn();
 
-    $screen = Native::visit('/device')
+    $screen = Native::visit('/profile/device')
         ->tap('forget-device')
         ->assertNativeCalled('Dialog.Alert', fn (array $params): bool => $params['title'] === 'Forget this device?')
         ->emitNative(ButtonPressed::class, ['index' => 0, 'label' => 'Cancel', 'id' => 'forget-device'])

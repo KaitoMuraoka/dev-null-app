@@ -17,6 +17,11 @@ use Native\Mobile\Edge\NativeComponent;
  */
 class TabsLayout extends NativeLayout
 {
+    /**
+     * Each tab's URI. Commits and profiles open beneath the one they were tapped in.
+     */
+    public const array Tabs = ['/log', '/notifications', '/profile'];
+
     protected ?string $font = 'semibold';
 
     public function usesNativeChrome(): bool

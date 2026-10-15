@@ -6,6 +6,7 @@ use App\Devnull\Data\Commit;
 use App\Devnull\Data\Profile as ProfileData;
 use App\Devnull\Timeline;
 use App\Icons\Lucide;
+use App\NativeComponents\Concerns\OpensInTab;
 use App\NativeComponents\Concerns\ShowsCommits;
 use App\NativeComponents\Concerns\TalksToDevnull;
 use Illuminate\View\View;
@@ -26,6 +27,7 @@ use Native\Mobile\Facades\Browser;
 #[Lazy]
 class Profile extends NativeComponent
 {
+    use OpensInTab;
     use ShowsCommits;
     use TalksToDevnull;
 
@@ -157,7 +159,7 @@ class Profile extends NativeComponent
 
     public function openDevice(): void
     {
-        $this->navigate('/device');
+        $this->navigate('/profile/device');
     }
 
     public function editOnGitHub(): void
@@ -167,13 +169,13 @@ class Profile extends NativeComponent
 
     public function openCommit(string $id): void
     {
-        $this->navigate('/commits/'.$id);
+        $this->openInTab('/commits/'.$id);
     }
 
     public function openProfile(string $username): void
     {
         if ($username !== $this->username) {
-            $this->navigate('/users/'.$username);
+            $this->openInTab('/users/'.$username);
         }
     }
 

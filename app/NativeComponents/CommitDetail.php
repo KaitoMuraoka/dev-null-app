@@ -7,6 +7,7 @@ use App\Devnull\Display;
 use App\Devnull\Timeline;
 use App\Icons\Android;
 use App\Icons\Ios;
+use App\NativeComponents\Concerns\OpensInTab;
 use App\NativeComponents\Concerns\ShowsCommits;
 use App\NativeComponents\Concerns\TalksToDevnull;
 use Illuminate\View\View;
@@ -25,6 +26,7 @@ use Native\Mobile\Facades\Dialog;
 #[Lazy]
 class CommitDetail extends NativeComponent
 {
+    use OpensInTab;
     use ShowsCommits;
     use TalksToDevnull;
 
@@ -196,13 +198,13 @@ class CommitDetail extends NativeComponent
     public function openCommit(string $id): void
     {
         if ($id !== $this->id) {
-            $this->navigate('/commits/'.$id);
+            $this->openInTab('/commits/'.$id);
         }
     }
 
     public function openProfile(string $username): void
     {
-        $this->navigate('/users/'.$username);
+        $this->openInTab('/users/'.$username);
     }
 
     /**

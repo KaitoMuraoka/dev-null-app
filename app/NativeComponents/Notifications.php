@@ -3,6 +3,7 @@
 namespace App\NativeComponents;
 
 use App\Devnull\Data\Notification;
+use App\NativeComponents\Concerns\OpensInTab;
 use App\NativeComponents\Concerns\TalksToDevnull;
 use Illuminate\View\View;
 use Native\Mobile\Attributes\Lazy;
@@ -14,6 +15,7 @@ use Native\Mobile\Edge\NativeComponent;
 #[Lazy]
 class Notifications extends NativeComponent
 {
+    use OpensInTab;
     use TalksToDevnull;
 
     /** @var list<Notification> */
@@ -77,7 +79,7 @@ class Notifications extends NativeComponent
                 continue;
             }
 
-            $this->navigate($notification->opensCommit()
+            $this->openInTab($notification->opensCommit()
                 ? '/commits/'.$notification->commitId
                 : '/users/'.$notification->actor->username);
 

@@ -8,6 +8,7 @@ use App\Devnull\LastVisit;
 use App\Devnull\Timeline;
 use App\Icons\Android;
 use App\Icons\Ios;
+use App\NativeComponents\Concerns\OpensInTab;
 use App\NativeComponents\Concerns\ShowsCommits;
 use App\NativeComponents\Concerns\TalksToDevnull;
 use Illuminate\View\View;
@@ -23,6 +24,7 @@ use Native\Mobile\Edge\Transition;
 #[Lazy]
 class Log extends NativeComponent
 {
+    use OpensInTab;
     use ShowsCommits;
     use TalksToDevnull;
 
@@ -125,12 +127,12 @@ class Log extends NativeComponent
 
     public function openCommit(string $id): void
     {
-        $this->navigate('/commits/'.$id);
+        $this->openInTab('/commits/'.$id);
     }
 
     public function openProfile(string $username): void
     {
-        $this->navigate('/users/'.$username);
+        $this->openInTab('/users/'.$username);
     }
 
     /**
