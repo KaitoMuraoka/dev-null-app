@@ -229,5 +229,50 @@ it('tolerates missing optional fields', function () {
         ->and($commit->repliesCount)->toBe(0)
         ->and($commit->url)->toBeNull()
         ->and($commit->user->avatarUrl)->toBeNull()
-        ->and($commit->user->id)->toBe('ada');
+        ->and($commit->user->id)->toBe('ada')
+        ->and($commit->isDeleted())->toBeFalse()
+        ->and($commit->starsCount)->toBe(0)
+        ->and($commit->starred)->toBeFalse()
+        ->and($commit->isSaved)->toBeNull()
+        ->and($commit->isPinned)->toBeFalse()
+        ->and($commit->mentions)->toBe([])
+        ->and($commit->linkPreview)->toBeNull()
+        ->and($commit->images)->toBe([])
+        ->and($commit->parent)->toBeNull()
+        ->and($commit->content)->toHaveCount(1);
+});
+
+it('reads a tombstone without a body or author', function () {
+    $commit = Commit::fromArray(tombstoneJson(['id' => 'gone', 'parent_id' => 'p1', 'replies_count' => 2]));
+
+    expect($commit->isDeleted())->toBeTrue()
+        ->and($commit->id)->toBe('gone')
+        ->and($commit->parentId)->toBe('p1')
+        ->and($commit->repliesCount)->toBe(2)
+        ->and($commit->body)->toBe('')
+        ->and($commit->content)->toBe([])
+        ->and($commit->lane())->toBe('rail');
+});
+
+it('reads what the web shows on a commit', function () {
+    $commit = Commit::fromArray(commitJson([
+        'stars_count' => 2,
+        'starred' => true,
+        'is_saved' => true,
+        'is_pinned' => true,
+        'link_preview' => ['url' => 'https://www.laravel.com/docs', 'title' => 'Docs', 'description' => '', 'image_url' => null, 'site_name' => null],
+        'images' => [['id' => 'i1', 'url' => 'https://img.test/1', 'width' => 1080, 'height' => 2400], ['url' => null]],
+        'parent' => tombstoneJson(),
+    ]));
+
+    expect($commit->starsCount)->toBe(2)
+        ->and($commit->starred)->toBeTrue()
+        ->and($commit->isSaved)->toBeTrue()
+        ->and($commit->isPinned)->toBeTrue()
+        ->and($commit->linkPreview?->site())->toBe('laravel.com')
+        ->and($commit->linkPreview?->description)->toBeNull()
+        ->and($commit->images)->toHaveCount(1)
+        // A tall screenshot is held at 3:4, as the web caps an image's height.
+        ->and($commit->images[0]->ratio())->toBe(0.75)
+        ->and($commit->parent?->isDeleted())->toBeTrue();
 });

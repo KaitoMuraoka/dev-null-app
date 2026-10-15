@@ -137,20 +137,54 @@ function userJson(array $overrides = []): array
 }
 
 /**
+ * A commit as the API sends it. The body's segments follow the body unless
+ * a test sends its own, as the server always splits the body it stores.
+ *
  * @param  array<string, mixed>  $overrides
  * @return array<string, mixed>
  */
 function commitJson(array $overrides = []): array
 {
-    return [
+    $commit = [
         'id' => '0199e5c4-1111-7000-8000-00000000c0de',
         'body' => 'Shipped the mobile app.',
         'status' => 'approved',
-        'created_at' => now()->subMinutes(5)->toIso8601String(),
         'parent_id' => null,
         'replies_count' => 0,
+        'stars_count' => 0,
+        'starred' => false,
+        'is_saved' => false,
+        'is_pinned' => false,
         'url' => 'http://devnull.test/@local_dev/commits/0199e5c4-1111-7000-8000-00000000c0de',
+        'created_at' => now()->subMinutes(5)->toIso8601String(),
+        'deleted_at' => null,
+        'mentions' => [],
+        'link_preview' => null,
+        'images' => [],
         'user' => userJson(),
+        ...$overrides,
+    ];
+
+    if (! array_key_exists('body_segments', $overrides)) {
+        $commit['body_segments'] = $commit['body'] === '' ? [] : [['type' => 'text', 'text' => $commit['body']]];
+    }
+
+    return $commit;
+}
+
+/**
+ * A deleted commit that still has replies, as the API sends it: no body, no author.
+ *
+ * @param  array<string, mixed>  $overrides
+ * @return array<string, mixed>
+ */
+function tombstoneJson(array $overrides = []): array
+{
+    return [
+        'id' => '0199e5c4-2222-7000-8000-0000000dead0',
+        'parent_id' => null,
+        'deleted_at' => now()->subHour()->toIso8601ZuluString(),
+        'replies_count' => 1,
         ...$overrides,
     ];
 }

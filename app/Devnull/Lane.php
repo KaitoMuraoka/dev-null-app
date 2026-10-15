@@ -17,6 +17,11 @@ final class Lane
     public const int Count = 6;
 
     /**
+     * Rail Gray, which the graph draws for a deleted commit since it has no author.
+     */
+    public const string Rail = 'rail';
+
+    /**
      * Reads a lane from the API, or null when it's missing or out of range.
      */
     public static function from(mixed $value): ?int
