@@ -19,6 +19,7 @@ use Native\Mobile\Facades\Dialog;
 
 /**
  * One commit: its ancestors above, its replies below, and a reply composer.
+ * Deleted ancestors and replies show as tombstones.
  */
 #[Lazy]
 class CommitDetail extends NativeComponent
@@ -39,6 +40,13 @@ class CommitDetail extends NativeComponent
     public array $replies = [];
 
     public ?string $repliesCursor = null;
+
+    /**
+     * The replies of deleted replies that were opened in place, by the deleted reply's id.
+     *
+     * @var array<string, list<Commit>>
+     */
+    public array $tombstoneReplies = [];
 
     public string $reply = '';
 
@@ -94,6 +102,24 @@ class CommitDetail extends NativeComponent
             $this->replies = $replies->items;
             $this->repliesCursor = $replies->nextCursor;
         }
+
+        foreach (array_keys($this->tombstoneReplies) as $id) {
+            $this->loadTombstoneReplies((string) $id);
+        }
+    }
+
+    /**
+     * A deleted reply has no page of its own, so its replies open in place below it.
+     */
+    public function toggleTombstone(string $id): void
+    {
+        if (array_key_exists($id, $this->tombstoneReplies)) {
+            unset($this->tombstoneReplies[$id]);
+
+            return;
+        }
+
+        $this->loadTombstoneReplies($id);
     }
 
     public function loadMoreReplies(): void
@@ -183,7 +209,16 @@ class CommitDetail extends NativeComponent
      */
     protected function shownCommits(): iterable
     {
-        return [...($this->commit === null ? [] : [$this->commit]), ...$this->ancestors, ...$this->replies];
+        return [...($this->commit === null ? [] : [$this->commit]), ...$this->ancestors, ...$this->replies, ...array_merge([], ...array_values($this->tombstoneReplies))];
+    }
+
+    private function loadTombstoneReplies(string $id): void
+    {
+        $page = $this->attempt(fn ($devnull) => $devnull->replies($id));
+
+        if ($page !== null) {
+            $this->tombstoneReplies[$id] = $page->items;
+        }
     }
 
     public function isOwn(): bool

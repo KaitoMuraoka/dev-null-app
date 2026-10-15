@@ -54,29 +54,10 @@
                 @endif
 
                 @forelse ($replies as $replyCommit)
-                    <native:pressable ref="reply-{{ $replyCommit->id }}" @press="openCommit('{{ $replyCommit->id }}')" class="w-full" :press-opacity="0.7">
-                        <native:row class="w-full pl-4 pr-4 py-3 gap-3">
-                            <native:column :width="1" class="h-full bg-theme-rail" />
-                            <native:pressable @press="openProfile('{{ $replyCommit->user->username }}')" a11y-label="{{ $replyCommit->user->name }}'s profile">
-                                @include('native.partials.avatar', ['user' => $replyCommit->user, 'size' => 28])
-                            </native:pressable>
-                            <native:column class="flex-1 gap-1">
-                                <native:row class="w-full gap-1 items-center">
-                                    <native:text font="semibold" class="text-sm text-theme-ink flex-shrink" :max-lines="1">{{ $replyCommit->user->name }}</native:text>
-                                    <native:text class="text-[13px] text-theme-ink-muted">·</native:text>
-                                    <native:text font="mono" class="text-[13px] text-theme-ink-muted">{{ \App\Devnull\Display::relativeTime($replyCommit->createdAt) }}</native:text>
-                                    @unless ($replyCommit->isApproved())
-                                        <native:column class="ml-1 px-2 py-[2] rounded-full bg-theme-pending-soft">
-                                            <native:text font="mono" class="text-xs text-theme-pending">{{ $replyCommit->status }}</native:text>
-                                        </native:column>
-                                    @endunless
-                                </native:row>
-                                @include('native.partials.commit-body', ['commit' => $replyCommit])
-                                @include('native.partials.commit-media', ['commit' => $replyCommit])
-                                @include('native.partials.commit-actions', ['commit' => $replyCommit])
-                            </native:column>
-                        </native:row>
-                    </native:pressable>
+                    @include('native.partials.reply', ['reply' => $replyCommit])
+                    @foreach ($tombstoneReplies[$replyCommit->id] ?? [] as $nestedReply)
+                        @include('native.partials.reply', ['reply' => $nestedReply, 'nested' => true])
+                    @endforeach
                 @empty
                     <native:column class="w-full px-4 py-4">
                         <native:text class="text-sm text-theme-ink-muted">No replies yet.</native:text>

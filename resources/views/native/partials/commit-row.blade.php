@@ -3,6 +3,9 @@
     The segment above the node takes the previous author's lane, the one below takes this author's.
 --}}
 @php($previousLane ??= null)
+@if ($commit->isDeleted())
+    @include('native.partials.commit-tombstone')
+@else
 <native:pressable ref="commit-{{ $commit->id }}" @press="openCommit('{{ $commit->id }}')" class="w-full bg-theme-surface" :press-opacity="0.7">
     <native:row class="w-full">
         <native:column :width="44" />
@@ -37,3 +40,4 @@
         @include('native.partials.rail', ['previous' => $previousLane, 'lane' => $commit->lane(), 'tail' => $commit->lane()])
     </native:row>
 </native:pressable>
+@endif

@@ -132,6 +132,59 @@ it('opens ancestors, replies and profiles', function () {
     Native::visit('/commits/c2')->call('openProfile', 'ada')->assertNavigatedTo('/users/ada');
 });
 
+it('keeps deleted ancestors on the rail as tombstones', function () {
+    fakeApi([
+        'GET /api/v1/commits/c2' => [[
+            'data' => commitJson(['id' => 'c2', 'parent_id' => 'c1', 'body' => 'The focused commit']),
+            'ancestors' => [
+                commitJson(['id' => 'c0', 'body' => 'The root commit', 'user' => userJson(['username' => 'ada', 'lane' => 1])]),
+                tombstoneJson(['id' => 'c1', 'parent_id' => 'c0']),
+            ],
+        ]],
+        'GET /api/v1/commits/c2/replies' => [pageJson([])],
+    ]);
+
+    $rail = config('native-ui.theme.light.rail');
+
+    Native::visit('/commits/c2')
+        ->assertSee('The root commit')
+        ->assertSee('[deleted]')
+        ->assertSee('This commit was deleted.')
+        ->assertSee('The focused commit')
+        // A hollow Rail Gray node, and a Rail Gray segment running on from it.
+        ->assertElement('row', fn (array $node): bool => ($node['ref'] ?? null) === 'tombstone-c1')
+        ->assertElement('stack', fn (array $node): bool => ($node['layout']['width'] ?? null) === 18.0
+            && ($node['style']['bg_color'] ?? null) === $rail
+            && collect($node['children'][0]['children'] ?? [])->isEmpty())
+        ->assertMissingElement('pressable', fn (array $node): bool => ($node['ref'] ?? null) === 'commit-c1');
+});
+
+it('keeps deleted replies as tombstones and opens their replies in place', function () {
+    fakeThread(replies: [
+        tombstoneJson(['id' => 'r1', 'parent_id' => 'c2', 'replies_count' => 1]),
+        commitJson(['id' => 'r2', 'parent_id' => 'c2', 'body' => 'Still here']),
+    ], extra: [
+        'GET /api/v1/commits/r1/replies' => [pageJson([commitJson(['id' => 'r3', 'parent_id' => 'r1', 'body' => 'Answering the deleted one'])])],
+    ]);
+
+    $screen = Native::visit('/commits/c2')
+        ->assertSee('This commit was deleted.')
+        ->assertSee('Still here')
+        ->assertDontSee('Answering the deleted one')
+        ->assertMissingElement('pressable', fn (array $node): bool => ($node['ref'] ?? null) === 'reply-r1')
+        ->tap('tombstone-replies-r1')
+        ->assertSee('Answering the deleted one')
+        ->assertSee('Hide replies');
+
+    $screen->tap('reply-r3')->assertNavigatedTo('/commits/r3');
+
+    Native::visit('/commits/c2')
+        ->tap('tombstone-replies-r1')
+        ->tap('tombstone-replies-r1')
+        ->assertDontSee('Answering the deleted one')
+        ->assertSee('1 reply');
+});
+
 it('draws code blocks as mono text in a hairline box, from the body rather than the HTML', function () {
     $body = "Fixed it, @ada:\n```php\nreturn \$a <=> \$b;\n```\nShip it";
 
