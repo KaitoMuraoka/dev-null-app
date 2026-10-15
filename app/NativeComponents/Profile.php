@@ -5,15 +5,23 @@ namespace App\NativeComponents;
 use App\Devnull\Data\Commit;
 use App\Devnull\Data\Profile as ProfileData;
 use App\Devnull\Timeline;
+use App\Icons\Lucide;
 use App\NativeComponents\Concerns\ShowsCommits;
 use App\NativeComponents\Concerns\TalksToDevnull;
 use Illuminate\View\View;
 use Native\Mobile\Attributes\Lazy;
+use Native\Mobile\Edge\Layouts\Builders\NavAction;
+use Native\Mobile\Edge\Layouts\Builders\NavBarOptions;
 use Native\Mobile\Edge\NativeComponent;
+use Native\Mobile\Facades\Browser;
 
 /**
  * A developer's profile: who they are on GitHub, their counts and activity,
  * then their commits (with the pinned one on top) or their replies.
+ *
+ * The Profile tab shows your own, with no username in the route. Like the web,
+ * your own profile swaps Follow for "Edit on GitHub", and its nav bar leads to
+ * this device's key.
  */
 #[Lazy]
 class Profile extends NativeComponent
@@ -36,6 +44,10 @@ class Profile extends NativeComponent
 
     public function mount(): void
     {
+        if ($this->username === '') {
+            $this->username = $this->me()?->username ?? '';
+        }
+
         $this->load();
     }
 
@@ -49,8 +61,30 @@ class Profile extends NativeComponent
         return '@'.$this->username;
     }
 
+    public function navigationOptions(): ?NavBarOptions
+    {
+        if (! $this->isMe()) {
+            return null;
+        }
+
+        return NavBarOptions::make()->action(
+            NavAction::make('device')
+                ->icon(ios: Lucide::Settings2->ios(), android: Lucide::Settings2->android())
+                ->a11yLabel('This device')
+                ->press('openDevice'),
+        );
+    }
+
+    /**
+     * Loads the profile, and on your own picks up name and avatar changes and the
+     * unread count, which the Me tab used to fetch.
+     */
     public function load(): void
     {
+        if ($this->username === '') {
+            return;
+        }
+
         $profile = $this->attempt(fn ($devnull) => $devnull->profile($this->username));
 
         if ($profile === null) {
@@ -59,6 +93,10 @@ class Profile extends NativeComponent
 
         $this->profile = $profile;
         $this->loadCommits();
+
+        if ($this->isMe()) {
+            $this->refreshUnreadNotifications();
+        }
     }
 
     public function showTab(string $tab): void
@@ -114,7 +152,17 @@ class Profile extends NativeComponent
 
     public function isMe(): bool
     {
-        return $this->me()?->username === $this->username;
+        return $this->username !== '' && $this->me()?->username === $this->username;
+    }
+
+    public function openDevice(): void
+    {
+        $this->navigate('/device');
+    }
+
+    public function editOnGitHub(): void
+    {
+        Browser::inApp('https://github.com/settings/profile');
     }
 
     public function openCommit(string $id): void

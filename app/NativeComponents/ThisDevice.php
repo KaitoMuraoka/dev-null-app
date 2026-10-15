@@ -3,7 +3,6 @@
 namespace App\NativeComponents;
 
 use App\Devnull\Account;
-use App\Devnull\Data\User;
 use App\Devnull\DeviceKey;
 use App\Devnull\Exceptions\KeychainUnavailable;
 use App\NativeComponents\Concerns\TalksToDevnull;
@@ -16,15 +15,13 @@ use Native\Mobile\Facades\Dialog;
 use Native\Mobile\Facades\Share;
 
 /**
- * You, and this device's key.
+ * This device's key and where it talks to, reached from your own profile.
  */
-class Me extends NativeComponent
+class ThisDevice extends NativeComponent
 {
     use TalksToDevnull;
 
     public const string ForgetAlert = 'forget-device';
-
-    public ?User $user = null;
 
     public string $publicKey = '';
 
@@ -32,8 +29,6 @@ class Me extends NativeComponent
 
     public function mount(): void
     {
-        $this->user = $this->me();
-
         try {
             $key = app(DeviceKey::class)->current();
             $this->publicKey = $key->openSsh();
@@ -41,34 +36,11 @@ class Me extends NativeComponent
         } catch (KeychainUnavailable $exception) {
             $this->error = $exception->getMessage();
         }
-
-        $this->refresh();
     }
 
     public function navTitle(): string
     {
-        return 'Me';
-    }
-
-    /**
-     * Picks up name and avatar changes made on GitHub since the last sync.
-     */
-    public function refresh(): void
-    {
-        $current = $this->attempt(fn ($devnull) => $devnull->me());
-
-        if ($current !== null) {
-            app(Account::class)->remember($current->user);
-            app(Account::class)->rememberUnreadNotifications($current->unreadNotificationsCount);
-            $this->user = $current->user;
-        }
-    }
-
-    public function openProfile(): void
-    {
-        if ($this->user !== null) {
-            $this->navigate('/users/'.$this->user->username);
-        }
+        return 'This device';
     }
 
     public function shareKey(): void
@@ -111,6 +83,6 @@ class Me extends NativeComponent
 
     public function render(): View
     {
-        return view('native.me', ['remote' => config('devnull.url')]);
+        return view('native.this-device', ['remote' => config('devnull.url')]);
     }
 }

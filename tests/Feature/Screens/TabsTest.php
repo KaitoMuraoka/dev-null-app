@@ -22,12 +22,12 @@ function tabIcons(TestableComponent $screen): array
         ->all();
 }
 
-it('gives the tabs the nearest SF Symbols to the web phone nav', function () {
+it('has Log, Notifications and Profile tabs with the nearest SF Symbols to the web phone nav', function () {
     // Lucide's GitCommitVertical, Bell and UserRound. SF Symbols has no vertical commit.
     expect(tabIcons(Native::visit('/log', platform: 'ios')))->toBe([
         'Log' => ['circle.and.line.horizontal', null],
         'Notifications' => ['bell', null],
-        'Me' => ['person', null],
+        'Profile' => ['person', null],
     ]);
 });
 
@@ -35,6 +35,6 @@ it('uses the outlined Material icons on Android to match the web strokes', funct
     expect(tabIcons(Native::visit('/log', platform: 'android')))->toBe([
         'Log' => ['commit', 'outlined'],
         'Notifications' => ['notifications', 'outlined'],
-        'Me' => ['person', 'outlined'],
+        'Profile' => ['person', 'outlined'],
     ]);
 });

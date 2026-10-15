@@ -9,40 +9,34 @@ beforeEach(function () {
     config(['devnull.url' => 'http://devnull.test']);
 });
 
-it('shows you, this device key and where it talks to', function () {
+it('shows this device key and where it talks to, in stack chrome', function () {
     signIn();
-    fakeApi(['GET /api/v1/me' => [['data' => userJson(['name' => 'Local Developer'])]]]);
 
-    Native::visit('/me')
-        ->assertNavTitle('Me')
-        ->assertTabActive('Me')
-        ->assertSee('Local Developer')
-        ->assertSee('@local_dev')
+    Native::visit('/device')
+        ->assertNavTitle('This device')
+        ->assertMissingElement('native_root_tabs')
+        ->assertSee('ssh-ed25519')
         ->assertSee('SHA256:lbmsoA0yIEcEiVDRnMWuzm+nV+3ZEEpVIURqFoeSspg')
         ->assertSee(testKey()->openSsh())
-        ->assertSee('http://devnull.test');
-
-    expect(app(Account::class)->user()?->name)->toBe('Local Developer');
+        ->assertSee('http://devnull.test')
+        ->assertSee('Share public key')
+        ->assertSee('Forget this device');
 });
 
-it('opens your profile and shares the public key', function () {
+it('shares the public key and opens your keys on GitHub', function () {
     signIn();
-    fakeApi(['GET /api/v1/me' => [['data' => userJson()]]]);
 
-    Native::visit('/me')
+    Native::visit('/device')
         ->tap('share-key')
         ->assertNativeCalled('Share.File', fn (array $params): bool => $params['message'] === testKey()->openSsh())
         ->tap('github-keys')
-        ->assertNativeCalled('Browser.OpenInApp', fn (array $params): bool => $params['url'] === 'https://github.com/settings/keys')
-        ->tap('my-profile')
-        ->assertNavigatedTo('/users/local_dev');
+        ->assertNativeCalled('Browser.OpenInApp', fn (array $params): bool => $params['url'] === 'https://github.com/settings/keys');
 });
 
 it('forgets the device only after a confirm', function () {
-    $bridge = signIn();
-    fakeApi(['GET /api/v1/me' => [['data' => userJson()]]]);
+    signIn();
 
-    $screen = Native::visit('/me')
+    $screen = Native::visit('/device')
         ->tap('forget-device')
         ->assertNativeCalled('Dialog.Alert', fn (array $params): bool => $params['title'] === 'Forget this device?')
         ->emitNative(ButtonPressed::class, ['index' => 0, 'label' => 'Cancel', 'id' => 'forget-device'])

@@ -23,7 +23,7 @@ it('shows the following log in tab chrome with a compose action', function () {
         ->assertHasTabBar()
         ->assertTabActive('Log')
         ->assertHasTab('Notifications')
-        ->assertHasTab('Me')
+        ->assertHasTab('Profile')
         ->assertNavTitle('Log')
         // The web's page tabs: "Log" and "Everyone".
         ->assertElement('pressable', fn (array $node): bool => ($node['ref'] ?? null) === 'tab-following' && ($node['props']['a11y_label'] ?? null) === 'Log, selected')

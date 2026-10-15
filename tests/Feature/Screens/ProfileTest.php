@@ -3,6 +3,7 @@
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Native\Mobile\Testing\Native;
+use Native\Mobile\Testing\TestableComponent;
 
 beforeEach(function () {
     config(['devnull.url' => 'http://devnull.test']);
@@ -305,3 +306,43 @@ it('says no commits yet over an empty strip and leaves out the streaks', functio
         ->assertMissingElement('row', fn (array $node): bool => ($node['ref'] ?? null) === 'streaks');
 });
 
+it('shows your own profile on the Profile tab', function () {
+    fakeApi([
+        'GET /api/v1/users/local_dev' => [profileJson(user: ['id' => userJson()['id'], 'username' => 'local_dev', 'name' => 'Local Dev'])],
+        'GET /api/v1/users/local_dev/commits' => [pageJson([commitJson(['body' => 'My own commit'])])],
+    ]);
+
+    Native::visit('/profile')
+        ->assertHasTabBar()
+        ->assertTabActive('Profile')
+        ->assertNavTitle('@local_dev')
+        ->assertSet('username', 'local_dev')
+        ->assertSee('Local Dev')
+        ->assertSee('My own commit')
+        ->assertSee('Commits')
+        ->assertSee('Replies')
+        ->assertSee('That was your first commit. Everyone starts somewhere.')
+        ->assertMissingElement('button', fn (array $node): bool => ($node['ref'] ?? null) === 'follow')
+        // Where the web puts "Edit on GitHub" in place of Follow.
+        ->tap('edit-on-github')
+        ->assertNativeCalled('Browser.OpenInApp', fn (array $params): bool => $params['url'] === 'https://github.com/settings/profile');
+});
+
+it('leads from your own profile to this device with the Settings2 icon', function () {
+    fakeApi([
+        'GET /api/v1/users/local_dev' => [profileJson(user: ['username' => 'local_dev'])],
+        'GET /api/v1/users/local_dev/commits' => [pageJson([])],
+        'GET /api/v1/users/ada' => [profileJson()],
+        'GET /api/v1/users/ada/commits' => [pageJson([])],
+    ]);
+
+    $action = fn (TestableComponent $screen): ?array => findNode($screen->tree(), fn (array $node): bool => ($node['type'] ?? null) === 'top_bar_action' && ($node['props']['id'] ?? null) === 'device');
+
+    $screen = Native::visit('/profile', platform: 'ios');
+
+    expect($action($screen)['props'] ?? null)->toMatchArray(['icon' => 'slider.horizontal.3', 'a11y_label' => 'This device'])
+        ->and($action(Native::visit('/profile', platform: 'android'))['props']['icon'] ?? null)->toBe('tune')
+        ->and($action(Native::visit('/users/ada')))->toBeNull();
+
+    $screen->press('openDevice')->assertNavigatedTo('/device');
+});

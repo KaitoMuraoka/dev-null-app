@@ -2,30 +2,8 @@
 @use('App\Icons\Android')
 
 <native:scroll-view class="w-full h-full bg-theme-background">
-    <native:column class="w-full pb-10">
+    <native:column class="w-full pt-6 pb-10">
         @include('native.partials.error')
-
-        @if ($user)
-            <native:pressable ref="my-profile" @press="openProfile" class="w-full bg-theme-surface" :press-opacity="0.7">
-                <native:row class="w-full px-4 py-4 gap-3 items-center">
-                    <native:stack :width="60" :height="60" class="rounded-full bg-theme-lane-{{ $user->lane() }}">
-                        <native:stack :width="56" :height="56" class="rounded-full bg-theme-surface">
-                            @include('native.partials.avatar', ['user' => $user, 'size' => 52])
-                        </native:stack>
-                    </native:stack>
-                    <native:column class="flex-1 gap-1">
-                        <native:text font="semibold" class="text-lg text-theme-ink">{{ $user->name }}</native:text>
-                        <native:text font="mono" class="text-[13px] text-theme-ink-muted">{{ $user->handle() }}</native:text>
-                    </native:column>
-                    <native:icon name="forward" :size="16" class="text-theme-ink-muted" />
-                </native:row>
-            </native:pressable>
-            <native:column class="w-full h-[1] bg-theme-hairline" />
-        @endif
-
-        <native:column class="w-full px-4 pt-6 pb-2">
-            <native:text font="semibold" class="text-lg tracking-tight text-theme-ink">This device</native:text>
-        </native:column>
 
         <native:column class="mx-4 rounded-lg border border-theme-hairline bg-theme-surface">
             <native:row class="w-full px-3 py-3 gap-3">

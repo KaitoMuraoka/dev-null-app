@@ -116,14 +116,19 @@ it('keeps the log on screen when the count cannot be fetched', function () {
     expect(notificationsBadge($screen))->toBe('4');
 });
 
-it('picks up the count on the Me tab and forgets it with the device', function () {
-    fakeApi(['GET /api/v1/me' => [meJson(5)]]);
+it('picks up the count on your Profile tab and forgets it with the device', function () {
+    fakeApi([
+        'GET /api/v1/users/local_dev' => [['data' => [...userJson(), 'commits_count' => 0, 'followers_count' => 0, 'following_count' => 0], 'is_following' => false, 'activity' => ['scale' => 'week', 'buckets' => []], 'streaks' => ['longest' => 0, 'current' => 0], 'pinned_commit' => null]],
+        'GET /api/v1/users/local_dev/commits' => [pageJson([])],
+        'GET /api/v1/me' => [meJson(5, ['name' => 'Renamed On GitHub'])],
+    ]);
 
-    $screen = Native::visit('/me');
+    $screen = Native::visit('/profile');
 
-    expect(notificationsBadge($screen))->toBe('5');
+    expect(notificationsBadge($screen))->toBe('5')
+        ->and(app(Account::class)->user()?->name)->toBe('Renamed On GitHub');
 
-    $screen->call('forget');
+    Native::visit('/device')->call('forget');
 
     expect(app(Account::class)->unreadNotifications())->toBe(0);
 });

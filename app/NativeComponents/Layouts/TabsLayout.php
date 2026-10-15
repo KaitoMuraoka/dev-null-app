@@ -11,9 +11,9 @@ use Native\Mobile\Edge\Layouts\NativeLayout;
 use Native\Mobile\Edge\NativeComponent;
 
 /**
- * The three top-level sections: Log, Notifications and Me, with the icons of
- * the web's phone nav. Notifications wears a badge with the unread count
- * devnull last gave.
+ * The three top-level sections: Log, Notifications and your Profile, with the
+ * icons of the web's phone nav. Notifications wears a badge with the unread
+ * count devnull last gave.
  */
 class TabsLayout extends NativeLayout
 {
@@ -45,6 +45,6 @@ class TabsLayout extends NativeLayout
             ->labelVisibility('labeled')
             ->add(Tab::link('Log', '/log', ios: Lucide::GitCommitVertical->ios(), android: Lucide::GitCommitVertical->android()))
             ->add($notifications)
-            ->add(Tab::link('Me', '/me', ios: Lucide::UserRound->ios(), android: Lucide::UserRound->android()));
+            ->add(Tab::link('Profile', '/profile', ios: Lucide::UserRound->ios(), android: Lucide::UserRound->android()));
     }
 }

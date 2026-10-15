@@ -14,13 +14,13 @@
                             </native:stack>
                         </native:stack>
 
-                        @unless ($isMe)
-                            @if ($profile->isFollowing)
-                                <native:button ref="follow" variant="secondary" size="sm" @press="toggleFollow" a11y-hint="Unfollows {{ $user->handle() }}">Unfollow</native:button>
-                            @else
-                                <native:button ref="follow" variant="primary" size="sm" @press="toggleFollow">Follow</native:button>
-                            @endif
-                        @endunless
+                        @if ($isMe)
+                            <native:button ref="edit-on-github" variant="secondary" size="sm" :ios-icon-trailing="\App\Icons\Lucide::ArrowUpRight->ios()" :android-icon-trailing="\App\Icons\Lucide::ArrowUpRight->android()" @press="editOnGitHub">Edit on GitHub</native:button>
+                        @elseif ($profile->isFollowing)
+                            <native:button ref="follow" variant="secondary" size="sm" @press="toggleFollow" a11y-hint="Unfollows {{ $user->handle() }}">Unfollow</native:button>
+                        @else
+                            <native:button ref="follow" variant="primary" size="sm" @press="toggleFollow">Follow</native:button>
+                        @endif
                     </native:row>
 
                     <native:column class="w-full gap-1">
