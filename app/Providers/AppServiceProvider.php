@@ -2,7 +2,10 @@
 
 namespace App\Providers;
 
+use App\Devnull\Client;
+use App\Devnull\DeviceKey;
 use Carbon\CarbonImmutable;
+use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\ServiceProvider;
@@ -15,7 +18,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->bind(Client::class, fn (Application $app): Client => new Client(
+            $app->make(DeviceKey::class),
+            (string) config('devnull.url'),
+        ));
     }
 
     /**
