@@ -3,8 +3,7 @@
 namespace App\NativeComponents\Layouts;
 
 use App\Devnull\Account;
-use App\Icons\Android;
-use App\Icons\Ios;
+use App\Icons\Lucide;
 use Native\Mobile\Edge\Layouts\Builders\NavBar;
 use Native\Mobile\Edge\Layouts\Builders\Tab;
 use Native\Mobile\Edge\Layouts\Builders\TabBar;
@@ -12,8 +11,9 @@ use Native\Mobile\Edge\Layouts\NativeLayout;
 use Native\Mobile\Edge\NativeComponent;
 
 /**
- * The three top-level sections: Log, Notifications and Me. Notifications
- * wears a badge with the unread count devnull last gave.
+ * The three top-level sections: Log, Notifications and Me, with the icons of
+ * the web's phone nav. Notifications wears a badge with the unread count
+ * devnull last gave.
  */
 class TabsLayout extends NativeLayout
 {
@@ -33,7 +33,7 @@ class TabsLayout extends NativeLayout
 
     public function tabBar(NativeComponent $screen): ?TabBar
     {
-        $notifications = Tab::link('Notifications', '/notifications', ios: Ios::Bell, android: Android::Notifications);
+        $notifications = Tab::link('Notifications', '/notifications', ios: Lucide::Bell->ios(), android: Lucide::Bell->android());
         $unread = app(Account::class)->unreadNotifications();
 
         if ($unread > 0) {
@@ -43,8 +43,8 @@ class TabsLayout extends NativeLayout
         return TabBar::make()
             ->activeColor((string) theme('primary', '#3b6fe0'))
             ->labelVisibility('labeled')
-            ->add(Tab::link('Log', '/log', ios: Ios::CircleAndLineHorizontal, android: Android::Commit))
+            ->add(Tab::link('Log', '/log', ios: Lucide::GitCommitVertical->ios(), android: Lucide::GitCommitVertical->android()))
             ->add($notifications)
-            ->add(Tab::link('Me', '/me', ios: Ios::PersonCropCircle, android: Android::AccountCircle));
+            ->add(Tab::link('Me', '/me', ios: Lucide::UserRound->ios(), android: Lucide::UserRound->android()));
     }
 }
