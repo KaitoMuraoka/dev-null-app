@@ -19,3 +19,8 @@ it('prints relative times the way the web does', function (string $date, string 
 it('shortens ids to the last seven characters without dashes', function () {
     expect(Display::shortHash('9b2f6c1e-1d3a-4e5f-8a7b-0c1d2e3f4a5b'))->toBe('e3f4a5b');
 });
+
+it('prints full dates the way git log does', function () {
+    expect(Display::gitDate(CarbonImmutable::parse('2026-10-14T20:13:05Z')))->toBe('Wed Oct 14 20:13:05 2026 +0000')
+        ->and(Display::gitDate(null))->toBe('');
+});

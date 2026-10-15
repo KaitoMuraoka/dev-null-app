@@ -29,9 +29,13 @@ final class Display
         };
     }
 
-    public static function fullDateTime(?CarbonInterface $date): string
+    /**
+     * The date the way `git log` prints it, offset included, since the device
+     * time zone isn't visible to PHP.
+     */
+    public static function gitDate(?CarbonInterface $date): string
     {
-        return $date?->format('g:i A · M j, Y') ?? '';
+        return $date?->format('D M j H:i:s Y O') ?? '';
     }
 
     public static function shortHash(string $id): string

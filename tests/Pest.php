@@ -4,6 +4,8 @@ use App\Devnull\Account;
 use App\Devnull\Data\User;
 use App\Devnull\DeviceKey;
 use App\Devnull\SshKey;
+use Illuminate\Http\Client\Request;
+use Illuminate\Support\Facades\Http;
 use Native\Mobile\Testing\FakeBridge;
 use Native\Mobile\Testing\Native;
 use Tests\TestCase;
@@ -47,6 +49,26 @@ expect()->extend('toBeOne', function () {
 | global functions to help you to reduce the number of lines of code in your test files.
 |
 */
+
+/**
+ * Fakes the devnull API by "METHOD /path", ignoring the query string.
+ * Each route answers with [body, status], built fresh for every request.
+ * Anything else gets a 404, so a stray request shows up in the test.
+ *
+ * @param  array<string, array{0: mixed, 1?: int}>  $routes
+ */
+function fakeApi(array $routes): void
+{
+    Http::fake(function (Request $request) use ($routes) {
+        $route = $request->method().' '.parse_url($request->url(), PHP_URL_PATH);
+
+        if (! array_key_exists($route, $routes)) {
+            return Http::response(['message' => "No fake for {$route}."], 404);
+        }
+
+        return Http::response($routes[$route][0], $routes[$route][1] ?? 200);
+    });
+}
 
 /**
  * A Keychain held in memory, answering the SecureStorage bridge calls.
