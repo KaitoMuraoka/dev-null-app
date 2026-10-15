@@ -4,6 +4,7 @@ namespace App\NativeComponents;
 
 use App\Devnull\Data\Commit;
 use App\Devnull\Display;
+use App\Devnull\Timeline;
 use App\Icons\Android;
 use App\Icons\Ios;
 use App\NativeComponents\Concerns\ShowsCommits;
@@ -228,6 +229,9 @@ class CommitDetail extends NativeComponent
 
     public function render(): View
     {
-        return view('native.commit-detail');
+        return view('native.commit-detail', [
+            'viewer' => $this->me(),
+            'rows' => $this->commit === null ? [] : Timeline::thread([...$this->ancestors, $this->commit]),
+        ]);
     }
 }

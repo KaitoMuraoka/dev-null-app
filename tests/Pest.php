@@ -269,3 +269,87 @@ function paragraphRuns(TestableComponent $screen, string $text): array
         default => [$run['props']['text']],
     }, $paragraph['children']);
 }
+
+/**
+ * The first node in a rendered tree, depth first, that matches.
+ *
+ * @param  array<string, mixed>  $node
+ * @param  callable(array<string, mixed>): bool  $matches
+ * @return array<string, mixed>|null
+ */
+function findNode(array $node, callable $matches): ?array
+{
+    if ($matches($node)) {
+        return $node;
+    }
+
+    foreach ($node['children'] ?? [] as $child) {
+        if (($found = findNode($child, $matches)) !== null) {
+            return $found;
+        }
+    }
+
+    return null;
+}
+
+/**
+ * Every node in a rendered tree that matches, in order.
+ *
+ * @param  array<string, mixed>  $node
+ * @param  callable(array<string, mixed>): bool  $matches
+ * @return list<array<string, mixed>>
+ */
+function findNodes(array $node, callable $matches): array
+{
+    $found = $matches($node) ? [$node] : [];
+
+    foreach ($node['children'] ?? [] as $child) {
+        $found = [...$found, ...findNodes($child, $matches)];
+    }
+
+    return $found;
+}
+
+/**
+ * The rendered node with the given ref.
+ *
+ * @return array<string, mixed>
+ */
+function nodeByRef(TestableComponent $screen, string $ref): array
+{
+    $node = findNode($screen->tree(), fn (array $node): bool => ($node['ref'] ?? null) === $ref);
+
+    expect($node)->not->toBeNull("Nothing with ref [{$ref}] was rendered.");
+
+    return $node;
+}
+
+/**
+ * What sits on the rail of a commit row: 'avatar' for the author's ringed avatar,
+ * 'dot' for a lane dot carrying on their run.
+ */
+function railNode(TestableComponent $screen, string $ref): ?string
+{
+    $row = nodeByRef($screen, $ref);
+    $stackOfWidth = fn (float $width): Closure => fn (array $node): bool => ($node['type'] ?? null) === 'stack' && ($node['layout']['width'] ?? null) === $width;
+
+    return match (true) {
+        findNode($row, $stackOfWidth(48.0)) !== null => 'avatar',
+        findNode($row, $stackOfWidth(18.0)) !== null => 'dot',
+        default => null,
+    };
+}
+
+/**
+ * The visible text of every day marker, top to bottom.
+ *
+ * @return list<string>
+ */
+function dayMarkers(TestableComponent $screen): array
+{
+    return array_map(function (array $marker): string {
+        $text = findNode($marker, fn (array $node): bool => ($node['type'] ?? null) === 'text');
+
+        return $text['text'] ?? $text['props']['text'] ?? '';
+    }, findNodes($screen->tree(), fn (array $node): bool => str_starts_with((string) ($node['ref'] ?? ''), 'day-')));
+}

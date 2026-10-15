@@ -146,17 +146,20 @@ it('keeps deleted ancestors on the rail as tombstones', function () {
 
     $rail = config('native-ui.theme.light.rail');
 
-    Native::visit('/commits/c2')
+    $screen = Native::visit('/commits/c2')
         ->assertSee('The root commit')
         ->assertSee('[deleted]')
         ->assertSee('This commit was deleted.')
         ->assertSee('The focused commit')
-        // A hollow Rail Gray node, and a Rail Gray segment running on from it.
-        ->assertElement('row', fn (array $node): bool => ($node['ref'] ?? null) === 'tombstone-c1')
-        ->assertElement('stack', fn (array $node): bool => ($node['layout']['width'] ?? null) === 18.0
-            && ($node['style']['bg_color'] ?? null) === $rail
-            && collect($node['children'][0]['children'] ?? [])->isEmpty())
         ->assertMissingElement('pressable', fn (array $node): bool => ($node['ref'] ?? null) === 'commit-c1');
+
+    // A dashed Rail Gray ring where the avatar was, as on the web, and a Rail Gray segment running on from it.
+    $tombstone = nodeByRef($screen, 'tombstone-c1');
+    $dashes = findNodes($tombstone, fn (array $node): bool => isset($node['props']['rotate']));
+
+    expect($dashes)->toHaveCount(16)
+        ->and(array_unique(array_map(fn (array $dash): ?string => $dash['style']['bg_color'] ?? null, $dashes)))->toBe([$rail])
+        ->and(findNode($tombstone, fn (array $node): bool => ($node['type'] ?? null) === 'stack' && ($node['layout']['width'] ?? null) === 40.0))->toBeNull();
 });
 
 it('keeps deleted replies as tombstones and opens their replies in place', function () {
@@ -219,7 +222,9 @@ it('shows the focused commit with its media and stars', function () {
 
     Native::visit('/commits/c2')
         ->assertSee('NativePHP')
-        ->assertSee('☆ 2')
+        ->assertElement('row', fn (array $node): bool => ($node['ref'] ?? null) === 'stars-c2' && ($node['props']['a11y_label'] ?? null) === 'Not starred, 2 stars')
+        // The reply composer is right there, so the focused commit has no Reply action of its own.
+        ->assertMissingElement('pressable', fn (array $node): bool => ($node['ref'] ?? null) === 'reply-to-c2')
         ->tap('link-preview-c2')
         ->assertNativeCalled('Browser.OpenInApp', fn (array $params): bool => $params['url'] === 'https://nativephp.com');
 });
@@ -260,4 +265,24 @@ it('reloads when you come back from a reply you deleted', function () {
         ->assertSee('Parent')
         ->assertDontSee('Soon gone')
         ->assertSee('No replies yet.');
+});
+
+it('shows your avatar once when you reply to yourself', function () {
+    fakeApi([
+        'GET /api/v1/commits/c3' => [[
+            'data' => commitJson(['id' => 'c3', 'parent_id' => 'c2', 'body' => 'And one more thing']),
+            'ancestors' => [
+                commitJson(['id' => 'c1', 'body' => 'Started it', 'user' => userJson(['id' => 'u2', 'username' => 'ada', 'name' => 'Ada'])]),
+                commitJson(['id' => 'c2', 'parent_id' => 'c1', 'body' => 'Replying to Ada']),
+            ],
+        ]],
+        'GET /api/v1/commits/c3/replies' => [pageJson([])],
+    ]);
+
+    $screen = Native::visit('/commits/c3')
+        ->assertSee('And one more thing');
+
+    expect(railNode($screen, 'commit-c1'))->toBe('avatar')
+        ->and(railNode($screen, 'commit-c2'))->toBe('avatar')
+        ->and(railNode($screen, 'focused-commit'))->toBe('dot');
 });

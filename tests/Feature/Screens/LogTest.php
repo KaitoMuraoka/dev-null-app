@@ -1,6 +1,8 @@
 <?php
 
 use App\Devnull\Account;
+use App\Devnull\Data\Commit;
+use App\Devnull\LastVisit;
 use App\NativeComponents\Log;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
@@ -23,8 +25,9 @@ it('shows the following log in tab chrome with a compose action', function () {
         ->assertHasTab('Notifications')
         ->assertHasTab('Me')
         ->assertNavTitle('Log')
-        ->assertSee('Following')
-        ->assertSee('Everyone')
+        // The web's page tabs: "Log" and "Everyone".
+        ->assertElement('pressable', fn (array $node): bool => ($node['ref'] ?? null) === 'tab-following' && ($node['props']['a11y_label'] ?? null) === 'Log, selected')
+        ->assertElement('pressable', fn (array $node): bool => ($node['ref'] ?? null) === 'tab-everyone' && ($node['props']['a11y_label'] ?? null) === 'Everyone')
         ->assertSee('Second commit')
         ->assertSee('First commit')
         ->assertSee('@ada')
@@ -93,7 +96,7 @@ it('loads the next page by cursor', function () {
     Native::visit('/log')
         ->assertSee('Newer commit')
         ->assertDontSee('Older commit')
-        ->assertSee('git log --skip=1')
+        ->assertElement('row', fn (array $node): bool => ($node['ref'] ?? null) === 'loading-more')
         ->call('loadMore')
         ->assertSee('Older commit')
         ->assertSet('nextCursor', null);
@@ -250,23 +253,131 @@ it('lays out several images in the web grid', function () {
         ->assertNativeCalled('Browser.OpenInApp', fn (array $params): bool => $params['url'] === 'https://img.test/3');
 });
 
-it('prints stars and saves without offering to change them', function () {
+it('puts the web action row under each commit: Reply, the star, replies, copy link and the bookmark', function () {
     Http::fake(['devnull.test/*' => Http::response(pageJson([
         commitJson(['id' => 'c2', 'stars_count' => 3, 'starred' => true, 'is_saved' => true, 'replies_count' => 1]),
         commitJson(['id' => 'c1', 'stars_count' => 1, 'starred' => false]),
-        commitJson(['id' => 'c0']),
+        commitJson(['id' => 'c0', 'status' => 'pending', 'user' => userJson(['id' => 'u2', 'username' => 'ada'])]),
     ]))]);
 
-    Native::visit('/log')
-        ->assertSee('★ 3')
-        ->assertSee('☆ 1')
+    $primary = config('native-ui.theme.light.primary');
+    $muted = config('native-ui.theme.light.ink-muted');
+
+    $screen = Native::visit('/log', platform: 'ios')
         ->assertSee('1 reply')
-        ->assertElement('text', fn (array $node): bool => ($node['ref'] ?? null) === 'stars-c2'
-            && ($node['props']['color'] ?? null) === config('native-ui.theme.light.primary'))
-        ->assertElement('icon', fn (array $node): bool => ($node['ref'] ?? null) === 'saved-c2')
-        ->assertMissingElement('icon', fn (array $node): bool => ($node['ref'] ?? null) === 'saved-c1')
-        ->assertMissingElement('row', fn (array $node): bool => ($node['ref'] ?? null) === 'actions-c0')
+        ->assertElement('row', fn (array $node): bool => ($node['ref'] ?? null) === 'stars-c2' && ($node['props']['a11y_label'] ?? null) === 'Starred, 3 stars')
+        ->assertElement('row', fn (array $node): bool => ($node['ref'] ?? null) === 'stars-c1' && ($node['props']['a11y_label'] ?? null) === 'Not starred, 1 star')
+        ->assertElement('column', fn (array $node): bool => ($node['ref'] ?? null) === 'saved-c2' && ($node['props']['a11y_label'] ?? null) === 'Saved')
+        ->assertElement('column', fn (array $node): bool => ($node['ref'] ?? null) === 'saved-c1' && ($node['props']['a11y_label'] ?? null) === 'Not saved')
+        // Someone else's pending commit can't be starred or saved, so the web leaves both off.
+        ->assertMissingElement('row', fn (array $node): bool => ($node['ref'] ?? null) === 'stars-c0')
+        ->assertMissingElement('column', fn (array $node): bool => ($node['ref'] ?? null) === 'saved-c0')
         ->assertMissingElement('pressable', fn (array $node): bool => str_starts_with($node['ref'] ?? '', 'stars-'));
+
+    $icon = fn (string $ref): ?array => findNode(nodeByRef($screen, $ref), fn (array $node): bool => ($node['type'] ?? null) === 'icon');
+
+    expect($icon('stars-c2')['props']['name'] ?? null)->toBe('star.fill')
+        ->and($icon('stars-c2')['props']['color'] ?? null)->toBe($primary)
+        // iOS turns a plain "star" or "bookmark" into the filled glyph, so the outlines go another way.
+        ->and($icon('stars-c1'))->toBeNull()
+        ->and(findNode(nodeByRef($screen, 'stars-c1'), fn (array $node): bool => ($node['props']['text'] ?? null) === '☆')['props']['color'] ?? null)->toBe($muted)
+        ->and($icon('saved-c2')['props']['name'] ?? null)->toBe('bookmark.fill')
+        ->and($icon('saved-c1')['props']['name'] ?? null)->toBe('bookmark_border')
+        ->and($icon('reply-to-c1')['props']['name'] ?? null)->toBe('bubble.left')
+        ->and($icon('copy-link-c1')['props']['name'] ?? null)->toBe('link');
+
+    $screen->tap('reply-to-c1')->assertNavigatedTo('/commits/c1');
+    Native::visit('/log')->tap('replies-c2')->assertNavigatedTo('/commits/c2');
+});
+
+it('copies a commit link through the share sheet', function () {
+    Http::fake(['devnull.test/*' => Http::response(pageJson([commitJson(['id' => 'c1'])]))]);
+
+    Native::visit('/log')
+        ->tap('copy-link-c1')
+        ->assertNativeCalled('Share.Url', fn (array $params): bool => $params['url'] === 'http://devnull.test/@local_dev/commits/0199e5c4-1111-7000-8000-00000000c0de')
+        ->assertNoNavigation();
+});
+
+it('starts the log with your avatar staged on the rail, like the web composer', function () {
+    Http::fake(['devnull.test/*' => Http::response(pageJson([commitJson()]))]);
+
+    $screen = Native::visit('/log')->assertSee('What did you ship?');
+
+    // A dashed ring in your lane: sixteen short dashes, each turned to follow the circle.
+    $dashes = findNodes(nodeByRef($screen, 'staged-avatar'), fn (array $node): bool => isset($node['props']['rotate']));
+
+    expect($dashes)->toHaveCount(16)
+        ->and(array_unique(array_map(fn (array $dash): ?string => $dash['style']['bg_color'] ?? null, $dashes)))->toBe([config('native-ui.theme.light.lane-3')]);
+
+    $screen->tap('composer')->assertNavigatedTo('/compose')->assertTransition('slide_from_bottom');
+});
+
+it('shows an author once per run, and starts a new run at each day', function () {
+    $this->travelTo(now()->setDate(2026, 10, 15)->setTime(12, 0));
+    $ada = userJson(['id' => 'u2', 'username' => 'ada', 'name' => 'Ada', 'lane' => 1]);
+
+    Http::fake(['devnull.test/*' => Http::response(pageJson([
+        commitJson(['id' => 'c5', 'user' => $ada, 'created_at' => '2026-10-15T11:00:00Z']),
+        commitJson(['id' => 'c4', 'user' => $ada, 'created_at' => '2026-10-15T10:00:00Z']),
+        commitJson(['id' => 'c3', 'user' => $ada, 'created_at' => '2026-10-15T09:00:00Z']),
+        commitJson(['id' => 'c2', 'created_at' => '2026-10-15T08:00:00Z']),
+        commitJson(['id' => 'c1', 'created_at' => '2026-10-14T20:00:00Z']),
+        commitJson(['id' => 'c0', 'created_at' => '2026-10-13T20:00:00Z']),
+    ]))]);
+
+    $screen = Native::visit('/log');
+
+    expect(railNode($screen, 'commit-c5'))->toBe('avatar')
+        ->and(railNode($screen, 'commit-c4'))->toBe('dot')
+        ->and(railNode($screen, 'commit-c3'))->toBe('dot')
+        ->and(railNode($screen, 'commit-c2'))->toBe('avatar')
+        // Same author as the commit above it, but a new day.
+        ->and(railNode($screen, 'commit-c1'))->toBe('avatar')
+        ->and(railNode($screen, 'commit-c0'))->toBe('avatar')
+        ->and(dayMarkers($screen))->toBe(['Today', 'Yesterday', 'Tue, Oct 13']);
+
+    $json = json_encode($screen->tree());
+    expect(strpos($json, 'day-Yesterday'))->toBeGreaterThan(strpos($json, 'commit-c2'))
+        ->and(strpos($json, 'day-Yesterday'))->toBeLessThan(strpos($json, 'commit-c1'));
+});
+
+it('marks where your last visit ended, which also starts a new run', function () {
+    $ada = userJson(['id' => 'u2', 'username' => 'ada', 'name' => 'Ada']);
+    app(LastVisit::class)->remember(userJson()['id'], 'following', [Commit::fromArray(commitJson(['created_at' => now()->subHour()->toIso8601String()]))]);
+
+    Http::fake(['devnull.test/*' => Http::response(pageJson([
+        commitJson(['id' => 'c3', 'user' => $ada, 'created_at' => now()->subMinutes(10)->toIso8601String()]),
+        commitJson(['id' => 'c2', 'user' => $ada, 'created_at' => now()->subHour()->toIso8601String()]),
+        commitJson(['id' => 'c1', 'user' => $ada, 'created_at' => now()->subHours(2)->toIso8601String()]),
+    ]))]);
+
+    $screen = Native::visit('/log')
+        ->assertSee('HEAD@{last visit}')
+        ->assertSet('lastVisitAt', now()->subHour()->toIso8601String());
+
+    $json = json_encode($screen->tree());
+    expect(strpos($json, '"last-visit"'))->toBeGreaterThan(strpos($json, 'commit-c3'))
+        ->and(strpos($json, '"last-visit"'))->toBeLessThan(strpos($json, 'commit-c2'))
+        ->and(railNode($screen, 'commit-c2'))->toBe('avatar')
+        ->and(railNode($screen, 'commit-c1'))->toBe('dot');
+
+    // The newest commit is remembered for next time, and the marker stays put until then.
+    expect(app(LastVisit::class)->seenAt(userJson()['id'], 'following'))->toBe(now()->subMinutes(10)->toIso8601String());
+    $screen->call('load')->assertSee('HEAD@{last visit}');
+});
+
+it('leaves out the last-visit marker on a first visit, or when only you committed since', function () {
+    Http::fake(['devnull.test/*' => Http::response(pageJson([
+        commitJson(['id' => 'c2', 'created_at' => now()->subMinutes(10)->toIso8601String()]),
+        commitJson(['id' => 'c1', 'user' => userJson(['id' => 'u2', 'username' => 'ada']), 'created_at' => now()->subHour()->toIso8601String()]),
+    ]))]);
+
+    Native::visit('/log')->assertDontSee('HEAD@{last visit}');
+
+    app(LastVisit::class)->remember(userJson()['id'], 'following', [Commit::fromArray(commitJson(['created_at' => now()->subHour()->toIso8601String()]))]);
+
+    Native::visit('/log')->assertDontSee('HEAD@{last visit}');
 });
 
 it('is accessible', function () {

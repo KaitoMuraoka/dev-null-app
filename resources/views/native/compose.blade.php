@@ -1,6 +1,6 @@
 <native:column class="w-full h-full bg-theme-surface">
     <native:row class="w-full">
-        <native:column :width="44" />
+        <native:column :width="64" />
 
         <native:column class="flex-1 pt-[20] pr-4 pb-3 gap-3">
             <native:bare-text-input
@@ -17,8 +17,10 @@
             />
         </native:column>
 
-        {{-- The staged node: hollow until the commit is long enough, then filled with your lane. --}}
-        @include('native.partials.rail', ['lane' => $me?->lane() ?? 0, 'filled' => $canCommit, 'tail' => 'rail', 'nodeTop' => 21])
+        {{-- Your avatar staged on the rail, as on the web: a dashed ring until the commit is long enough, then a solid one. --}}
+        @if ($me)
+            @include('native.partials.rail', ['lane' => $me->lane(), 'user' => $me, 'node' => $canCommit ? 'avatar' : 'staged', 'tail' => 'staged', 'tailDashes' => 8])
+        @endif
     </native:row>
 
     <native:column class="w-full h-[1] bg-theme-hairline" />

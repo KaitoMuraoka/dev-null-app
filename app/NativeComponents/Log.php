@@ -3,6 +3,9 @@
 namespace App\NativeComponents;
 
 use App\Devnull\Data\Commit;
+use App\Devnull\Lane;
+use App\Devnull\LastVisit;
+use App\Devnull\Timeline;
 use App\Icons\Android;
 use App\Icons\Ios;
 use App\NativeComponents\Concerns\ShowsCommits;
@@ -34,8 +37,15 @@ class Log extends NativeComponent
 
     public bool $loaded = false;
 
+    /**
+     * The newest commit time you'd been shown in this log when the screen opened.
+     * The last-visit marker stays put against it while the screen is open, as on the web.
+     */
+    public ?string $lastVisitAt = null;
+
     public function mount(): void
     {
+        $this->lastVisitAt = $this->lastVisitSeenAt();
         $this->load();
     }
 
@@ -46,7 +56,7 @@ class Log extends NativeComponent
 
     public function navTitle(): string
     {
-        return 'Log';
+        return $this->log === 'following' ? 'Log' : 'Everyone';
     }
 
     public function navigationOptions(): ?NavBarOptions
@@ -68,11 +78,13 @@ class Log extends NativeComponent
         $this->log = $log;
         $this->commits = [];
         $this->nextCursor = null;
+        $this->lastVisitAt = $this->lastVisitSeenAt();
         $this->load();
     }
 
     /**
-     * Loads the log, then the unread count for the Notifications badge.
+     * Loads the log, remembers its newest commit as seen, then fetches the unread
+     * count for the Notifications badge.
      */
     public function load(): void
     {
@@ -81,6 +93,11 @@ class Log extends NativeComponent
         if ($page !== null) {
             $this->commits = $page->items;
             $this->nextCursor = $page->nextCursor;
+
+            if (($viewer = $this->me()) !== null) {
+                app(LastVisit::class)->remember($viewer->id, $this->log, $this->commits);
+            }
+
             $this->refreshUnreadNotifications();
         }
 
@@ -124,8 +141,24 @@ class Log extends NativeComponent
         return $this->commits;
     }
 
+    private function lastVisitSeenAt(): ?string
+    {
+        $viewer = $this->me();
+
+        return $viewer === null ? null : app(LastVisit::class)->seenAt($viewer->id, $this->log);
+    }
+
     public function render(): View
     {
-        return view('native.log');
+        $viewer = $this->me();
+
+        return view('native.log', [
+            'viewer' => $viewer,
+            'rows' => Timeline::feed(
+                $this->commits,
+                firstLane: Lane::Rail,
+                firstSeenId: LastVisit::firstSeenId($this->commits, $this->lastVisitAt, $viewer?->id),
+            ),
+        ]);
     }
 }

@@ -92,3 +92,18 @@ it('syncs the draft on a short debounce so a burst of typing arrives whole', fun
         && ($node['props']['sync_mode'] ?? null) === 'debounce'
         && ($node['props']['debounce_ms'] ?? null) === 150);
 });
+
+it('stages your avatar on the rail in a dashed ring, solid once the commit is long enough', function () {
+    $lane = config('native-ui.theme.light.lane-3');
+    $solidRing = fn (array $node): bool => ($node['type'] ?? null) === 'stack' && ($node['layout']['width'] ?? null) === 48.0 && ($node['style']['bg_color'] ?? null) === $lane;
+    $stagedRing = fn (array $node): bool => ($node['ref'] ?? null) === 'staged-avatar';
+
+    Native::visit('/compose')
+        ->assertElement('column', $stagedRing)
+        ->assertMissingElement('stack', $solidRing)
+        ->input('body', 'hi')
+        ->assertElement('column', $stagedRing)
+        ->input('body', 'hi!')
+        ->assertMissingElement('column', $stagedRing)
+        ->assertElement('stack', $solidRing);
+});

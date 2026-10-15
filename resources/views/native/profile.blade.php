@@ -71,26 +71,22 @@
             @endif
 
             @if ($pinnedCommit)
-                {{-- The pinned commit sits above the rest, marked in mono as on the web. --}}
-                <native:column ref="pinned" class="w-full bg-theme-surface">
-                    <native:row class="w-full">
-                        <native:column :width="44" />
-                        <native:row class="flex-1 pt-3 gap-[6] items-center">
-                            <native:icon :ios="\App\Icons\Ios::Pin" :android="\App\Icons\Android::PushPin" :size="12" class="text-theme-ink-muted" />
-                            <native:text font="mono" class="text-xs text-theme-ink-muted">Pinned</native:text>
-                        </native:row>
+                {{-- The pinned commit sits above the rest, marked in mono as on the web, with no rail above it. --}}
+                <native:row ref="pinned" class="w-full bg-theme-surface">
+                    <native:column :width="64" />
+                    <native:row class="flex-1 pt-3 gap-[6] items-center">
+                        <native:icon :ios="\App\Icons\Lucide::Pin->ios()" :android="\App\Icons\Lucide::Pin->android()" :size="12" class="text-theme-ink-muted" />
+                        <native:text font="mono" class="text-xs text-theme-ink-muted">Pinned</native:text>
                     </native:row>
-                    @include('native.partials.commit-row', ['commit' => $pinnedCommit, 'previousLane' => null])
-                </native:column>
+                </native:row>
+                @include('native.partials.commit-row', ['commit' => $pinnedCommit, 'previousLane' => null, 'continuesRun' => false])
             @endif
 
-            @foreach ($commits as $commit)
-                @include('native.partials.commit-row', ['commit' => $commit, 'previousLane' => $loop->first ? $pinnedCommit?->lane() : $commits[$loop->index - 1]->lane()])
-            @endforeach
+            @include('native.partials.feed', ['rows' => $rows])
 
             @if ($commits !== [] || $pinnedCommit)
                 @if ($nextCursor !== null)
-                    @include('native.partials.rail-loading', ['count' => count($commits)])
+                    @include('native.partials.rail-loading')
                 @elseif ($tab === 'replies')
                     @include('native.partials.rail-end', ['lane' => $user->lane(), 'message' => $isMe ? 'That was your first reply.' : "That's {$user->handle()}'s first reply."])
                 @else

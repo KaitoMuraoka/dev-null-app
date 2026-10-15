@@ -153,7 +153,7 @@ it('shows the pinned commit above the rest, marked as pinned', function () {
         ->assertSee('Pinned')
         ->assertSee('Read this first')
         ->assertSee('Everything else')
-        ->assertElement('column', fn (array $node): bool => ($node['ref'] ?? null) === 'pinned');
+        ->assertElement('row', fn (array $node): bool => ($node['ref'] ?? null) === 'pinned');
 
     $texts = json_encode($screen->tree(), JSON_UNESCAPED_UNICODE);
     expect(strpos($texts, 'Pinned'))->toBeLessThan(strpos($texts, 'Read this first'))
@@ -199,7 +199,7 @@ it('switches between commits and replies like the web profile', function () {
         ->tap('tab-replies')
         ->assertSet('tab', 'replies')
         ->assertSee('Agreed')
-        ->assertSee('↳ replying to @grace')
+        ->assertSee('replying to @grace')
         ->assertDontSee('A top-level commit')
         // The web keeps the pinned commit to the commits tab.
         ->assertDontSee('Pinned thought')
@@ -304,3 +304,4 @@ it('says no commits yet over an empty strip and leaves out the streaks', functio
         ->assertDontSee('longest streak ')
         ->assertMissingElement('row', fn (array $node): bool => ($node['ref'] ?? null) === 'streaks');
 });
+

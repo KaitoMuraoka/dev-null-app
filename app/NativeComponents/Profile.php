@@ -4,6 +4,7 @@ namespace App\NativeComponents;
 
 use App\Devnull\Data\Commit;
 use App\Devnull\Data\Profile as ProfileData;
+use App\Devnull\Timeline;
 use App\NativeComponents\Concerns\ShowsCommits;
 use App\NativeComponents\Concerns\TalksToDevnull;
 use Illuminate\View\View;
@@ -156,6 +157,13 @@ class Profile extends NativeComponent
 
     public function render(): View
     {
-        return view('native.profile', ['isMe' => $this->isMe(), 'pinnedCommit' => $this->pinnedCommit()]);
+        $pinnedCommit = $this->pinnedCommit();
+
+        return view('native.profile', [
+            'isMe' => $this->isMe(),
+            'viewer' => $this->me(),
+            'pinnedCommit' => $pinnedCommit,
+            'rows' => Timeline::feed($this->commits, firstLane: $pinnedCommit?->lane()),
+        ]);
     }
 }
