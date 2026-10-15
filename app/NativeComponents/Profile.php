@@ -30,7 +30,9 @@ use Native\Mobile\Facades\Browser;
 class Profile extends NativeComponent
 {
     use ExpandsThreads;
-    use OpensInTab;
+    use OpensInTab {
+        isShowing as isShowingPath;
+    }
     use ShowsCommits;
     use TalksToDevnull;
 
@@ -162,6 +164,16 @@ class Profile extends NativeComponent
         return $this->username !== '' && $this->me()?->username === $this->username;
     }
 
+    /**
+     * The Profile tab shows your own profile at /profile, so your own profile
+     * under the tab counts as this screen too.
+     */
+    protected function isShowing(string $uri): bool
+    {
+        return $this->isShowingPath($uri)
+            || ($this->isShowingPath($this->tabRoot()) && '/'.trim($uri, '/') === $this->tabRoot().'/users/'.$this->username);
+    }
+
     public function openDevice(): void
     {
         $this->navigate('/profile/device');
@@ -179,9 +191,7 @@ class Profile extends NativeComponent
 
     public function openProfile(string $username): void
     {
-        if ($username !== $this->username) {
-            $this->openInTab('/users/'.$username);
-        }
+        $this->openInTab('/users/'.$username);
     }
 
     /**

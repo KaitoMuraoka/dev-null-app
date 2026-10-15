@@ -65,3 +65,39 @@ it('pushes commits and profiles onto the tab they were opened from, so they slid
     Native::visit('/notifications/commits/c1')->call('openCommit', 'c0')->assertNavigatedTo('/notifications/commits/c0');
 });
 
+it('stays put when a tap leads to the commit already showing', function () {
+    fakeApi([
+        'GET /api/v1/commits/c1' => [['data' => commitJson(['id' => 'c1']), 'ancestors' => []]],
+        'GET /api/v1/commits/c1/replies' => [pageJson([])],
+    ]);
+
+    // Pushing a copy would leave the router a screen deeper than the native stack, needing a back tap per copy.
+    Native::visit('/log/commits/c1')->call('openCommit', 'c1')->assertNoNavigation();
+    Native::visit('/log/commits/c1')->call('openCommit', 'c1/')->assertNoNavigation();
+    Native::visit('/log/commits/c1')->call('openCommit', 'c0')->assertNavigatedTo('/log/commits/c0');
+});
+
+it('stays put when a tap leads to the profile already showing', function () {
+    $ada = userJson(['id' => 'u2', 'username' => 'ada', 'name' => 'Ada']);
+    $profile = ['data' => [...$ada, 'commits_count' => 1, 'followers_count' => 0, 'following_count' => 0], 'is_following' => false, 'activity' => ['scale' => 'week', 'buckets' => []], 'streaks' => ['longest' => 0, 'current' => 0], 'pinned_commit' => null];
+
+    fakeApi([
+        'GET /api/v1/users/ada' => [$profile],
+        'GET /api/v1/users/ada/commits' => [pageJson([commitJson([
+            'id' => 'c1',
+            'user' => $ada,
+            'body' => 'Pairing with @ada and @grace',
+            'mentions' => [['username' => 'ada', 'offset' => 13, 'length' => 4], ['username' => 'grace', 'offset' => 22, 'length' => 6]],
+        ])])],
+        'GET /api/v1/users/local_dev' => [['data' => [...userJson(), 'commits_count' => 1, 'followers_count' => 0, 'following_count' => 0], 'is_following' => false, 'activity' => ['scale' => 'week', 'buckets' => []], 'streaks' => ['longest' => 0, 'current' => 0], 'pinned_commit' => null]],
+        'GET /api/v1/users/local_dev/commits' => [pageJson([commitJson(['id' => 'c2'])])],
+    ]);
+
+    // Her avatar on her own commit, and a mention of her, on her profile.
+    Native::visit('/log/users/ada')->press("openProfile('ada')")->assertNoNavigation();
+    Native::visit('/log/users/ada')->press("openProfile('grace')")->assertNavigatedTo('/log/users/grace');
+
+    // Your own avatar on the Profile tab, which is your profile at /profile.
+    Native::visit('/profile')->press("openProfile('local_dev')")->assertNoNavigation();
+    Native::visit('/profile')->tap('commit-c2')->assertNavigatedTo('/profile/commits/c2');
+});

@@ -204,9 +204,7 @@ class CommitDetail extends NativeComponent
 
     public function openCommit(string $id): void
     {
-        if ($id !== $this->id) {
-            $this->openInTab('/commits/'.$id);
-        }
+        $this->openInTab('/commits/'.$id);
     }
 
     public function openProfile(string $username): void
