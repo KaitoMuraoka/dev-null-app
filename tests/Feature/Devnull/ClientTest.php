@@ -289,3 +289,13 @@ it('reads what the web shows on a commit', function () {
         ->and($commit->images[0]->ratio())->toBe(0.75)
         ->and($commit->parent?->isDeleted())->toBeTrue();
 });
+
+it('reads who you are and how many notifications are unread', function () {
+    Http::fake(['devnull.test/api/v1/me' => Http::response(['data' => userJson(['lane' => 2]), 'unread_notifications_count' => 7])]);
+
+    $current = app(Client::class)->me();
+
+    expect($current->user->username)->toBe('local_dev')
+        ->and($current->user->lane())->toBe(2)
+        ->and($current->unreadNotificationsCount)->toBe(7);
+});

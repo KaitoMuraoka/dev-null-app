@@ -71,6 +71,9 @@ class Log extends NativeComponent
         $this->load();
     }
 
+    /**
+     * Loads the log, then the unread count for the Notifications badge.
+     */
     public function load(): void
     {
         $page = $this->attempt(fn ($devnull) => $devnull->log($this->log));
@@ -78,6 +81,7 @@ class Log extends NativeComponent
         if ($page !== null) {
             $this->commits = $page->items;
             $this->nextCursor = $page->nextCursor;
+            $this->refreshUnreadNotifications();
         }
 
         $this->loaded = true;

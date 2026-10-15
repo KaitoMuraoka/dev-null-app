@@ -50,4 +50,24 @@ trait TalksToDevnull
     {
         return app(Account::class)->user();
     }
+
+    /**
+     * Asks devnull how many notifications are unread, for the badge on the
+     * Notifications tab, and picks up any change to you while it's there.
+     * The badge is a nicety, so a failure here is never put on the screen.
+     */
+    protected function refreshUnreadNotifications(): void
+    {
+        try {
+            $current = app(Client::class)->me();
+        } catch (ApiException|KeychainUnavailable) {
+            return;
+        }
+
+        if ($current->user->username !== '') {
+            app(Account::class)->remember($current->user);
+        }
+
+        app(Account::class)->rememberUnreadNotifications($current->unreadNotificationsCount);
+    }
 }

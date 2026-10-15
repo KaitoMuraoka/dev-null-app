@@ -55,11 +55,12 @@ class Me extends NativeComponent
      */
     public function refresh(): void
     {
-        $user = $this->attempt(fn ($devnull) => $devnull->me());
+        $current = $this->attempt(fn ($devnull) => $devnull->me());
 
-        if ($user !== null) {
-            app(Account::class)->remember($user);
-            $this->user = $user;
+        if ($current !== null) {
+            app(Account::class)->remember($current->user);
+            app(Account::class)->rememberUnreadNotifications($current->unreadNotificationsCount);
+            $this->user = $current->user;
         }
     }
 

@@ -4,6 +4,7 @@ namespace App\Devnull;
 
 use App\Devnull\Data\Commit;
 use App\Devnull\Data\CommitThread;
+use App\Devnull\Data\CurrentUser;
 use App\Devnull\Data\Notification;
 use App\Devnull\Data\Page;
 use App\Devnull\Data\Profile;
@@ -30,9 +31,9 @@ final readonly class Client
         return User::fromArray($this->data($this->send('POST', 'key-syncs', payload: ['username' => $username])));
     }
 
-    public function me(): User
+    public function me(): CurrentUser
     {
-        return User::fromArray($this->data($this->send('GET', 'me')));
+        return CurrentUser::fromArray($this->json($this->send('GET', 'me')));
     }
 
     /**

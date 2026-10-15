@@ -38,6 +38,10 @@ class Notifications extends NativeComponent
         return 'Notifications';
     }
 
+    /**
+     * devnull marks a page read as it sends it, so the badge is asked for
+     * again afterwards, which clears it unless more are waiting further down.
+     */
     public function load(): void
     {
         $page = $this->attempt(fn ($devnull) => $devnull->notifications());
@@ -45,6 +49,7 @@ class Notifications extends NativeComponent
         if ($page !== null) {
             $this->notifications = $page->items;
             $this->nextCursor = $page->nextCursor;
+            $this->refreshUnreadNotifications();
         }
 
         $this->loaded = true;
@@ -61,6 +66,7 @@ class Notifications extends NativeComponent
         if ($page !== null) {
             $this->notifications = [...$this->notifications, ...$page->items];
             $this->nextCursor = $page->nextCursor;
+            $this->refreshUnreadNotifications();
         }
     }
 

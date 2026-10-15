@@ -1,0 +1,129 @@
+<?php
+
+use App\Devnull\Account;
+use Illuminate\Http\Client\Request;
+use Illuminate\Support\Facades\Http;
+use Native\Mobile\Testing\Native;
+use Native\Mobile\Testing\TestableComponent;
+
+beforeEach(function () {
+    config(['devnull.url' => 'http://devnull.test']);
+    signIn();
+});
+
+/**
+ * @return array<string, mixed>
+ */
+function meJson(int $unread, array $user = []): array
+{
+    return ['data' => [...userJson($user), 'commits_count' => 1, 'followers_count' => 0, 'following_count' => 0], 'unread_notifications_count' => $unread];
+}
+
+function notificationsBadge(TestableComponent $screen): ?string
+{
+    $find = function (array $node) use (&$find): ?array {
+        if (($node['type'] ?? null) === 'bottom_nav_item' && ($node['props']['label'] ?? null) === 'Notifications') {
+            return $node;
+        }
+
+        foreach ($node['children'] ?? [] as $child) {
+            if (($found = $find($child)) !== null) {
+                return $found;
+            }
+        }
+
+        return null;
+    };
+
+    $tab = $find($screen->tree());
+
+    expect($tab)->not->toBeNull('The Notifications tab is missing.');
+
+    return $tab['props']['badge'] ?? null;
+}
+
+it('badges the Notifications tab with the unread count once the log loads', function () {
+    fakeApi([
+        'GET /api/v1/log/following' => [pageJson([commitJson()])],
+        'GET /api/v1/me' => [meJson(3)],
+    ]);
+
+    $screen = Native::visit('/log');
+
+    expect(notificationsBadge($screen))->toBe('3')
+        ->and(app(Account::class)->unreadNotifications())->toBe(3);
+
+    Http::assertSent(fn (Request $request): bool => $request->url() === 'http://devnull.test/api/v1/me');
+});
+
+it('shows no badge when everything is read', function () {
+    fakeApi([
+        'GET /api/v1/log/following' => [pageJson([])],
+        'GET /api/v1/me' => [meJson(0)],
+    ]);
+
+    expect(notificationsBadge(Native::visit('/log')))->toBeNull();
+});
+
+it('clears the badge after the notifications are opened', function () {
+    app(Account::class)->rememberUnreadNotifications(2);
+    $opened = false;
+
+    Http::fake(function (Request $request) use (&$opened) {
+        return match (parse_url($request->url(), PHP_URL_PATH)) {
+            '/api/v1/notifications' => tap(Http::response(pageJson([
+                ['id' => 'n1', 'type' => 'followed', 'read_at' => null, 'created_at' => now()->toIso8601ZuluString(), 'actor' => userJson(['username' => 'ada']), 'commit' => null],
+            ])), function () use (&$opened): void {
+                $opened = true;
+            }),
+            // devnull marks the page read as it sends it.
+            '/api/v1/me' => Http::response(meJson($opened ? 0 : 2)),
+            default => Http::response(['message' => 'No fake.'], 404),
+        };
+    });
+
+    $screen = Native::visit('/notifications');
+
+    expect(notificationsBadge($screen))->toBeNull()
+        ->and(app(Account::class)->unreadNotifications())->toBe(0);
+
+    $requests = Http::recorded()->map(fn (array $pair): string => parse_url($pair[0]->url(), PHP_URL_PATH))->values()->all();
+    expect($requests)->toBe(['/api/v1/notifications', '/api/v1/me']);
+});
+
+it('keeps counting what is still unread further down', function () {
+    fakeApi([
+        'GET /api/v1/notifications' => [pageJson([], 'more')],
+        'GET /api/v1/me' => [meJson(140)],
+    ]);
+
+    expect(notificationsBadge(Native::visit('/notifications')))->toBe('99+');
+});
+
+it('keeps the log on screen when the count cannot be fetched', function () {
+    app(Account::class)->rememberUnreadNotifications(4);
+
+    fakeApi([
+        'GET /api/v1/log/following' => [pageJson([commitJson(['body' => 'Still here'])])],
+        'GET /api/v1/me' => [['message' => 'Too Many Attempts.'], 429],
+    ]);
+
+    $screen = Native::visit('/log')
+        ->assertSee('Still here')
+        ->assertDontSee('Too Many Attempts.')
+        ->assertSet('error', null);
+
+    expect(notificationsBadge($screen))->toBe('4');
+});
+
+it('picks up the count on the Me tab and forgets it with the device', function () {
+    fakeApi(['GET /api/v1/me' => [meJson(5)]]);
+
+    $screen = Native::visit('/me');
+
+    expect(notificationsBadge($screen))->toBe('5');
+
+    $screen->call('forget');
+
+    expect(app(Account::class)->unreadNotifications())->toBe(0);
+});

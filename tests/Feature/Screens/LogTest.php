@@ -106,7 +106,7 @@ it('reloads on pull to refresh', function () {
 
     Native::visit('/log')->call('load');
 
-    Http::assertSentCount(2);
+    expect(Http::recorded(fn (Request $request): bool => $request->url() === 'http://devnull.test/api/v1/log/following'))->toHaveCount(2);
 });
 
 it('marks pending commits', function () {

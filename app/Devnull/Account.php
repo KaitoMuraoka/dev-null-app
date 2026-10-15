@@ -14,6 +14,8 @@ final class Account
 {
     private const string CacheKey = 'devnull.account';
 
+    private const string UnreadKey = 'devnull.unread-notifications';
+
     public function user(): ?User
     {
         $attributes = Cache::get(self::CacheKey);
@@ -26,8 +28,24 @@ final class Account
         Cache::forever(self::CacheKey, $user->toArray());
     }
 
+    /**
+     * How many notifications were unread when devnull last said, for the tab badge.
+     */
+    public function unreadNotifications(): int
+    {
+        $count = Cache::get(self::UnreadKey);
+
+        return is_int($count) ? $count : 0;
+    }
+
+    public function rememberUnreadNotifications(int $count): void
+    {
+        Cache::forever(self::UnreadKey, max(0, $count));
+    }
+
     public function forget(): void
     {
         Cache::forget(self::CacheKey);
+        Cache::forget(self::UnreadKey);
     }
 }
