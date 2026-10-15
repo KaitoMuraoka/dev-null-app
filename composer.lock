@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "7acbad821d2fde5d378543a55e51796e",
+    "content-hash": "db61731bb2f38f17e5cae964d6567bbe",
     "packages": [
         {
             "name": "bacon/bacon-qr-code",
@@ -2797,6 +2797,116 @@
                 "source": "https://github.com/NativePHP/mobile-browser/tree/1.1.0"
             },
             "time": "2026-09-03T18:26:19+00:00"
+        },
+        {
+            "name": "nativephp/mobile-secure-storage",
+            "version": "1.1.0",
+            "dist": {
+                "type": "zip",
+                "url": "https://plugins.nativephp.com/dist/nativephp/mobile-secure-storage/nativephp-mobile-secure-storage-dbb26d77f0290fedb3b115476cf755f63337eef4-zip-feea7b.zip",
+                "reference": "dbb26d77f0290fedb3b115476cf755f63337eef4",
+                "shasum": "0ab9df86a634012b457bcf9de1e184b680fe0370"
+            },
+            "require": {
+                "nativephp/mobile": "^3.0 || ^4.0",
+                "php": "^8.2"
+            },
+            "require-dev": {
+                "orchestra/testbench": "^10.0",
+                "pestphp/pest": "^2.7|^3.0|^4.0"
+            },
+            "type": "nativephp-plugin",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Native\\Mobile\\Providers\\SecureStorageServiceProvider"
+                    ]
+                },
+                "nativephp": {
+                    "manifest": "nativephp.json"
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Native\\Mobile\\Providers\\": "src/"
+                }
+            },
+            "autoload-dev": {
+                "psr-4": {
+                    "Tests\\": "tests/"
+                }
+            },
+            "scripts": {
+                "test": [
+                    "pest"
+                ]
+            },
+            "license": [
+                "proprietary"
+            ],
+            "authors": [
+                {
+                    "name": "NativePHP",
+                    "email": "support@nativephp.com"
+                }
+            ],
+            "description": "Secure storage plugin for NativePHP Mobile (Keychain/EncryptedSharedPreferences)",
+            "time": "2026-09-03T18:26:20+00:00"
+        },
+        {
+            "name": "nativephp/mobile-share",
+            "version": "1.1.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/NativePHP/mobile-share.git",
+                "reference": "217a556ee7863010187a527752b8cef46057f2f5"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/NativePHP/mobile-share/zipball/217a556ee7863010187a527752b8cef46057f2f5",
+                "reference": "217a556ee7863010187a527752b8cef46057f2f5",
+                "shasum": ""
+            },
+            "require": {
+                "nativephp/mobile": "^3.0 || ^4.0",
+                "php": "^8.2"
+            },
+            "require-dev": {
+                "orchestra/testbench": "^10.0",
+                "pestphp/pest": "^2.7|^3.0|^4.0"
+            },
+            "type": "nativephp-plugin",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Native\\Mobile\\Providers\\ShareServiceProvider"
+                    ]
+                },
+                "nativephp": {
+                    "manifest": "nativephp.json"
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Native\\Mobile\\Providers\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "NativePHP",
+                    "email": "support@nativephp.com"
+                }
+            ],
+            "description": "Native share sheet plugin for NativePHP Mobile",
+            "support": {
+                "issues": "https://github.com/NativePHP/mobile-share/issues",
+                "source": "https://github.com/NativePHP/mobile-share/tree/1.1.0"
+            },
+            "time": "2026-09-03T18:26:20+00:00"
         },
         {
             "name": "nativephp/mobile-ui",

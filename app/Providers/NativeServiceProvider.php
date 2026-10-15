@@ -4,6 +4,8 @@ namespace App\Providers;
 
 use Illuminate\Support\ServiceProvider;
 use Native\Mobile\Providers\BrowserServiceProvider;
+use Native\Mobile\Providers\SecureStorageServiceProvider;
+use Native\Mobile\Providers\ShareServiceProvider;
 use Native\Mobile\UI\NativeUIServiceProvider;
 
 class NativeServiceProvider extends ServiceProvider
@@ -38,6 +40,8 @@ class NativeServiceProvider extends ServiceProvider
         return [
             NativeUIServiceProvider::class,
             BrowserServiceProvider::class,
+            SecureStorageServiceProvider::class,
+            ShareServiceProvider::class,
         ];
     }
 }
