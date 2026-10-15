@@ -12,7 +12,7 @@ return [
     |
     */
 
-    'url' => env('DEVNULL_URL', 'https://devnull.laravel.cloud'),
+    'url' => env('DEVNULL_URL', 'https://dev-null.sh'),
 
     /*
     |--------------------------------------------------------------------------

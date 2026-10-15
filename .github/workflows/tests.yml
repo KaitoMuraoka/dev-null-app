@@ -21,11 +21,14 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.4'
-          extensions: dom, curl, libxml, mbstring, zip, pcntl, pdo, sqlite, pdo_sqlite
+          extensions: dom, curl, libxml, mbstring, zip, pcntl, pdo, sqlite, pdo_sqlite, sodium
           coverage: none
 
+      # Some plugins come from plugins.nativephp.com, which needs your plugin licence credentials.
       - name: Install Composer dependencies
         run: composer install --prefer-dist --no-interaction --no-progress
+        env:
+          COMPOSER_AUTH: ${{ secrets.COMPOSER_AUTH }}
 
       - name: Copy environment file
         run: cp .env.example .env
