@@ -14,3 +14,16 @@ it('puts authors in the same lane as the web', function (string $id, int $lane) 
     ['😀x', 1],
     [str_repeat('a', 40), 4],
 ]);
+
+it('reads the lane the API sends', function (mixed $value, ?int $lane) {
+    expect(Lane::from($value))->toBe($lane);
+})->with([
+    [0, 0],
+    [5, 5],
+    ['3', 3],
+    [6, null],
+    [-1, null],
+    [null, null],
+    ['blue', null],
+    [2.5, null],
+]);

@@ -131,6 +131,7 @@ function userJson(array $overrides = []): array
         'name' => 'Local Dev',
         'avatar_url' => 'https://avatars.githubusercontent.com/u/1?v=4',
         'bio' => 'Ships things.',
+        'lane' => 3,
         ...$overrides,
     ];
 }

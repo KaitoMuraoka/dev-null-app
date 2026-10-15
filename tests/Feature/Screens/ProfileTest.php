@@ -42,7 +42,7 @@ it('shows who they are, their counts and their commits', function () {
 
 it('rings the avatar in the author lane', function () {
     fakeApi([
-        'GET /api/v1/users/ada' => [profileJson(user: ['id' => 'local_dev'])],
+        'GET /api/v1/users/ada' => [profileJson(user: ['lane' => 5])],
         'GET /api/v1/users/ada/commits' => [pageJson([])],
     ]);
 

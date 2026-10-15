@@ -33,20 +33,32 @@ it('shows the following log in tab chrome with a compose action', function () {
         ->assertSee("That's the root commit. There's nothing before it.");
 });
 
-it('colours each node and segment by the author lane', function () {
+it('colours each node and segment by the lane the author picked', function () {
     Http::fake(['devnull.test/*' => Http::response(pageJson([
-        commitJson(['id' => 'c2', 'user' => userJson(['id' => 'local_dev'])]),
-        commitJson(['id' => 'c1', 'user' => userJson(['id' => '1'])]),
+        commitJson(['id' => 'c2', 'user' => userJson(['id' => 'local_dev', 'lane' => 2])]),
+        commitJson(['id' => 'c1', 'user' => userJson(['id' => '1', 'lane' => 4])]),
     ]))]);
 
     $light = config('native-ui.theme.light');
     $dark = config('native-ui.theme.dark');
 
-    // local_dev is in lane 5 and "1" in lane 1, as on the web.
+    // Hashing those ids would give lanes 5 and 1, so these come from user.lane.
     Native::visit('/log')
-        ->assertElement('stack', fn (array $node): bool => ($node['style']['bg_color'] ?? null) === $light['lane-5']
-            && ($node['props']['dark_bg_color'] ?? null) === $dark['lane-5'])
-        ->assertElement('stack', fn (array $node): bool => ($node['style']['bg_color'] ?? null) === $light['lane-1']);
+        ->assertElement('stack', fn (array $node): bool => ($node['style']['bg_color'] ?? null) === $light['lane-2']
+            && ($node['props']['dark_bg_color'] ?? null) === $dark['lane-2'])
+        ->assertElement('stack', fn (array $node): bool => ($node['style']['bg_color'] ?? null) === $light['lane-4'])
+        ->assertMissingElement('stack', fn (array $node): bool => ($node['style']['bg_color'] ?? null) === $light['lane-5']);
+});
+
+it('falls back to hashing the id when the server sends no lane', function () {
+    $user = userJson(['id' => 'local_dev']);
+    unset($user['lane']);
+
+    Http::fake(['devnull.test/*' => Http::response(pageJson([commitJson(['user' => $user])]))]);
+
+    // local_dev hashes to lane 5, as on the web before lanes could be picked.
+    Native::visit('/log')
+        ->assertElement('stack', fn (array $node): bool => ($node['style']['bg_color'] ?? null) === config('native-ui.theme.light.lane-5'));
 });
 
 it('switches to everyone', function () {

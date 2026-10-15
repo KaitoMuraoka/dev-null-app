@@ -12,6 +12,7 @@ final readonly class User
         public string $name,
         public ?string $avatarUrl = null,
         public ?string $bio = null,
+        public ?int $lane = null,
     ) {}
 
     /**
@@ -29,11 +30,12 @@ final readonly class User
             name: is_string($name) && $name !== '' ? $name : $username,
             avatarUrl: is_string($data['avatar_url'] ?? null) ? $data['avatar_url'] : null,
             bio: is_string($data['bio'] ?? null) && $data['bio'] !== '' ? $data['bio'] : null,
+            lane: Lane::from($data['lane'] ?? null),
         );
     }
 
     /**
-     * @return array{id: string, username: string, name: string, avatar_url: ?string, bio: ?string}
+     * @return array{id: string, username: string, name: string, avatar_url: ?string, bio: ?string, lane: ?int}
      */
     public function toArray(): array
     {
@@ -43,12 +45,17 @@ final readonly class User
             'name' => $this->name,
             'avatar_url' => $this->avatarUrl,
             'bio' => $this->bio,
+            'lane' => $this->lane,
         ];
     }
 
+    /**
+     * The lane the user picked on the web, or the one devnull gave them.
+     * Hashing the id is only for a server too old to send it.
+     */
     public function lane(): int
     {
-        return Lane::for($this->id);
+        return $this->lane ?? Lane::for($this->id);
     }
 
     public function handle(): string

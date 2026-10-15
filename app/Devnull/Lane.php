@@ -3,7 +3,11 @@
 namespace App\Devnull;
 
 /**
- * An author's lane on the commit graph, ported from the web's `laneFor()`.
+ * An author's lane on the commit graph.
+ *
+ * Users carry their lane (0 to 5) in the API, picked by them on the web or
+ * assigned by devnull. The hash below is the web's old `laneFor()`, kept only
+ * for a server that doesn't send one.
  *
  * The colours themselves are `lane-0` to `lane-5` in the native-ui theme, so
  * `bg-theme-lane-{n}` picks the light or dark lift automatically.
@@ -11,6 +15,20 @@ namespace App\Devnull;
 final class Lane
 {
     public const int Count = 6;
+
+    /**
+     * Reads a lane from the API, or null when it's missing or out of range.
+     */
+    public static function from(mixed $value): ?int
+    {
+        if (! is_int($value) && ! (is_string($value) && ctype_digit($value))) {
+            return null;
+        }
+
+        $lane = (int) $value;
+
+        return $lane >= 0 && $lane < self::Count ? $lane : null;
+    }
 
     public static function for(string $id): int
     {
