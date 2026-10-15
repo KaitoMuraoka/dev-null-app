@@ -39,6 +39,11 @@ class Onboarding extends NativeComponent
 
     public const int KeySyncRetries = 3;
 
+    /**
+     * What key-syncs answers while the key isn't on the person's GitHub yet.
+     */
+    public const int KeyNotListedYet = 403;
+
     public string $publicKey = '';
 
     public string $fingerprint = '';
@@ -265,7 +270,9 @@ class Onboarding extends NativeComponent
 
     /**
      * Asks devnull to find the key on GitHub. A new key can take a moment to
-     * show up in GitHub's public list, so a 404 is tried again a few times.
+     * show up in GitHub's public list, so a 403 (the key isn't on their
+     * GitHub yet) is tried again a few times. A 404 means they've never
+     * signed in to devnull, which waiting can't fix, so it stops at once.
      */
     private function syncKeyWithDevnull(): void
     {
@@ -274,7 +281,7 @@ class Onboarding extends NativeComponent
         try {
             $user = app(Client::class)->syncKey($this->login);
         } catch (ApiException $exception) {
-            if ($exception->status === 404 && $this->keySyncAttempts <= self::KeySyncRetries) {
+            if ($exception->status === self::KeyNotListedYet && $this->keySyncAttempts <= self::KeySyncRetries) {
                 $this->waitSeconds(self::KeySyncRetrySeconds);
 
                 return;

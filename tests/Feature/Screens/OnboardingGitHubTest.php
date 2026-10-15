@@ -350,7 +350,7 @@ it('stops when GitHub will not take the key', function () {
 
 it('waits for GitHub to list the key, then signs in', function () {
     gitHubKeychain();
-    $notListed = [['message' => "This SSH key isn't on @local_dev's GitHub account yet."], 404];
+    $notListed = [['message' => "This SSH key isn't on @local_dev's GitHub account yet."], 403];
     fakeGitHub(keySyncAnswers: [$notListed, $notListed, [['data' => ['username' => 'local_dev']]]]);
 
     $screen = startDeviceFlow()
@@ -380,7 +380,7 @@ it('waits for GitHub to list the key, then signs in', function () {
 it('shows the server message after three retries', function () {
     gitHubKeychain();
     $message = "This SSH key (SHA256:abc) isn't on @local_dev's GitHub account yet. Add it on GitHub under Settings, then try again.";
-    fakeGitHub(keySyncAnswers: [[['message' => $message], 404]]);
+    fakeGitHub(keySyncAnswers: [[['message' => $message], 403]]);
 
     $screen = startDeviceFlow()->firePoll('tick')->assertSet('step', GitHubStep::Listing);
 
@@ -399,6 +399,26 @@ it('shows the server message after three retries', function () {
     $screen->firePoll('tick');
 
     expect(requestsTo('http://devnull.test/api/v1/key-syncs'))->toHaveCount(4)
+        ->and(app(Account::class)->user())->toBeNull();
+});
+
+it('stops at once when the person has never signed in to devnull', function () {
+    gitHubKeychain();
+    $message = "@local_dev hasn't signed in to devnull yet. Sign in once on http://devnull.test, then try again.";
+    fakeGitHub(keySyncAnswers: [[['message' => $message], 404]]);
+
+    $screen = startDeviceFlow()
+        ->firePoll('tick')
+        ->assertNoNavigation()
+        ->assertSet('step', GitHubStep::Start)
+        ->assertSee($message)
+        ->assertSet('username', 'local_dev')
+        ->assertDontSee('Waiting for GitHub to list the key…');
+
+    $this->travel(11)->seconds();
+    $screen->firePoll('tick');
+
+    expect(requestsTo('http://devnull.test/api/v1/key-syncs'))->toHaveCount(1)
         ->and(app(Account::class)->user())->toBeNull();
 });
 

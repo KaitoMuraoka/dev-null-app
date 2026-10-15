@@ -58,18 +58,24 @@ it('connects, remembers the user and goes to the log', function () {
         && $request->hasHeader('X-SSH-Signature'));
 });
 
-it('shows the server message as is when the key is not found', function () {
+it('shows the server message as is when the key is not found or the user is', function (int $status, string $message) {
     fakeKeychain(testSeed());
-    Http::fake(['devnull.test/*' => Http::response(['message' => "None of octocat's GitHub keys match this device. Add it as a signing key and try again."], 404)]);
+    Http::fake(['devnull.test/*' => Http::response(['message' => $message], $status)]);
 
     Native::visit('/onboarding')
         ->input('username', 'octocat')
         ->tap('connect')
         ->assertNoNavigation()
-        ->assertSee("None of octocat's GitHub keys match this device. Add it as a signing key and try again.");
+        ->assertSee($message);
 
     expect(app(Account::class)->user())->toBeNull();
-});
+
+    // Connecting by hand never retries on its own.
+    Http::assertSentCount(1);
+})->with([
+    'key not on GitHub yet' => [403, "This SSH key (SHA256:abc) isn't on @octocat's GitHub account yet. Add it on GitHub under Settings → SSH and GPG keys → New SSH key (the key type can be \"Signing Key\"), then try again."],
+    'never signed in to devnull' => [404, "@octocat hasn't signed in to devnull yet. Sign in once on http://devnull.test, then try again."],
+]);
 
 it('passes on a 503 message too', function () {
     fakeKeychain(testSeed());
