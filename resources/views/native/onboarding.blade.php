@@ -1,5 +1,6 @@
 @use('App\Icons\Ios')
 @use('App\Icons\Android')
+@use('App\Devnull\Display')
 @use('App\Devnull\GitHubStep')
 
 <native:scroll-view fill class="safe-area bg-theme-background">
@@ -46,11 +47,11 @@
                     @if ($githubError)
                         <native:text ref="github-error" font="mono" class="text-[13px] text-theme-destructive">{{ $githubError }}</native:text>
                     @endif
-                    <native:text class="text-xs leading-relaxed text-theme-ink-muted">Press and hold the code to copy it. It works for {{ $codeMinutes }} minutes, and this screen carries on by itself once GitHub has it.</native:text>
+                    <native:text class="text-xs leading-relaxed text-theme-ink-muted">Press and hold the code to copy it. It works for {{ Display::count($codeMinutes, 'minute', 'minutes') }}, and this screen carries on by itself once GitHub has it.</native:text>
                     <native:button ref="cancel-github" variant="ghost" @press="cancelGitHub" class="w-full">Cancel</native:button>
                 @elseif ($step === GitHubStep::Expired)
                     <native:text ref="github-error" font="mono" class="text-[13px] text-theme-destructive">fatal: the code expired before GitHub saw it.</native:text>
-                    <native:text class="text-[15px] leading-relaxed text-theme-ink">A code lasts {{ $codeMinutes }} minutes. Ask for a new one and enter it on GitHub.</native:text>
+                    <native:text class="text-[15px] leading-relaxed text-theme-ink">A code lasts {{ Display::count($codeMinutes, 'minute', 'minutes') }}. Ask for a new one and enter it on GitHub.</native:text>
                     <native:button ref="start-again" variant="primary" @press="connectGitHub" class="w-full">Start again</native:button>
                 @elseif ($step === GitHubStep::Listing)
                     <native:row class="w-full gap-2 items-center">

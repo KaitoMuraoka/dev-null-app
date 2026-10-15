@@ -160,6 +160,15 @@ it('opens the page with the code filled in when GitHub sends one', function () {
         ->assertNativeCalled('Browser.OpenInApp', fn (array $params): bool => $params['url'] === 'https://github.com/login/device?user_code=WDJB-MJHT');
 });
 
+it('says how long the code lasts', function () {
+    gitHubKeychain();
+    fakeGitHub(deviceCode: ['expires_in' => 60]);
+
+    Native::visit('/onboarding')
+        ->tap('connect-github')
+        ->assertSee('It works for 1 minute, and this screen carries on by itself once GitHub has it.');
+});
+
 it('keeps asking while GitHub says the code is pending', function () {
     gitHubKeychain();
     fakeGitHub(tokenAnswers: [['error' => 'authorization_pending']]);
