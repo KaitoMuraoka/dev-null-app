@@ -3,7 +3,7 @@
 namespace App\Devnull\Data;
 
 /**
- * An image attached to a commit.
+ * An image attached to a commit, with the description its author gave it, if any.
  */
 final readonly class CommitImage
 {
@@ -13,7 +13,7 @@ final readonly class CommitImage
      */
     public const float TallestRatio = 0.75;
 
-    public function __construct(public string $id, public string $url, public int $width = 0, public int $height = 0) {}
+    public function __construct(public string $id, public string $url, public int $width = 0, public int $height = 0, public ?string $description = null) {}
 
     /**
      * @param  array<string, mixed>  $data
@@ -31,7 +31,23 @@ final readonly class CommitImage
             url: $url,
             width: is_numeric($data['width'] ?? null) ? max(0, (int) $data['width']) : 0,
             height: is_numeric($data['height'] ?? null) ? max(0, (int) $data['height']) : 0,
+            description: is_string($data['description'] ?? null) && trim($data['description']) !== '' ? trim($data['description']) : null,
         );
+    }
+
+    /**
+     * What a screen reader says for the image: its description, or that it's an
+     * attached image, with its place among the commit's others when there are several.
+     */
+    public function label(int $index = 0, int $count = 1): string
+    {
+        $place = $count > 1 ? ($index + 1).' of '.$count : null;
+
+        return match (true) {
+            $this->description !== null => $this->description.($place === null ? '' : ", image {$place}"),
+            $place !== null => "Attached image {$place}",
+            default => 'Attached image',
+        };
     }
 
     /**

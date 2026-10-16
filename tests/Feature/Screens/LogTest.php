@@ -277,6 +277,35 @@ it('lays out several images in the web grid', function () {
         ->assertNativeCalled('Browser.OpenInApp', fn (array $params): bool => $params['url'] === 'https://img.test/3');
 });
 
+it('reads each image out by the description its author gave it, as the web does with alt text', function (array $images, array $labels) {
+    Http::fake(['devnull.test/*' => Http::response(pageJson([commitJson(['id' => 'c1', 'images' => $images])]))]);
+
+    $screen = Native::visit('/log');
+
+    foreach ($labels as $id => $label) {
+        $image = findNode(nodeByRef($screen, "image-{$id}"), fn (array $node): bool => ($node['type'] ?? null) === 'image');
+
+        expect(nodeByRef($screen, "image-{$id}")['props']['a11y_label'])->toBe($label)
+            ->and($image['props']['alt'] ?? $image['a11y']['label'] ?? $image['props']['a11y_label'] ?? null)->toBe($label);
+    }
+})->with([
+    'one, described' => [
+        [['id' => 'i1', 'url' => 'https://img.test/1', 'description' => '  A cat on a keyboard  ']],
+        ['i1' => 'A cat on a keyboard'],
+    ],
+    'one, not described' => [
+        [['id' => 'i1', 'url' => 'https://img.test/1', 'description' => null]],
+        ['i1' => 'Attached image'],
+    ],
+    'several, some described' => [
+        [
+            ['id' => 'i1', 'url' => 'https://img.test/1', 'description' => 'The before'],
+            ['id' => 'i2', 'url' => 'https://img.test/2', 'description' => ''],
+        ],
+        ['i1' => 'The before, image 1 of 2', 'i2' => 'Attached image 2 of 2'],
+    ],
+]);
+
 it('puts the web action row under each commit: the star, Quote, Reply and replies, then the bookmark and More', function () {
     $ada = userJson(['id' => 'u2', 'username' => 'ada']);
 
