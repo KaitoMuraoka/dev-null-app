@@ -82,6 +82,32 @@ it('has the web\'s three logs, each asked for by name, and no Everyone', functio
     expect(count(Http::recorded()))->toBe($before);
 });
 
+it('gives each log its own list, so a switch opens a fresh one on what was kept, with no spinner', function () {
+    holdRefreshes();
+    keep('log/following', pageJson([commitJson(['id' => 'f1', 'body' => 'Kept on Following'])]));
+    keep('log/latest', pageJson([commitJson(['id' => 'l1', 'body' => 'Kept on Latest'])]));
+    keep('log/trending', trendingJson([commitJson(['id' => 't1', 'body' => 'Kept on Trending'])], newest: 't1'));
+
+    $screen = Native::visit('/log');
+    $following = nodeByRef($screen, 'log')['id'];
+
+    $screen->tap('tab-latest')->assertSee('Kept on Latest');
+    $latest = nodeByRef($screen, 'log')['id'];
+
+    expect($latest)->not->toBe($following)
+        ->and(showsLoading($screen->tree()))->toBeFalse();
+
+    $screen->tap('tab-trending')->assertSee('Kept on Trending');
+
+    expect(nodeByRef($screen, 'log')['id'])->not->toBeIn([$following, $latest])
+        ->and(showsLoading($screen->tree()))->toBeFalse();
+
+    $screen->tap('tab-following')->assertSee('Kept on Following');
+
+    expect(nodeByRef($screen, 'log')['id'])->not->toBe($latest)
+        ->and(showsLoading($screen->tree()))->toBeFalse();
+});
+
 it('asks Following and Latest what came in since the newest commit showing, and counts the pill by devnull', function () {
     holdRefreshes();
     keep('log/latest', pageJson([commitJson(['id' => 'c1', 'body' => 'Seen before'])]));
