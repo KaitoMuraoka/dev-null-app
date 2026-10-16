@@ -48,6 +48,8 @@ enum Lucide
     case AtSign;
     case FoldVertical;
     case Award;
+    case Ellipsis;
+    case Flag;
 
     // The achievement badges, named as devnull names their icons (see forBadge()).
     case Terminal;
@@ -122,6 +124,8 @@ enum Lucide
             self::AtSign => 'at-sign',
             self::FoldVertical => 'fold-vertical',
             self::Award => 'award',
+            self::Ellipsis => 'ellipsis',
+            self::Flag => 'flag',
             self::Terminal => 'terminal',
             self::FileCode => 'file-code',
             self::Flame => 'flame',
