@@ -41,6 +41,47 @@ enum Lucide
     case CalendarDays;
     /** The web draws GitHub's own mark, which neither system has, so this is the code glyph. */
     case Github;
+    case Quote;
+    case Check;
+    case X;
+    case UserPlus;
+    case AtSign;
+    case FoldVertical;
+    case Award;
+
+    // The achievement badges, named as devnull names their icons (see forBadge()).
+    case Terminal;
+    case FileCode;
+    case Flame;
+    case Zap;
+    case Server;
+    case Box;
+    case Shield;
+    case Sparkles;
+    case GitMerge;
+    case Maximize;
+    case Key;
+
+    /**
+     * The icon devnull names for an achievement badge, as the web's shelf maps it, or the terminal for one it doesn't know.
+     */
+    public static function forBadge(string $icon): self
+    {
+        return match ($icon) {
+            'file-code' => self::FileCode,
+            'flame' => self::Flame,
+            'zap' => self::Zap,
+            'server' => self::Server,
+            'box' => self::Box,
+            'shield' => self::Shield,
+            'star' => self::Star,
+            'sparkles' => self::Sparkles,
+            'git-merge' => self::GitMerge,
+            'maximize' => self::Maximize,
+            'key' => self::Key,
+            default => self::Terminal,
+        };
+    }
 
     /**
      * The `custom:<name>` icon drawn from resources/icons/<name>.svg, or null for a system glyph.
@@ -58,6 +99,24 @@ enum Lucide
             self::Bookmark => $filled ? 'bookmark-filled' : 'bookmark',
             self::Trash2 => 'trash-2',
             self::ArrowUp => 'arrow-up',
+            self::Quote => 'quote',
+            self::Check => 'check',
+            self::X => 'x',
+            self::UserPlus => 'user-plus',
+            self::AtSign => 'at-sign',
+            self::FoldVertical => 'fold-vertical',
+            self::Award => 'award',
+            self::Terminal => 'terminal',
+            self::FileCode => 'file-code',
+            self::Flame => 'flame',
+            self::Zap => 'zap',
+            self::Server => 'server',
+            self::Box => 'box',
+            self::Shield => 'shield',
+            self::Sparkles => 'sparkles',
+            self::GitMerge => 'git-merge',
+            self::Maximize => 'maximize',
+            self::Key => 'key',
             default => null,
         };
 
@@ -77,6 +136,7 @@ enum Lucide
             self::MapPin => Ios::Mappin,
             self::CalendarDays => Ios::Calendar,
             self::Github => Ios::ChevronLeftForwardslashChevronRight,
+            default => Ios::Circle,
         };
     }
 
@@ -93,6 +153,7 @@ enum Lucide
             self::MapPin => AndroidOutlined::LocationOn,
             self::CalendarDays => AndroidOutlined::CalendarToday,
             self::Github => AndroidOutlined::Code,
+            default => AndroidOutlined::Circle,
         };
     }
 }
