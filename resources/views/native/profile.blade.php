@@ -5,13 +5,15 @@
     <native:column class="w-full flex-1">
     {{-- Keyed so a new key puts the profile back at the top, as the new commits pill does. --}}
     <native:list native:key="profile-{{ $listKey }}" class="w-full flex-1 bg-theme-surface" on-refresh="load" on-end-reached="loadMore" :end-reached-buffer="5">
-        @if (! $profile && $error === null)
+        @if ($unavailable)
+            @include('native.partials.profile-unavailable')
+        @elseif (! $profile && $error === null)
             <native:column ref="loading-profile" class="w-full items-center py-16 bg-theme-surface" a11y-label="Loading profile">
                 <native:activity-indicator />
             </native:column>
         @endif
 
-        @if ($profile)
+        @if ($profile && ! $unavailable)
             @php($user = $profile->user)
             <native:column class="w-full bg-theme-surface">
                 <native:column ref="profile-header" class="w-full px-4 pt-6 pb-4 gap-4">
@@ -36,12 +38,26 @@
 
                     <native:column class="w-full gap-1">
                         <native:text font="semibold" class="text-2xl tracking-tight text-theme-ink">{{ $user->name }}</native:text>
-                        <native:row class="gap-2 items-center">
-                            <native:column :width="8" :height="8" class="rounded-full bg-theme-lane-{{ $user->lane() }}" />
-                            <native:text font="mono" class="text-[13px] text-theme-ink-muted">{{ $user->handle() }}</native:text>
+                        {{--
+                            The handle, then what the web marks beside it: Follows you, Muted, and the Unix rank in the
+                            owner's lane. EDGE's rows don't wrap on iOS, so the handle gives way first.
+                        --}}
+                        <native:row ref="profile-handle" class="w-full gap-2 items-center">
+                            <native:column :width="8" :height="8" class="rounded-full bg-theme-lane-{{ $user->lane() }} flex-shrink-0" />
+                            <native:text font="mono" class="text-[13px] text-theme-ink-muted flex-shrink" :max-lines="1">{{ $user->handle() }}</native:text>
                             @if ($profile->followsYou && ! $sketched)
-                                <native:column class="px-2 py-[2] rounded-full bg-theme-wash">
+                                <native:column class="px-2 py-[2] rounded bg-theme-wash flex-shrink-0">
                                     <native:text class="text-xs text-theme-ink-muted">Follows you</native:text>
+                                </native:column>
+                            @endif
+                            @if ($profile->isMuting && ! $sketched)
+                                <native:column ref="muted" class="px-2 py-[2] rounded bg-theme-wash flex-shrink-0">
+                                    <native:text class="text-xs text-theme-ink-muted">Muted</native:text>
+                                </native:column>
+                            @endif
+                            @if ($profile->achievements && ! $sketched)
+                                <native:column ref="rank" class="px-2 py-[2] rounded-full border border-theme-lane-{{ $user->lane() }}/25 bg-theme-lane-{{ $user->lane() }}/10 flex-shrink-0" a11y-label="Level {{ $profile->achievements->level }}, {{ $profile->achievements->rank }}">
+                                    <native:text font="mono-medium" class="text-[11px] text-theme-lane-{{ $user->lane() }}">{{ $profile->achievements->label() }}</native:text>
                                 </native:column>
                             @endif
                         </native:row>
@@ -87,6 +103,9 @@
                 @if (! $sketched)
                     @include('native.partials.activity', ['activity' => $profile->activity, 'lane' => $user->lane()])
                     @include('native.partials.streaks', ['streaks' => $profile->streaks, 'lane' => $user->lane()])
+                    @if ($profile->achievements)
+                        @include('native.partials.achievements', ['achievements' => $profile->achievements, 'lane' => $user->lane()])
+                    @endif
                 @endif
             </native:column>
 

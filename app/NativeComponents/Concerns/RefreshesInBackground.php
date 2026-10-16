@@ -145,6 +145,16 @@ trait RefreshesInBackground
     }
 
     /**
+     * A screen that has its own way of saying devnull refused it, such as a
+     * profile across a block, says so here and returns true. Anything else
+     * prints the error.
+     */
+    protected function refused(ApiException $exception): bool
+    {
+        return false;
+    }
+
+    /**
      * Forgets refreshes that were still out, whose answers NativePHP dropped
      * when this screen went under another.
      */
@@ -190,7 +200,10 @@ trait RefreshesInBackground
         // What was kept is gone from devnull, so it's no longer worth showing quietly.
         if (in_array($status, [403, 404, 410], true)) {
             app(ResponseCache::class)->forget($path, $query);
-            $this->error = $exception->firstError();
+
+            if (! $this->refused($exception)) {
+                $this->error = $exception->firstError();
+            }
 
             return;
         }

@@ -5,6 +5,8 @@ namespace App\NativeComponents;
 use App\Devnull\Data\Commit;
 use App\Devnull\Data\Profile as ProfileData;
 use App\Devnull\Data\User;
+use App\Devnull\ErrorCode;
+use App\Devnull\Exceptions\ApiException;
 use App\Devnull\Timeline;
 use App\Icons\Lucide;
 use App\NativeComponents\Concerns\ExpandsThreads;
@@ -22,7 +24,12 @@ use Native\Mobile\Facades\Browser;
 
 /**
  * A developer's profile: who they are on GitHub, their counts and activity,
- * then their commits (with the pinned one on top) or their replies.
+ * their achievements and Unix rank, then their commits (with the pinned one
+ * on top) or their replies.
+ *
+ * Across a block devnull shows neither of two people the other's profile, as
+ * on the web: the one who blocked is told so, the other only that it isn't
+ * available. devnull says which by its code (see ErrorCode).
  *
  * The Profile tab shows your own, with no username in the route. Like the web,
  * your own profile swaps Follow for "Edit on GitHub", and its nav bar leads to
@@ -61,6 +68,11 @@ class Profile extends NativeComponent
      * Whether the tab has had commits to show, kept or fresh. Until then it shows skeleton rows.
      */
     public bool $commitsLoaded = false;
+
+    /**
+     * Why devnull won't show this profile, when it won't: user_blocked or user_unavailable.
+     */
+    public ?string $unavailable = null;
 
     public function mount(): void
     {
@@ -206,6 +218,14 @@ class Profile extends NativeComponent
         }
     }
 
+    /**
+     * The web's muted and blocked people, where a block is undone, since the app can't unblock yet.
+     */
+    public function openSafety(): void
+    {
+        Browser::inApp(rtrim((string) config('devnull.url'), '/').'/settings/safety');
+    }
+
     public function openGitHubProfile(): void
     {
         if ($this->profile !== null) {
@@ -250,7 +270,26 @@ class Profile extends NativeComponent
 
     protected function showsContent(): bool
     {
-        return $this->profile !== null;
+        return $this->profile !== null && $this->unavailable === null;
+    }
+
+    /**
+     * A profile across a block has its own page, as on the web, whatever devnull's message says.
+     */
+    protected function refused(ApiException $exception): bool
+    {
+        if (! $exception->is(ErrorCode::UserBlocked) && ! $exception->is(ErrorCode::UserUnavailable)) {
+            return false;
+        }
+
+        $this->unavailable = $exception->errorCode;
+        $this->commits = [];
+        $this->threads = [];
+        $this->nextCursor = null;
+        $this->forgetNewCommits();
+        $this->error = null;
+
+        return true;
     }
 
     private function refreshProfile(bool $showNewer = false): void
@@ -262,6 +301,7 @@ class Profile extends NativeComponent
         $this->refresh('users/'.rawurlencode($this->username), [], function (array $json): void {
             $this->profile = ProfileData::fromArray($json);
             $this->sketched = false;
+            $this->unavailable = null;
         }, again: $showNewer);
         $this->refreshCommits($showNewer);
         $this->refreshThreads();
@@ -335,6 +375,7 @@ class Profile extends NativeComponent
         $pinnedCommit = $this->pinnedCommit();
 
         return view('native.profile', [
+            'isBlocked' => $this->unavailable === ErrorCode::UserBlocked->value,
             'isMe' => $this->isMe(),
             'newCommitsLabel' => $this->newCommitsLabel(),
             'viewer' => $this->me(),
