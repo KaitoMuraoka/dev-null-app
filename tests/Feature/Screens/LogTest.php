@@ -279,19 +279,18 @@ it('puts the web action row under each commit: Reply, the star, replies, copy li
     $icon = fn (string $ref): ?array => findNode(nodeByRef($screen, $ref), fn (array $node): bool => ($node['type'] ?? null) === 'icon');
     $text = fn (string $ref, string $text): ?array => findNode(nodeByRef($screen, $ref), fn (array $node): bool => ($node['props']['text'] ?? null) === $text);
 
-    expect($icon('star-c2')['props']['name'] ?? null)->toBe('star.fill')
+    expect($icon('star-c2')['props']['name'] ?? null)->toBe('custom:star-filled')
         ->and($icon('star-c2')['props']['color'] ?? null)->toBe($primary)
         ->and($text('star-c2', '3')['props']['color'] ?? null)->toBe($primary)
-        // iOS turns a plain "star" or "bookmark" into the filled glyph, so the outlines go another way.
-        ->and($icon('star-c1'))->toBeNull()
-        ->and($text('star-c1', '☆')['props']['color'] ?? null)->toBe($muted)
+        ->and($icon('star-c1')['props']['name'] ?? null)->toBe('custom:star')
+        ->and($icon('star-c1')['props']['color'] ?? null)->toBe($muted)
         ->and($text('star-c1', '1')['props']['color'] ?? null)->toBe($muted)
-        ->and($icon('bookmark-c2')['props']['name'] ?? null)->toBe('bookmark.fill')
-        ->and($icon('bookmark-c1')['props']['name'] ?? null)->toBe('bookmark_border')
-        ->and($icon('reply-to-c1')['props']['name'] ?? null)->toBe('bubble.left')
+        ->and($icon('bookmark-c2')['props']['name'] ?? null)->toBe('custom:bookmark-filled')
+        ->and($icon('bookmark-c1')['props']['name'] ?? null)->toBe('custom:bookmark')
+        ->and($icon('reply-to-c1')['props']['name'] ?? null)->toBe('custom:message-square-reply')
         ->and($icon('replies-c2')['props']['name'] ?? null)->toBe('chevron.right')
         ->and($text('replies-c2', '1 reply')['props']['color'] ?? null)->toBe($primary)
-        ->and($icon('copy-link-c1')['props']['name'] ?? null)->toBe('link');
+        ->and($icon('copy-link-c1')['props']['name'] ?? null)->toBe('custom:link');
 
     // Reply opens the commit with its reply composer focused.
     $screen->tap('reply-to-c1')->assertNavigatedTo('/log/commits/c1');

@@ -85,11 +85,11 @@ it('groups replies to your commit into one row, and opens your commit', function
         'commit' => notificationCommitJson(['id' => 'r2', 'parent_id' => 'c-yours', 'body' => 'The newest reply', 'parent' => notificationCommitJson(['id' => 'c-yours', 'body' => 'Shipped the app.'], withParent: false)]),
     ])])]]);
 
-    $screen = Native::visit('/notifications')
+    $screen = Native::visit('/notifications', platform: 'ios')
         ->assertSee('The newest reply')
         ->assertSee('↳ Shipped the app.')
-        // The icon wears the newest person's lane, as on the web.
-        ->assertElement('icon', fn (array $node): bool => ($node['props']['color'] ?? null) === config('native-ui.theme.light.lane-4'));
+        // The web's reply icon, in the newest person's lane.
+        ->assertElement('icon', fn (array $node): bool => ($node['props']['name'] ?? null) === 'custom:message-square-reply' && ($node['props']['color'] ?? null) === config('native-ui.theme.light.lane-4'));
 
     expect(paragraphRuns($screen, 'replied to your commit'))->toBe([['Grace'], [' and 1 other replied to your commit'], [' · '], ['3h']])
         // The newest is drawn last, so it sits on top.
@@ -113,10 +113,10 @@ it('groups stars on your commit, stacking the newest three', function () {
         'commit' => notificationCommitJson(['id' => 'c-starred', 'body' => 'Shipped the app.']),
     ])])]]);
 
-    $screen = Native::visit('/notifications')
+    $screen = Native::visit('/notifications', platform: 'ios')
         ->assertSee('Shipped the app.')
         ->assertDontSee('↳')
-        ->assertElement('icon', fn (array $node): bool => ($node['props']['color'] ?? null) === config('native-ui.theme.light.lane-5'));
+        ->assertElement('icon', fn (array $node): bool => ($node['props']['name'] ?? null) === 'custom:star-filled' && ($node['props']['color'] ?? null) === config('native-ui.theme.light.lane-5'));
 
     expect(paragraphRuns($screen, 'starred your commit'))->toBe([['Grace'], [' and 3 others starred your commit'], [' · '], ['3h']])
         ->and(stackedAvatars($screen, 'n-starred'))->toBe(['https://avatars.test/linus', 'https://avatars.test/ada', 'https://avatars.test/grace'])

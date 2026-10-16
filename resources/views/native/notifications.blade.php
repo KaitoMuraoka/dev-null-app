@@ -1,5 +1,6 @@
 @use('App\Icons\Ios')
 @use('App\Icons\Android')
+@use('App\Icons\Lucide')
 
 <native:column class="w-full h-full bg-theme-background">
     @include('native.partials.error')
@@ -13,10 +14,10 @@
             @php($icon = match ($notification->type) {
                 'followed' => [Ios::PersonBadgePlus, Android::PersonAdd],
                 'mentioned' => [Ios::At, Android::AlternateEmail],
-                'starred' => [Ios::StarFill, Android::Star],
+                'starred' => [Lucide::Star->ios(filled: true), Lucide::Star->android(filled: true)],
                 'approved' => [Ios::Checkmark, Android::Check],
                 'rejected' => [Ios::Xmark, Android::Close],
-                default => [Ios::ArrowshapeTurnUpLeft, Android::Reply],
+                default => [Lucide::MessageSquareReply->ios(), Lucide::MessageSquareReply->android()],
             })
             {{-- No press-* feedback: on iOS it holds any drag that starts on the row, and these rows cover the whole list (see commit-row). --}}
             <native:pressable ref="notification-{{ $notification->id }}" @press="open('{{ $notification->id }}')" class="w-full {{ $notification->isUnread ? 'bg-theme-primary-soft' : 'bg-theme-surface' }}">

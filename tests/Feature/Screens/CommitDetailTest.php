@@ -114,6 +114,15 @@ it('deletes your own commit after a confirm', function () {
     Http::assertSent(fn (Request $request): bool => $request->method() === 'DELETE' && $request->url() === 'http://devnull.test/api/v1/commits/c2');
 });
 
+it('draws the delete action with the web\'s trash icon', function (string $platform) {
+    fakeThread();
+
+    $action = findNode(Native::visit('/log/commits/c2', platform: $platform)->tree(), fn (array $node): bool => ($node['type'] ?? null) === 'top_bar_action' && ($node['props']['id'] ?? null) === 'delete');
+
+    expect($action['props'] ?? null)->toMatchArray(['icon' => 'custom:trash-2', 'a11y_label' => 'Delete commit'])
+        ->not->toHaveKey('material_variant');
+})->with(['ios', 'android']);
+
 it('offers delete only on your own commits', function () {
     fakeThread(['author' => userJson(['username' => 'ada'])], extra: ['DELETE /api/v1/commits/c2' => [null, 204]]);
 

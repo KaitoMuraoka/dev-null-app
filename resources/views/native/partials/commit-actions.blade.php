@@ -25,12 +25,7 @@
     @if ($canReact)
         <native:pressable ref="star-{{ $commit->id }}" @press="toggleStar('{{ $commit->id }}')" class="px-2 py-1" a11y-label="{{ $starLabel }}">
             <native:row class="gap-1 items-center">
-                @if ($commit->starred || \Native\Mobile\Platform::isAndroid())
-                    <native:icon :ios="\App\Icons\Lucide::Star->ios($commit->starred)" :android="\App\Icons\Lucide::Star->android($commit->starred)" :size="16" class="{{ $commit->starred ? 'text-theme-primary' : 'text-theme-ink-muted' }}" />
-                @else
-                    {{-- iOS has no outline star by name (see App\Icons\Lucide), and the system font's ☆ is the same drawing. --}}
-                    <native:text class="text-[18px] text-theme-ink-muted">☆</native:text>
-                @endif
+                <native:icon :ios="\App\Icons\Lucide::Star->ios($commit->starred)" :android="\App\Icons\Lucide::Star->android($commit->starred)" :size="16" class="{{ $commit->starred ? 'text-theme-primary' : 'text-theme-ink-muted' }}" />
                 @if ($commit->starsCount > 0)
                     <native:text font="mono" class="text-[13px] {{ $commit->starred ? 'text-theme-primary' : 'text-theme-ink-muted' }}">{{ $commit->starsCount }}</native:text>
                 @endif

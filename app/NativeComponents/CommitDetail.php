@@ -5,8 +5,7 @@ namespace App\NativeComponents;
 use App\Devnull\Data\Commit;
 use App\Devnull\Display;
 use App\Devnull\Timeline;
-use App\Icons\Android;
-use App\Icons\Ios;
+use App\Icons\Lucide;
 use App\NativeComponents\Concerns\OpensInTab;
 use App\NativeComponents\Concerns\ShowsCommits;
 use App\NativeComponents\Concerns\TalksToDevnull;
@@ -94,7 +93,7 @@ class CommitDetail extends NativeComponent
         if ($this->isOwn()) {
             $options = $options->action(
                 NavAction::make('delete')
-                    ->icon(ios: Ios::Trash, android: Android::Delete)
+                    ->icon(ios: Lucide::Trash2->ios(), android: Lucide::Trash2->android())
                     ->a11yLabel('Delete commit')
                     ->destructive()
                     ->press('confirmDelete'),

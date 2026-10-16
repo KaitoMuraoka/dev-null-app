@@ -3,40 +3,37 @@
 namespace App\Icons;
 
 use Native\Mobile\Icon\AndroidSymbol;
+use Native\Mobile\Icon\Icon;
 
 /**
- * The Lucide icons the web draws, mapped to the closest SF Symbol and Material icon.
+ * The Lucide icons the web draws.
  *
- * EDGE can't show Lucide's own glyphs: an iOS tab is `Tab(_:systemImage:value:)`
- * and `<native:icon>` is `Image(systemName:)`, so both only take SF Symbols, and
- * Android only draws names from the Material Icons font. Outline glyphs use the
- * Outlined Material font to match Lucide's strokes; `$filled` is the on state of
- * a star or a bookmark.
+ * Most are Lucide's own drawings. Their SVGs, from lucide-react 1.57.0, are in
+ * resources/icons, and the NativePHP build turns each one into a template image
+ * on iOS and a VectorDrawable on Android, so both platforms draw the web's
+ * strokes, tinted like any other icon. `$filled` is the on state of a star or
+ * a bookmark, which the web draws as the same shape with `fill-current`.
  *
- * iOS resolves dotless names through IconHelper.swift's `getIconForName()`,
- * which turns "star" and "bookmark" into their `.fill` glyphs. The outline
- * bookmark is reachable through its "bookmark_border" alias; the outline star
- * has no alias, so the action row draws it as the ☆ glyph on iOS.
+ * The rest still map to the closest SF Symbol and outlined Material icon. To
+ * draw one of them as the web does, add its SVG to resources/icons and name it
+ * in custom().
  */
 enum Lucide
 {
-    /** SF Symbols has no vertical commit, so this is Lucide's GitCommitHorizontal drawing. */
     case GitCommitVertical;
     case Bell;
     case UserRound;
-    /** Two sliders on the web. The nearest system glyphs are three sliders. */
     case Settings2;
-    /** A square speech bubble with a reply arrow inside. Both systems only have the bubble. */
     case MessageSquareReply;
     case Link;
     case Star;
     case Bookmark;
+    case Trash2;
     case CornerDownRight;
     case ChevronRight;
     case ChevronDown;
     case ArrowUpRight;
     case Pin;
-    case Trash2;
     case ListOrdered;
     case Building2;
     case MapPin;
@@ -44,23 +41,35 @@ enum Lucide
     /** The web draws GitHub's own mark, which neither system has, so this is the code glyph. */
     case Github;
 
+    /**
+     * The `custom:<name>` icon drawn from resources/icons/<name>.svg, or null for a system glyph.
+     */
+    public function custom(bool $filled = false): ?string
+    {
+        $name = match ($this) {
+            self::GitCommitVertical => 'git-commit-vertical',
+            self::Bell => 'bell',
+            self::UserRound => 'user-round',
+            self::Settings2 => 'settings-2',
+            self::MessageSquareReply => 'message-square-reply',
+            self::Link => 'link',
+            self::Star => $filled ? 'star-filled' : 'star',
+            self::Bookmark => $filled ? 'bookmark-filled' : 'bookmark',
+            self::Trash2 => 'trash-2',
+            default => null,
+        };
+
+        return $name === null ? null : Icon::custom($name);
+    }
+
     public function ios(bool $filled = false): Ios|string
     {
-        return match ($this) {
-            self::GitCommitVertical => Ios::CircleAndLineHorizontal,
-            self::Bell => Ios::Bell,
-            self::UserRound => Ios::Person,
-            self::Settings2 => Ios::SliderHorizontal3,
-            self::MessageSquareReply => Ios::BubbleLeft,
-            self::Link => Ios::Link,
-            self::Star => $filled ? Ios::StarFill : Ios::Star,
-            self::Bookmark => $filled ? Ios::BookmarkFill : 'bookmark_border',
+        return $this->custom($filled) ?? match ($this) {
             self::CornerDownRight => Ios::ArrowTurnDownRight,
             self::ChevronRight => Ios::ChevronRight,
             self::ChevronDown => Ios::ChevronDown,
             self::ArrowUpRight => Ios::ArrowUpRight,
             self::Pin => Ios::Pin,
-            self::Trash2 => Ios::Trash,
             self::ListOrdered => Ios::ListNumber,
             self::Building2 => Ios::Building2,
             self::MapPin => Ios::Mappin,
@@ -69,23 +78,14 @@ enum Lucide
         };
     }
 
-    public function android(bool $filled = false): AndroidSymbol
+    public function android(bool $filled = false): AndroidSymbol|string
     {
-        return match ($this) {
-            self::GitCommitVertical => AndroidOutlined::Commit,
-            self::Bell => AndroidOutlined::Notifications,
-            self::UserRound => AndroidOutlined::Person,
-            self::Settings2 => AndroidOutlined::Tune,
-            self::MessageSquareReply => AndroidOutlined::ChatBubble,
-            self::Link => AndroidOutlined::Link,
-            self::Star => $filled ? Android::Star : AndroidOutlined::Star,
-            self::Bookmark => $filled ? Android::Bookmark : AndroidOutlined::Bookmark,
+        return $this->custom($filled) ?? match ($this) {
             self::CornerDownRight => AndroidOutlined::SubdirectoryArrowRight,
             self::ChevronRight => AndroidOutlined::ChevronRight,
             self::ChevronDown => AndroidOutlined::ExpandMore,
             self::ArrowUpRight => AndroidOutlined::ArrowOutward,
             self::Pin => AndroidOutlined::PushPin,
-            self::Trash2 => AndroidOutlined::Delete,
             self::ListOrdered => AndroidOutlined::FormatListNumbered,
             self::Building2 => AndroidOutlined::Business,
             self::MapPin => AndroidOutlined::LocationOn,

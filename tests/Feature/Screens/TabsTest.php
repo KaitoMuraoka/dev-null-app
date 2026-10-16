@@ -21,26 +21,16 @@ function tabIcons(TestableComponent $screen): array
         ->all();
 }
 
-it('has Log, Notifications and Profile tabs with the nearest SF Symbols to the web phone nav', function () {
+it('has Log, Notifications and Profile tabs with the Lucide icons of the web phone nav', function (string $platform) {
     Http::fake(['devnull.test/*' => Http::response(pageJson([]))]);
 
-    // Lucide's GitCommitVertical, Bell and UserRound. SF Symbols has no vertical commit.
-    expect(tabIcons(Native::visit('/log', platform: 'ios')))->toBe([
-        'Log' => ['circle.and.line.horizontal', null],
-        'Notifications' => ['bell', null],
-        'Profile' => ['person', null],
+    // The same drawings on both platforms. A custom icon has no Material font variant.
+    expect(tabIcons(Native::visit('/log', platform: $platform)))->toBe([
+        'Log' => ['custom:git-commit-vertical', null],
+        'Notifications' => ['custom:bell', null],
+        'Profile' => ['custom:user-round', null],
     ]);
-});
-
-it('uses the outlined Material icons on Android to match the web strokes', function () {
-    Http::fake(['devnull.test/*' => Http::response(pageJson([]))]);
-
-    expect(tabIcons(Native::visit('/log', platform: 'android')))->toBe([
-        'Log' => ['commit', 'outlined'],
-        'Notifications' => ['notifications', 'outlined'],
-        'Profile' => ['person', 'outlined'],
-    ]);
-});
+})->with(['ios', 'android']);
 
 it('pushes commits and profiles onto the tab they were opened from, so they slide in', function () {
     // Native tabs only push a URI under the tab's own; anything else swaps the whole screen without a slide.

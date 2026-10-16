@@ -378,8 +378,8 @@ it('leads from your own profile to this device with the Settings2 icon', functio
 
     $screen = Native::visit('/profile', platform: 'ios');
 
-    expect($action($screen)['props'] ?? null)->toMatchArray(['icon' => 'slider.horizontal.3', 'a11y_label' => 'This device'])
-        ->and($action(Native::visit('/profile', platform: 'android'))['props']['icon'] ?? null)->toBe('tune')
+    expect($action($screen)['props'] ?? null)->toMatchArray(['icon' => 'custom:settings-2', 'a11y_label' => 'This device'])
+        ->and($action(Native::visit('/profile', platform: 'android'))['props']['icon'] ?? null)->toBe('custom:settings-2')
         ->and($action(Native::visit('/log/users/ada')))->toBeNull();
 
     $screen->press('openDevice')->assertNavigatedTo('/profile/device');
