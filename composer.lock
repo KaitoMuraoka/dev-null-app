@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "6bfac282636a8c91d5d16c02880cb1ff",
+    "content-hash": "4fed4cb0ad202b2ebdd1ca9e41362146",
     "packages": [
         {
             "name": "bacon/bacon-qr-code",
@@ -194,6 +194,75 @@
                 }
             ],
             "time": "2026-09-06T14:11:38+00:00"
+        },
+        {
+            "name": "codingwithrk/nativephp-social-auth",
+            "version": "v1.0.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/codingwithrk/nativephp-social-auth.git",
+                "reference": "a806cd03696d96d7b2b2dc1f924748de52b8a262"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/codingwithrk/nativephp-social-auth/zipball/a806cd03696d96d7b2b2dc1f924748de52b8a262",
+                "reference": "a806cd03696d96d7b2b2dc1f924748de52b8a262",
+                "shasum": ""
+            },
+            "require": {
+                "illuminate/support": "^11.0|^12.0|^13.0",
+                "nativephp/mobile": "^3.0|^4.0",
+                "php": "^8.2"
+            },
+            "require-dev": {
+                "orchestra/testbench": "^9.0|^10.0",
+                "pestphp/pest": "^3.0"
+            },
+            "type": "nativephp-plugin",
+            "extra": {
+                "laravel": {
+                    "aliases": {
+                        "NativephpSocialAuth": "Codingwithrk\\NativephpSocialAuth\\Facades\\NativephpSocialAuth"
+                    },
+                    "providers": [
+                        "Codingwithrk\\NativephpSocialAuth\\NativephpSocialAuthServiceProvider"
+                    ]
+                },
+                "nativephp": {
+                    "manifest": "nativephp.json"
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Codingwithrk\\NativephpSocialAuth\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Your Name",
+                    "email": "you@example.com"
+                }
+            ],
+            "description": "Native Apple Sign-In and Google Sign-In for NativePHP Mobile apps.",
+            "keywords": [
+                "android",
+                "apple-sign-in",
+                "google-sign-in",
+                "ios",
+                "laravel",
+                "mobile",
+                "nativephp",
+                "social-auth"
+            ],
+            "support": {
+                "issues": "https://github.com/codingwithrk/nativephp-social-auth/issues",
+                "source": "https://github.com/codingwithrk/nativephp-social-auth/tree/v1.0.0"
+            },
+            "time": "2026-09-12T10:32:53+00:00"
         },
         {
             "name": "composer/semver",

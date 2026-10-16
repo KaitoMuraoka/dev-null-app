@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use Codingwithrk\NativephpSocialAuth\NativephpSocialAuthServiceProvider;
 use Illuminate\Support\ServiceProvider;
 use Native\Mobile\Providers\BrowserServiceProvider;
 use Native\Mobile\Providers\SecureStorageServiceProvider;
@@ -44,6 +45,7 @@ class NativeServiceProvider extends ServiceProvider
             SecureStorageServiceProvider::class,
             ShareServiceProvider::class,
             MobileSplashscreenServiceProvider::class,
+            NativephpSocialAuthServiceProvider::class,
         ];
     }
 }
