@@ -18,6 +18,17 @@
             <native:text ref="error" font="mono" class="text-[13px] leading-snug text-theme-destructive">{{ $error }}</native:text>
         @endif
 
-        <native:button ref="sign-in" variant="primary" :ios-icon="Ios::PersonBadgeKey" :android-icon="Android::Login" :disabled="$fingerprint === ''" @press="signIn" class="w-full">{{ $error && $fingerprint !== '' ? 'Try again' : 'Sign in with GitHub' }}</native:button>
+        @if ($appleError)
+            <native:text ref="apple-error" font="mono" class="text-[13px] leading-snug text-theme-destructive">{{ $appleError }}</native:text>
+        @endif
+
+        <native:column class="w-full gap-3">
+            <native:button ref="sign-in" variant="primary" :ios-icon="Ios::PersonBadgeKey" :android-icon="Android::Login" :disabled="$fingerprint === ''" @press="signIn" class="w-full">{{ $error && $fingerprint !== '' ? 'Try again' : 'Sign in with GitHub' }}</native:button>
+
+            {{-- Apple's black button (white in dark mode, the theme's accent) with its logo, the same size as GitHub's, as Apple's guidelines ask. --}}
+            @if ($offersApple)
+                <native:button ref="sign-in-apple" variant="accent" :ios-icon="Ios::AppleLogo" :disabled="$fingerprint === ''" @press="signInWithApple" class="w-full">Sign in with Apple</native:button>
+            @endif
+        </native:column>
     </native:column>
 </native:scroll-view>

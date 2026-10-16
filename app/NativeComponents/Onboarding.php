@@ -3,11 +3,13 @@
 namespace App\NativeComponents;
 
 use App\Devnull\Account;
+use App\Devnull\AppleSignIn;
 use App\Devnull\Client;
 use App\Devnull\DeviceKey;
 use App\Devnull\Exceptions\ApiException;
 use App\Devnull\Exceptions\KeychainUnavailable;
 use App\Devnull\SignIn;
+use App\NativeComponents\Concerns\SignsInWithApple;
 use App\NativeComponents\Layouts\TabsLayout;
 use Illuminate\Support\Facades\Log;
 use Illuminate\View\View;
@@ -15,6 +17,7 @@ use Native\Mobile\Attributes\Poll;
 use Native\Mobile\Edge\NativeComponent;
 use Native\Mobile\Facades\Browser;
 use Native\Mobile\Facades\Device;
+use SensitiveParameter;
 
 /**
  * This phone has its own SSH key. Approve it once on dev-null.sh and you're signed in.
@@ -24,20 +27,37 @@ use Native\Mobile\Facades\Device;
  * Approve. dev-null.sh sends the browser back to devnull://auth/callback with
  * a code, and the app trades it for the user with a signed request, proving
  * with PKCE that this phone started the sign-in.
+ *
+ * On iOS, Sign in with Apple is the other way in, for an Apple ID already
+ * linked to a devnull account from settings. It never makes an account:
+ * devnull's accounts are GitHub ones.
  */
 class Onboarding extends NativeComponent
 {
+    use SignsInWithApple;
+
     public const string Cancelled = 'You cancelled, nothing changed.';
 
     public const string NotStartedHere = "fatal: that sign-in didn't start on this phone, so it was ignored.";
 
     public const string NeedsApproval = "This phone isn't approved on devnull. Sign in to approve it.";
 
+    /**
+     * devnull's code for an Apple ID that no account has linked.
+     */
+    public const string AppleNotLinked = 'apple_not_linked';
+
     public string $fingerprint = '';
 
     public ?string $error = null;
 
     public ?string $notice = null;
+
+    /**
+     * Kept apart from $error, so a failed Apple sign-in doesn't turn the
+     * GitHub button into "Try again".
+     */
+    public ?string $appleError = null;
 
     private string $deviceName = '';
 
@@ -89,15 +109,26 @@ class Onboarding extends NativeComponent
             return;
         }
 
-        $this->error = null;
-        $this->notice = null;
-        $this->signInOnTick = false;
+        $this->clearMessages();
 
         $attempt = app(SignIn::class)->begin();
 
         if (! Browser::auth($attempt->authorizeUrl((string) config('devnull.url'), $this->fingerprint, $this->deviceName()))) {
             $this->error = 'fatal: could not open dev-null.sh to sign in.';
         }
+    }
+
+    /**
+     * Opens Apple's sheet. Its answer arrives as an event (see SignsInWithApple).
+     */
+    public function signInWithApple(): void
+    {
+        if ($this->fingerprint === '' || ! AppleSignIn::isAvailable()) {
+            return;
+        }
+
+        $this->clearMessages();
+        $this->startAppleSignIn();
     }
 
     #[Poll(1000)]
@@ -113,7 +144,47 @@ class Onboarding extends NativeComponent
 
     public function render(): View
     {
-        return view('native.onboarding', ['logo' => TabsLayout::logo()]);
+        return view('native.onboarding', ['logo' => TabsLayout::logo(), 'offersApple' => AppleSignIn::isAvailable()]);
+    }
+
+    /**
+     * Trades Apple's identity token for the account its Apple ID is linked
+     * to, which approves this phone's key. With no account linked, devnull's
+     * own message says to sign in with GitHub and link Apple in settings.
+     */
+    protected function useAppleToken(#[SensitiveParameter] string $identityToken, #[SensitiveParameter] string $nonce): void
+    {
+        try {
+            $user = app(Client::class)->signInWithApple($identityToken, $nonce, $this->deviceName());
+        } catch (ApiException $exception) {
+            if ($exception->errorCode === self::AppleNotLinked) {
+                $this->notice = $exception->getMessage();
+            } else {
+                $this->appleError = $exception->firstError();
+            }
+
+            return;
+        } catch (KeychainUnavailable $exception) {
+            $this->appleError = $exception->getMessage();
+
+            return;
+        }
+
+        app(Account::class)->remember($user);
+        $this->replace('/log');
+    }
+
+    protected function appleFailed(string $message): void
+    {
+        $this->appleError = $message;
+    }
+
+    private function clearMessages(): void
+    {
+        $this->error = null;
+        $this->appleError = null;
+        $this->notice = null;
+        $this->signInOnTick = false;
     }
 
     /**

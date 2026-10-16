@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Devnull\AppleSignIn;
 use App\Devnull\Client;
 use App\Devnull\DeviceKey;
 use App\Devnull\KeyStore;
@@ -29,6 +30,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(KeyStore::class, fn (Application $app): KeyStore => $app->make(KeyStoreChoice::here()->store()));
 
         $this->app->singleton(SignIn::class);
+        $this->app->singleton(AppleSignIn::class);
     }
 
     /**

@@ -65,8 +65,10 @@ return [
             'destructive' => '#c92a2a',
             'on-destructive' => '#ffffff',
 
-            'accent' => '#e8effc',
-            'on-accent' => '#3b6fe0',
+            // Sign in with Apple's button: black with white, as Apple's guidelines
+            // ask. Nothing else in the app uses accent.
+            'accent' => '#000000',
+            'on-accent' => '#ffffff',
 
             // devnull's own tokens, used as bg-theme-*, text-theme-* and border-theme-*.
             'ink' => '#121417',
@@ -108,8 +110,9 @@ return [
             'destructive' => '#ff6b6b',
             'on-destructive' => '#111112',
 
-            'accent' => '#18233a',
-            'on-accent' => '#7aa2f7',
+            // White with black on a dark background, as Apple's guidelines ask.
+            'accent' => '#ffffff',
+            'on-accent' => '#000000',
 
             'ink' => '#ececec',
             'ink-muted' => '#a1a1a6',
