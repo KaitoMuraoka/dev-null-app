@@ -7,6 +7,7 @@ use Native\Mobile\Providers\BrowserServiceProvider;
 use Native\Mobile\Providers\SecureStorageServiceProvider;
 use Native\Mobile\Providers\ShareServiceProvider;
 use Native\Mobile\UI\NativeUIServiceProvider;
+use S2BR\MobileSplashscreen\MobileSplashscreenServiceProvider;
 
 class NativeServiceProvider extends ServiceProvider
 {
@@ -42,6 +43,7 @@ class NativeServiceProvider extends ServiceProvider
             BrowserServiceProvider::class,
             SecureStorageServiceProvider::class,
             ShareServiceProvider::class,
+            MobileSplashscreenServiceProvider::class,
         ];
     }
 }
