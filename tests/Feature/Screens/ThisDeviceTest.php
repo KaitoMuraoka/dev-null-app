@@ -11,19 +11,20 @@ beforeEach(function () {
     config(['devnull.url' => 'http://devnull.test']);
 });
 
-it('shows this phone\'s fingerprint, pushed onto the Profile tab', function () {
+it('shows your account with this phone\'s fingerprint, pushed onto the Profile tab', function () {
     signIn();
 
     Native::visit('/profile/device')
-        ->assertNavTitle('This device')
+        ->assertNavTitle('Account')
         ->assertTabActive('Profile')
         ->assertSee('SHA256:lbmsoA0yIEcEiVDRnMWuzm+nV+3ZEEpVIURqFoeSspg')
         ->assertSee('Your devices on dev-null.sh')
-        ->assertSee('Forget this device')
+        ->assertSee('Sign out')
         ->assertDontSee('ssh-ed25519')
         ->assertDontSee(Display::maskedKey(testKey()->openSsh()))
         ->assertDontSee('Share public key')
-        ->assertDontSee('Keychain');
+        ->assertDontSee('Keychain')
+        ->assertDontSee('Forget');
 });
 
 it('shows where the app talks to only when it is not dev-null.sh', function (string $url, ?string $shown) {
@@ -54,17 +55,18 @@ it('opens your devices on dev-null.sh', function () {
         ->assertNativeCalled('Browser.OpenInApp', fn (array $params): bool => $params['url'] === 'http://devnull.test/settings/devices');
 });
 
-it('forgets the device only after a confirm', function () {
+it('signs out only after a confirm', function () {
     signIn();
 
     $screen = Native::visit('/profile/device')
-        ->tap('forget-device')
-        ->assertNativeCalled('Dialog.Alert', fn (array $params): bool => $params['title'] === 'Forget this device?')
-        ->emitNative(ButtonPressed::class, ['index' => 0, 'label' => 'Cancel', 'id' => 'forget-device'])
+        ->tap('sign-out')
+        ->assertNativeCalled('Dialog.Alert', fn (array $params): bool => $params['title'] === 'Sign out?'
+            && array_column($params['buttons'], 'label') === ['Cancel', 'Sign out'])
+        ->emitNative(ButtonPressed::class, ['index' => 0, 'label' => 'Cancel', 'id' => 'sign-out'])
         ->assertNoNavigation()
         ->assertNativeNotCalled('SecureStorage.Delete');
 
-    $screen->emitNative(ButtonPressed::class, ['index' => 1, 'label' => 'Forget', 'id' => 'forget-device'])
+    $screen->emitNative(ButtonPressed::class, ['index' => 1, 'label' => 'Sign out', 'id' => 'sign-out'])
         ->assertNativeCalled('SecureStorage.Delete', fn (array $params): bool => $params['key'] === DeviceKey::StorageKey)
         ->assertReplacedWith('/onboarding');
 

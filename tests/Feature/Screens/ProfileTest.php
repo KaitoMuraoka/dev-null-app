@@ -366,7 +366,7 @@ it('shows your own profile on the Profile tab', function () {
         ->assertNativeCalled('Browser.OpenInApp', fn (array $params): bool => $params['url'] === 'https://github.com/settings/profile');
 });
 
-it('leads from your own profile to this device with the Settings2 icon', function () {
+it('leads from your own profile to your account with the Settings2 icon', function () {
     fakeApi([
         'GET /api/v1/users/local_dev' => [profileJson(user: ['username' => 'local_dev'])],
         'GET /api/v1/users/local_dev/commits' => [pageJson([])],
@@ -374,15 +374,15 @@ it('leads from your own profile to this device with the Settings2 icon', functio
         'GET /api/v1/users/ada/commits' => [pageJson([])],
     ]);
 
-    $action = fn (TestableComponent $screen): ?array => findNode($screen->tree(), fn (array $node): bool => ($node['type'] ?? null) === 'top_bar_action' && ($node['props']['id'] ?? null) === 'device');
+    $action = fn (TestableComponent $screen): ?array => findNode($screen->tree(), fn (array $node): bool => ($node['type'] ?? null) === 'top_bar_action' && ($node['props']['id'] ?? null) === 'account');
 
     $screen = Native::visit('/profile', platform: 'ios');
 
-    expect($action($screen)['props'] ?? null)->toMatchArray(['icon' => 'custom:settings-2', 'a11y_label' => 'This device'])
+    expect($action($screen)['props'] ?? null)->toMatchArray(['icon' => 'custom:settings-2', 'a11y_label' => 'Account'])
         ->and($action(Native::visit('/profile', platform: 'android'))['props']['icon'] ?? null)->toBe('custom:settings-2')
         ->and($action(Native::visit('/log/users/ada')))->toBeNull();
 
-    $screen->press('openDevice')->assertNavigatedTo('/profile/device');
+    $screen->press('openAccount')->assertNavigatedTo('/profile/device');
 });
 
 it('lets a drag that starts on a commit scroll the profile', function () {

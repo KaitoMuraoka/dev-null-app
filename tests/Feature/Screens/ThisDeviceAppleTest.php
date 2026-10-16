@@ -201,7 +201,7 @@ it('has no Apple section on Android, and never asks devnull about it', function 
         ->assertDontSee('A quicker way back in')
         ->call('linkApple')
         ->call('unlinkApple')
-        ->assertSee('Forget this device');
+        ->assertSee('Sign out');
 
     Http::assertNothingSent();
     $bridge->assertNotCalled('NativephpSocialAuth.AppleSignIn');

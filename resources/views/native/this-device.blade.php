@@ -52,7 +52,7 @@
         @endif
 
         <native:column class="w-full px-4 pt-8 gap-2">
-            <native:button ref="forget-device" variant="destructive" @press="confirmForget" class="w-full">Forget this device</native:button>
+            <native:button ref="sign-out" variant="secondary" @press="confirmSignOut" class="w-full">Sign out</native:button>
             <native:text class="text-xs leading-relaxed text-theme-ink-muted">Deletes the key from this phone and signs you out.</native:text>
         </native:column>
     </native:column>

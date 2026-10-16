@@ -61,12 +61,12 @@ it('keeps the status and says it could not refresh when offline', function () {
         ->assertSet('error', null);
 });
 
-it('empties the cache when you forget this device', function () {
+it('empties the cache when you sign out', function () {
     keep('log/following', pageJson([commitJson()]));
     keep('me', ['data' => userWithCountsJson()]);
 
     Native::visit('/profile/device')
-        ->emitNative(ButtonPressed::class, ['index' => 1, 'label' => 'Forget', 'id' => 'forget-device'])
+        ->emitNative(ButtonPressed::class, ['index' => 1, 'label' => 'Sign out', 'id' => 'sign-out'])
         ->assertReplacedWith('/onboarding');
 
     signIn();
