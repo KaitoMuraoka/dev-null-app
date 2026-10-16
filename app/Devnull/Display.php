@@ -2,6 +2,7 @@
 
 namespace App\Devnull;
 
+use App\Devnull\Data\Commit;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 
@@ -87,6 +88,24 @@ final class Display
         $parts[1] = substr($parts[1], 0, 10).str_repeat('•', 12);
 
         return implode(' ', $parts);
+    }
+
+    /**
+     * Enough 4pt dashes, with 3pt gaps, to run a dashed line down a commit's
+     * row, which is clipped where the row ends. PHP can't know how tall the
+     * row is drawn, so this errs long from the text, media and actions in it.
+     */
+    public static function dashesFor(Commit $commit): int
+    {
+        $text = $commit->isFolded() ? Commit::PreviewLength : mb_strlen($commit->body);
+        $lines = (int) ceil($text / 32) + substr_count($commit->isFolded() ? '' : $commit->body, "\n");
+        $height = 110 + $lines * 26
+            + ($commit->images === [] ? 0 : 210)
+            + ($commit->poll === null ? 0 : 50 + 46 * count($commit->poll->options))
+            + ($commit->isQuote() ? 230 : 0)
+            + ($commit->linkPreview === null ? 0 : 80);
+
+        return min(250, (int) ceil($height / 7));
     }
 
     public static function count(int $count, string $singular, string $plural): string

@@ -4,7 +4,6 @@ namespace App\NativeComponents;
 
 use App\Devnull\Data\Commit;
 use App\Devnull\Data\Page;
-use App\Devnull\Lane;
 use App\Devnull\LastVisit;
 use App\Devnull\ResponseCache;
 use App\Devnull\Timeline;
@@ -590,11 +589,9 @@ class Log extends NativeComponent
                     $this->latestCommits,
                     // The web lists a commit put above the ranking only there.
                     array_values(array_filter($this->commits, fn (Commit $commit): bool => ! isset($latest[$commit->id]))),
-                    firstLane: Lane::Rail,
                 )
                 : Timeline::feed(
                     $this->commits,
-                    firstLane: Lane::Rail,
                     firstSeenId: LastVisit::firstSeenId($this->commits, $this->lastVisitAt, $viewer?->id),
                 ),
         ]);

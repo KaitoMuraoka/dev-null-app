@@ -6,7 +6,9 @@ namespace App\Devnull\Data;
  * One row on the graph rail: a commit, a day marker or the last-visit marker.
  *
  * $previousLane is the lane of the segment running into the row from above,
- * or null when nothing runs into it.
+ * or null when nothing runs into it. In a feed a commit carries on its
+ * author's run ($continuesRun) when the one above is theirs, and the run goes
+ * on below it ($continuesNext) when the one below is too.
  */
 final readonly class TimelineRow
 {
@@ -16,6 +18,7 @@ final readonly class TimelineRow
         public ?Commit $commit = null,
         public bool $continuesRun = false,
         public string $label = '',
+        public bool $continuesNext = false,
     ) {}
 
     /**
@@ -25,6 +28,22 @@ final readonly class TimelineRow
     public static function commit(Commit $commit, int|string|null $previousLane, bool $continuesRun = false): self
     {
         return new self('commit', $previousLane, $commit, $continuesRun);
+    }
+
+    /**
+     * This commit row, with its author's run going on below it.
+     */
+    public function continuingBelow(): self
+    {
+        return new self($this->kind, $this->previousLane, $this->commit, $this->continuesRun, $this->label, continuesNext: true);
+    }
+
+    /**
+     * Whether a feed draws this commit's tail down to a dot of its own: one with no run above or below it.
+     */
+    public function endsWithDot(): bool
+    {
+        return $this->isCommit() && ! $this->continuesRun && ! $this->continuesNext;
     }
 
     public static function day(string $label, int|string|null $previousLane): self

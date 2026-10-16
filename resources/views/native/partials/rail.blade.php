@@ -10,13 +10,20 @@
       'tombstone' a dashed Rail Gray ring where a deleted commit's avatar was
       'skeleton'  a wash disc, for a row still loading
       null        no node; a $previous segment then runs the full height of the row
+    $endsWithDot stops the $tail 20pt above the bottom at a lane dot, as the web ends a commit that's alone in its run.
+    $replyTail runs a dashed line in the lane on down from the node, or from that dot, to the replies under the row.
+    It's $replyDashes long when it starts at the node, enough for the row, since PHP can't know its height.
 --}}
 @php($previous ??= null)
 @php($tail ??= null)
 @php($node ??= null)
 @php($press ??= null)
 @php($tailDashes ??= 3)
+@php($endsWithDot ??= false)
+@php($replyTail ??= false)
+@php($replyDashes ??= 40)
 @php($center = 32)
+@php($endDot = 20)
 @php($segment = fn (int|string $lane): string => $lane === \App\Devnull\Lane::Rail ? 'bg-theme-rail' : 'bg-theme-lane-'.$lane)
 
 @if ($node === null)
@@ -34,7 +41,19 @@
             @endforeach
         </native:column>
     @elseif ($tail !== null)
-        <native:column class="absolute top-[{{ $center }}] bottom-0 left-[31] w-[2] {{ $segment($tail) }}" />
+        <native:column class="absolute top-[{{ $center }}] bottom-[{{ $endsWithDot ? $endDot : 0 }}] left-[31] w-[2] {{ $segment($tail) }}" />
+    @endif
+
+    @if ($replyTail && $endsWithDot)
+        @include('native.partials.dashed-line', ['position' => 'bottom-0 h-['.$endDot.']', 'left' => 31.5, 'colour' => $segment($lane), 'dashes' => 3])
+    @elseif ($replyTail)
+        @include('native.partials.dashed-line', ['position' => 'top-['.($node === 'dot' ? $center - 9 : $center).'] bottom-0', 'left' => 31.5, 'colour' => $segment($lane), 'dashes' => $replyDashes])
+    @endif
+
+    @if ($endsWithDot && $tail !== null)
+        <native:column ref="end-dot" class="absolute bottom-[{{ $endDot - 9 }}] left-[23]">
+            @include('native.partials.rail-node', ['lane' => $tail])
+        </native:column>
     @endif
 
     @if ($node === 'dot' || $node === 'root')

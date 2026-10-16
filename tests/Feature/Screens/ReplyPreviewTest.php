@@ -1,0 +1,175 @@
+<?php
+
+use Illuminate\Http\Client\Request;
+use Illuminate\Support\Facades\Http;
+use Native\Mobile\Testing\Native;
+
+beforeEach(function () {
+    config(['devnull.url' => 'http://devnull.test']);
+    signIn();
+});
+
+function grace(): array
+{
+    return userJson(['id' => 'u3', 'username' => 'grace', 'name' => 'Grace', 'lane' => 4]);
+}
+
+/**
+ * A commit by Ada in a list, with the newest reply devnull previews under it.
+ *
+ * @param  list<array<string, mixed>>  $replies
+ * @param  array<string, mixed>  $overrides
+ * @return array<string, mixed>
+ */
+function previewedJson(array $replies, bool $more = false, array $overrides = []): array
+{
+    return commitJson([
+        'id' => 'c1',
+        'body' => 'Ship it?',
+        'replies_count' => count($replies) + ($more ? 2 : 0),
+        'author' => userJson(['id' => 'u2', 'username' => 'ada', 'name' => 'Ada', 'lane' => 1]),
+        'reply_preview' => ['data' => $replies, 'next_cursor' => $more ? 'eyJjcmVhdGVkX2F0IjoiMjAyNiJ9' : null],
+        ...$overrides,
+    ]);
+}
+
+/**
+ * The colours of the dashes in a node, in order.
+ *
+ * @return list<string>
+ */
+function dashColours(array $node): array
+{
+    return array_values(array_unique(array_map(
+        fn (array $dash): string => $dash['style']['bg_color'] ?? '',
+        findNodes($node, fn (array $child): bool => in_array([$child['layout']['width'] ?? null, $child['layout']['height'] ?? null], [[1.0, 4.0], [4.0, 1.0]], true)),
+    )));
+}
+
+it('hangs the newest reply under a commit, on a dashed elbow in its lane, instead of a replies toggle', function () {
+    Http::fake(['devnull.test/*' => Http::response(pageJson([previewedJson([
+        replyJson(['id' => 'r9', 'parent_id' => 'c1', 'body' => 'The newest reply', 'author' => grace()]),
+    ])]))]);
+
+    $screen = Native::visit('/log', platform: 'ios')
+        ->assertSee('Ship it?')
+        ->assertSee('The newest reply')
+        ->assertDontSee('1 reply')
+        ->assertDontSee('Show more');
+
+    $reply = nodeByRef($screen, 'thread-reply-r9');
+    $elbow = findNode($reply, fn (array $node): bool => ($node['ref'] ?? null) === 'thread-elbow');
+
+    expect($elbow)->not->toBeNull()
+        ->and(dashColours($elbow))->toBe([config('native-ui.theme.light.lane-1')])
+        // A reply's own actions: the star and Reply, but no Quote.
+        ->and(findNode($reply, fn (array $node): bool => ($node['ref'] ?? null) === 'reply-to-r9'))->not->toBeNull()
+        ->and(findNode($reply, fn (array $node): bool => ($node['ref'] ?? null) === 'quote-r9'))->toBeNull();
+
+    // The commit ends its rail in a dot, and the dashes carry on from it to the reply.
+    expect(findNode(nodeByRef($screen, 'commit-c1'), fn (array $node): bool => ($node['ref'] ?? null) === 'end-dot'))->not->toBeNull();
+
+    $screen->tap('thread-reply-r9')->assertNavigatedTo('/log/commits/r9');
+});
+
+it('opens the rest of the thread in place, newest first, from Show more', function () {
+    fakeApi([
+        'GET /api/v1/log/following' => [pageJson([previewedJson([replyJson(['id' => 'r3', 'parent_id' => 'c1', 'body' => 'Third', 'author' => grace()])], more: true)])],
+        'GET /api/v1/commits/c1/replies' => [pageJson([
+            replyJson(['id' => 'r1', 'parent_id' => 'c1', 'body' => 'First']),
+            replyJson(['id' => 'r2', 'parent_id' => 'c1', 'body' => 'Second', 'author' => grace()]),
+            replyJson(['id' => 'r3', 'parent_id' => 'c1', 'body' => 'Third', 'author' => grace()]),
+        ])],
+    ]);
+
+    $screen = Native::visit('/log', platform: 'ios')
+        ->assertSee('Third')
+        ->assertDontSee('Second')
+        ->assertSee('Show more');
+
+    $screen->tap('more-replies-c1')
+        ->assertNoNavigation()
+        ->assertSee('First')
+        ->assertSee('Second')
+        ->assertDontSee('Show more');
+
+    expect(array_map(fn ($reply): string => $reply->id, $screen->instance()->threads['c1']))->toBe(['r3', 'r2', 'r1']);
+
+    // Each reply after the first hangs on a short link in the lane of the reply above it.
+    expect(dashColours(nodeByRef($screen, 'thread-reply-r2')))->toContain(config('native-ui.theme.light.lane-4'))
+        ->and(findNode(nodeByRef($screen, 'thread-reply-r2'), fn (array $node): bool => ($node['ref'] ?? null) === 'thread-elbow'))->toBeNull();
+
+    Http::assertSent(fn (Request $request): bool => $request->url() === 'http://devnull.test/api/v1/commits/c1/replies');
+});
+
+it('opens Show more at once from the thread kept last time, and refreshes it behind', function () {
+    holdRefreshes();
+    keep('log/following', pageJson([previewedJson([replyJson(['id' => 'r2', 'parent_id' => 'c1', 'body' => 'Second'])], more: true)]));
+    keep('commits/c1/replies', pageJson([replyJson(['id' => 'r1', 'parent_id' => 'c1', 'body' => 'First kept']), replyJson(['id' => 'r2', 'parent_id' => 'c1', 'body' => 'Second'])]));
+    serveApi(fn () => Http::response(pageJson([])));
+
+    $screen = Native::visit('/log', platform: 'ios');
+    $requests = count(Http::recorded());
+
+    $screen->tap('more-replies-c1')->assertSee('First kept');
+
+    expect(count(Http::recorded()))->toBe($requests)
+        ->and(refreshesSent($screen))->toBeGreaterThan(1);
+});
+
+it('opens the commit instead when its thread is longer than a page', function () {
+    fakeApi([
+        'GET /api/v1/log/following' => [pageJson([previewedJson([replyJson(['id' => 'r60', 'parent_id' => 'c1'])], more: true)])],
+        'GET /api/v1/commits/c1/replies' => [pageJson(array_map(fn (int $n): array => replyJson(['id' => "r{$n}", 'parent_id' => 'c1']), range(1, 50)), 'page2')],
+    ]);
+
+    Native::visit('/log', platform: 'ios')->tap('more-replies-c1')->assertNavigatedTo('/log/commits/c1');
+});
+
+it('stars a reply in the thread in place', function () {
+    fakeApi([
+        'GET /api/v1/log/following' => [pageJson([previewedJson([replyJson(['id' => 'r1', 'parent_id' => 'c1', 'author' => grace(), 'stars_count' => 0])])])],
+        'POST /api/v1/commits/r1/star' => [['data' => commitJson(['id' => 'r1', 'stars_count' => 1, 'starred' => true, 'author' => grace()])]],
+    ]);
+
+    $screen = Native::visit('/log')->tap('star-r1');
+
+    expect($screen->instance()->commits[0]->replyPreview->replies[0]->starred)->toBeTrue()
+        ->and($screen->instance()->commits[0]->replyPreview->replies[0]->starsCount)->toBe(1);
+});
+
+it("runs the commit's rail on past its thread when the author's run carries on below", function () {
+    $ada = userJson(['id' => 'u2', 'username' => 'ada', 'name' => 'Ada', 'lane' => 1]);
+
+    Http::fake(['devnull.test/*' => Http::response(pageJson([
+        previewedJson([replyJson(['id' => 'r1', 'parent_id' => 'c1', 'author' => grace()])], overrides: ['id' => 'c2', 'author' => $ada]),
+        commitJson(['id' => 'c1', 'author' => $ada]),
+    ]))]);
+
+    $screen = Native::visit('/log', platform: 'ios');
+    $lane = config('native-ui.theme.light.lane-1');
+    $solidRail = fn (array $node): bool => ($node['layout']['width'] ?? null) === 2.0 && ($node['style']['bg_color'] ?? null) === $lane;
+
+    expect(findNode(nodeByRef($screen, 'thread-reply-r1'), $solidRail))->not->toBeNull()
+        ->and(findNode(nodeByRef($screen, 'commit-c2'), fn (array $node): bool => ($node['ref'] ?? null) === 'end-dot'))->toBeNull()
+        ->and(railNode($screen, 'commit-c1'))->toBe('dot');
+});
+
+it('ends a commit alone in its run with a dot, and joins a run of one author', function () {
+    $ada = userJson(['id' => 'u2', 'username' => 'ada', 'lane' => 1]);
+
+    Http::fake(['devnull.test/*' => Http::response(pageJson([
+        commitJson(['id' => 'c3', 'author' => $ada]),
+        commitJson(['id' => 'c2', 'author' => $ada]),
+        commitJson(['id' => 'c1', 'author' => grace()]),
+    ]))]);
+
+    $screen = Native::visit('/log', platform: 'ios');
+    $endDot = fn (string $ref): bool => findNode(nodeByRef($screen, $ref), fn (array $node): bool => ($node['ref'] ?? null) === 'end-dot') !== null;
+
+    expect(railNode($screen, 'commit-c3'))->toBe('avatar')
+        ->and(railNode($screen, 'commit-c2'))->toBe('dot')
+        ->and($endDot('commit-c3'))->toBeFalse()
+        ->and($endDot('commit-c2'))->toBeFalse()
+        ->and($endDot('commit-c1'))->toBeTrue();
+});

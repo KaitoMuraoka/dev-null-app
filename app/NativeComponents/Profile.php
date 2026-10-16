@@ -339,7 +339,7 @@ class Profile extends NativeComponent
             'newCommitsLabel' => $this->newCommitsLabel(),
             'viewer' => $this->me(),
             'pinnedCommit' => $pinnedCommit,
-            'rows' => Timeline::feed($this->commits, firstLane: $pinnedCommit?->lane()),
+            'rows' => Timeline::feed($this->commits),
         ]);
     }
 }

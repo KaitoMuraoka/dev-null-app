@@ -56,6 +56,11 @@ final class ResponseCache
     private const array TransientLogKeys = ['latest_commits', 'new_commits_count'];
 
     /**
+     * Stands in for the cursor of a reply preview the app put a reply on top of.
+     */
+    private const string EarlierReplies = 'earlier';
+
+    /**
      * How many of the commits deleted on this phone it remembers.
      */
     private const int RememberedDeletions = 50;
@@ -245,7 +250,27 @@ final class ResponseCache
             ? [...$json, 'data' => [...self::without($json['data'] ?? [], $commit['id']), $commit]]
             : $json);
         $this->patch("users/{$me}/commits", ['replies' => '1'], fn (array $json): array => self::prepend($json, $commit));
-        $this->patchCommit($parentId, fn (array $parent): array => [...$parent, 'replies_count' => (int) ($parent['replies_count'] ?? 0) + 1]);
+        $this->patchCommit($parentId, fn (array $parent): array => self::withNewestReply([...$parent, 'replies_count' => (int) ($parent['replies_count'] ?? 0) + 1], $commit));
+    }
+
+    /**
+     * A list shows a commit with its newest reply, which yours now is. The
+     * replies before it are behind "Show more", which only asks whether a
+     * cursor is there, as the app can't page them newest first anyway.
+     *
+     * @param  array<string, mixed>  $parent
+     * @param  array<string, mixed>  $reply
+     * @return array<string, mixed>
+     */
+    private static function withNewestReply(array $parent, array $reply): array
+    {
+        if (! is_array($parent['reply_preview'] ?? null)) {
+            return $parent;
+        }
+
+        $earlier = ($parent['reply_preview']['data'] ?? []) !== [] || ($parent['reply_preview']['next_cursor'] ?? null) !== null;
+
+        return [...$parent, 'reply_preview' => ['data' => [$reply], 'next_cursor' => $earlier ? self::EarlierReplies : null]];
     }
 
     /**
@@ -500,10 +525,16 @@ final class ResponseCache
             $child = self::changeCommit($child, $id, $change);
 
             if (is_array($child) && self::isCommit($child) && (string) $child['id'] === $id) {
+                $original = $child;
                 $child = $change($child);
 
                 if ($child === null && $isList) {
                     continue;
+                }
+
+                // A quote keeps its place for the commit it quoted, which says it was deleted.
+                if ($child === null && $key === 'quoted_commit') {
+                    $child = ['id' => $original['id'], 'parent_id' => $original['parent_id'] ?? null, 'deleted_at' => CarbonImmutable::now()->toIso8601ZuluString()];
                 }
             }
 

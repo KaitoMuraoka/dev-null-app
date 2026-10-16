@@ -31,8 +31,15 @@
                     'hairline' => ! ($isFocused && $repliesInThread),
                 ])
                 @if ($isFocused && $repliesInThread)
-                    @foreach ($replies as $threadReply)
-                        @include('native.partials.thread-reply', ['reply' => $threadReply, 'lane' => $commit->lane(), 'last' => $loop->last && $repliesCursor === null])
+                    @foreach ($replies as $index => $threadReply)
+                        @include('native.partials.thread-reply', [
+                            'reply' => $threadReply,
+                            'lane' => $commit->lane(),
+                            'previousLane' => $index === 0 ? null : $replies[$index - 1]->lane(),
+                            'hasNext' => ! $loop->last || $repliesCursor !== null,
+                            'railLane' => $commit->lane(),
+                            'last' => $loop->last && $repliesCursor === null,
+                        ])
                     @endforeach
                     @if ($repliesCursor !== null)
                         <native:row class="w-full bg-theme-surface">

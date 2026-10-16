@@ -2,7 +2,6 @@
 
 use App\Devnull\Data\Commit;
 use App\Devnull\Data\TimelineRow;
-use App\Devnull\Lane;
 use App\Devnull\LastVisit;
 use App\Devnull\Timeline;
 use Carbon\CarbonImmutable;
@@ -78,13 +77,42 @@ it('starts a new run at the last-visit marker, which goes above the day marker',
     expect(describeRows($rows))->toBe(['day:Today', 'c2:avatar', 'visit', 'day:Yesterday', 'c1:avatar']);
 });
 
-it('runs each segment in from the lane above', function () {
+it('joins only a run, as the web has since it improved the rail: anything else starts afresh', function () {
     $rows = Timeline::feed([
-        timelineCommit('c2', 'ada', '2026-10-15T11:00:00Z'),
-        timelineCommit('c1', 'grace', '2026-10-14T11:00:00Z'),
-    ], firstLane: Lane::Rail, now: $this->now);
+        timelineCommit('c4', 'ada', '2026-10-15T11:00:00Z'),
+        timelineCommit('c3', 'ada', '2026-10-15T10:00:00Z'),
+        timelineCommit('c2', 'grace', '2026-10-15T09:00:00Z'),
+        timelineCommit('c1', 'ada', '2026-10-14T11:00:00Z'),
+    ], now: $this->now);
 
-    expect(array_map(fn (TimelineRow $row): int|string|null => $row->previousLane, $rows))->toBe([Lane::Rail, Lane::Rail, 1, 1]);
+    $joins = array_map(fn (TimelineRow $row): array => [
+        $row->isCommit() ? $row->commit->id : $row->label,
+        $row->previousLane,
+        $row->continuesNext,
+        $row->endsWithDot(),
+    ], $rows);
+
+    expect($joins)->toBe([
+        ['Today', null, false, false],
+        // Ada's run: the avatar runs on into the dot below, which ends it.
+        ['c4', null, true, false],
+        ['c3', 1, false, false],
+        // Alone in their run, so each ends in a dot of its own.
+        ['c2', null, false, true],
+        ['Yesterday', null, false, false],
+        ['c1', null, false, true],
+    ]);
+});
+
+it('lays Trending out with what came in above the ranking, and joins runs within each', function () {
+    $rows = Timeline::ranked(
+        [timelineCommit('n2', 'grace', '2026-10-15T11:00:00Z'), timelineCommit('n1', 'grace', '2026-10-15T10:00:00Z')],
+        [timelineCommit('c2', 'grace', '2026-10-13T11:00:00Z'), timelineCommit('c1', 'ada', '2026-10-15T09:00:00Z')],
+    );
+
+    expect(describeRows($rows))->toBe(['day:Just now', 'n2:avatar', 'n1:dot', 'day:Top commits', 'c2:avatar', 'c1:avatar'])
+        ->and($rows[1]->continuesNext)->toBeTrue()
+        ->and($rows[4]->endsWithDot())->toBeTrue();
 });
 
 it('never runs on from or into a deleted commit', function () {

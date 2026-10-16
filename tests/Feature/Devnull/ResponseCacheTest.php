@@ -169,6 +169,24 @@ it('puts your reply under its parent and counts it there', function () {
         ->and(array_column($this->cache->get('log/following')['data'], 'id'))->toBe(['c1']);
 });
 
+it('puts your reply under its parent in a list, as the newest one, with Show more for the rest', function () {
+    $this->cache->put('log/following', [], pageJson([
+        commitJson(['id' => 'c1', 'replies_count' => 1, 'reply_preview' => ['data' => [replyJson(['id' => 'r1', 'parent_id' => 'c1'])], 'next_cursor' => null]]),
+        commitJson(['id' => 'c2', 'replies_count' => 0, 'reply_preview' => ['data' => [], 'next_cursor' => null]]),
+    ]));
+
+    $this->cache->commitAdded(commitJson(['id' => 'r2', 'parent_id' => 'c1', 'body' => 'Mine']));
+    $this->cache->commitAdded(commitJson(['id' => 'r3', 'parent_id' => 'c2', 'body' => 'First']));
+
+    $log = $this->cache->get('log/following')['data'];
+
+    expect(array_column($log[0]['reply_preview']['data'], 'id'))->toBe(['r2'])
+        ->and($log[0]['reply_preview']['next_cursor'])->not->toBeNull()
+        ->and($log[0]['replies_count'])->toBe(2)
+        ->and(array_column($log[1]['reply_preview']['data'], 'id'))->toBe(['r3'])
+        ->and($log[1]['reply_preview']['next_cursor'])->toBeNull();
+});
+
 it('leaves a reply off a thread whose last page is not kept', function () {
     $this->cache->put('commits/c1/replies', [], pageJson([replyJson(['id' => 'r1'])], 'page2'));
 
@@ -216,6 +234,22 @@ it('keeps a log the same whatever it was asked since, without what only ?since= 
     expect($this->cache->get('log/trending'))->toMatchArray(['is_ranked' => true, 'newest_commit_id' => 'c3'])
         ->and($this->cache->get('log/trending'))->not->toHaveKeys(['latest_commits', 'new_commits_count'])
         ->and($this->cache->get('log/trending', ['since' => 'c9']))->toBe($this->cache->get('log/trending'));
+});
+
+it('keeps a quote of a commit you deleted, saying it was deleted', function () {
+    $this->cache->put('log/latest', [], pageJson([
+        commitJson(['id' => 'q1', 'quoted_commit_id' => 'c1', 'quoted_commit' => commitJson(['id' => 'c1'])]),
+        commitJson(['id' => 'c1']),
+    ]));
+
+    $this->cache->commitDeleted('c1');
+
+    $log = $this->cache->get('log/latest')['data'];
+
+    expect(array_column($log, 'id'))->toBe(['q1'])
+        ->and($log[0]['quoted_commit_id'])->toBe('c1')
+        ->and($log[0]['quoted_commit'])->toHaveKey('deleted_at')
+        ->and($log[0]['quoted_commit'])->not->toHaveKey('body');
 });
 
 it('follows and unfollows on the kept profiles', function () {

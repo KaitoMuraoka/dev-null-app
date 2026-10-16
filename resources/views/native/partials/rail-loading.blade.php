@@ -1,5 +1,5 @@
 {{--
-    While the next page loads, a skeleton row keeps the rail running in Rail Gray, as the web's CommitSkeleton does.
+    While the next page loads, a skeleton row stands in on a Rail Gray rail ending in its dot, as the web's CommitSkeleton.
     A list with nothing kept to show yet shows a few of them, the first time only.
 --}}
 @php($ref ??= 'loading-more')
@@ -15,5 +15,5 @@
         <native:column class="w-full h-[1] bg-theme-hairline" />
     </native:column>
 
-    @include('native.partials.rail', ['previous' => \App\Devnull\Lane::Rail, 'tail' => \App\Devnull\Lane::Rail, 'lane' => \App\Devnull\Lane::Rail, 'node' => 'skeleton'])
+    @include('native.partials.rail', ['tail' => \App\Devnull\Lane::Rail, 'endsWithDot' => true, 'lane' => \App\Devnull\Lane::Rail, 'node' => 'skeleton'])
 </native:row>

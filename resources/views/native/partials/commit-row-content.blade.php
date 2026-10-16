@@ -2,16 +2,24 @@
     The inside of a commit row, for commit-row to wrap in a link or, for the focused commit, a plain row.
     A part of a series wears its place in it ("1/3"). Shown on its own ($seriesExpanded false), a part with more
     after it links to them, as the web's "2 more commits in this series" does. $withTail runs the rail on below.
+
+    In a feed, $continuesNext says whether the author's run goes on in the next row. The rail then runs on, or for a
+    commit alone in its run ends in a dot of its own, and with replies under the row ($threadBelow) a dashed line in
+    the lane carries on down to them, as the web draws it.
 --}}
 @php($author = $commit->author)
 @php($hairline ??= true)
 @php($seriesExpanded ??= false)
 @php($withTail ??= ! $focused)
+@php($continuesNext ??= null)
+@php($threadBelow ??= false)
+@php($inFeed = $continuesNext !== null)
+@php($endsWithDot = $inFeed && ! $continuesRun && ! $continuesNext)
 @php($laterParts = $seriesExpanded ? 0 : $commit->laterSeriesParts())
 <native:column :width="64" />
 
 <native:column class="flex-1">
-    <native:column class="w-full min-h-[64] py-3 pr-4 gap-1">
+    <native:column class="w-full min-h-[64] {{ $threadBelow ? 'pt-3' : 'py-3' }} pr-4 gap-1">
         <native:row class="w-full gap-[6] items-center">
             <native:text font="semibold" class="text-[15px] text-theme-ink flex-shrink" :max-lines="1">{{ $author->name }}</native:text>
             <native:text font="mono" class="text-[13px] text-theme-ink-muted flex-shrink" :max-lines="1">{{ $author->handle() }}</native:text>
@@ -59,7 +67,7 @@
 
         @include('native.partials.commit-actions', ['withReply' => ! $focused, 'withReplies' => ! $focused])
     </native:column>
-    @if ($hairline)
+    @if ($hairline && ! $threadBelow)
         <native:column class="w-full h-[1] bg-theme-hairline" />
     @endif
 </native:column>
@@ -67,7 +75,10 @@
 @include('native.partials.rail', [
     'previous' => $previousLane,
     'lane' => $commit->lane(),
-    'tail' => $withTail ? $commit->lane() : null,
+    'tail' => ($inFeed ? $continuesNext || ! $continuesRun : $withTail) ? $commit->lane() : null,
+    'endsWithDot' => $endsWithDot,
+    'replyTail' => $threadBelow && ! ($inFeed && $continuesNext),
+    'replyDashes' => \App\Devnull\Display::dashesFor($commit),
     'node' => $continuesRun ? 'dot' : 'avatar',
     'user' => $author,
     'press' => "openProfile('{$author->username}')",

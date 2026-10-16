@@ -14,6 +14,11 @@ use Carbon\CarbonInterface;
  * A run of commits by one author shows their avatar once, on the first commit,
  * and a lane dot on the rest. A day marker or the last-visit marker between two
  * commits starts a new run.
+ *
+ * In a feed only a run is joined up, as the web has drawn it since "Improve
+ * commit rail": a commit on its own draws its tail down to a dot, and the
+ * next author starts afresh. A commit page keeps one rail from the oldest
+ * ancestor down, since each commit there replies to the one above.
  */
 final class Timeline
 {
@@ -28,30 +33,29 @@ final class Timeline
      * @param  list<Commit>  $commits
      * @return list<TimelineRow>
      */
-    public static function feed(array $commits, int|string|null $firstLane = null, ?string $firstSeenId = null, ?CarbonInterface $now = null): array
+    public static function feed(array $commits, ?string $firstSeenId = null, ?CarbonInterface $now = null): array
     {
         $now ??= CarbonImmutable::now();
         $rows = [];
         $previous = null;
 
         foreach ($commits as $commit) {
-            $previousLane = $previous?->lane() ?? $firstLane;
             $isFirstSeen = $firstSeenId !== null && $commit->id === $firstSeenId;
             $startsDay = self::startsDay($previous, $commit, $now);
 
             if ($isFirstSeen) {
-                $rows[] = TimelineRow::lastVisit($previousLane);
+                $rows[] = TimelineRow::lastVisit(null);
             }
 
             if ($startsDay && $commit->createdAt !== null) {
-                $rows[] = TimelineRow::day(Display::dayLabel($commit->createdAt, $now), $previousLane);
+                $rows[] = TimelineRow::day(Display::dayLabel($commit->createdAt, $now), null);
             }
 
-            $rows[] = TimelineRow::commit($commit, $previousLane, ! $startsDay && ! $isFirstSeen && self::continuesRun($previous, $commit));
+            $rows[] = self::run($commit, ! $startsDay && ! $isFirstSeen && self::continuesRun($previous, $commit));
             $previous = $commit;
         }
 
-        return $rows;
+        return self::joinRuns($rows);
     }
 
     /**
@@ -65,29 +69,53 @@ final class Timeline
      * @param  list<Commit>  $ranked
      * @return list<TimelineRow>
      */
-    public static function ranked(array $latest, array $ranked, int|string|null $firstLane = null): array
+    public static function ranked(array $latest, array $ranked): array
     {
         $rows = [];
         $previous = null;
 
         if ($latest !== []) {
-            $rows[] = TimelineRow::day(self::JustNow, $firstLane);
+            $rows[] = TimelineRow::day(self::JustNow, null);
 
             foreach ($latest as $commit) {
-                $rows[] = TimelineRow::commit($commit, $previous?->lane() ?? $firstLane, self::continuesRun($previous, $commit));
+                $rows[] = self::run($commit, self::continuesRun($previous, $commit));
                 $previous = $commit;
             }
 
             if ($ranked !== []) {
-                $rows[] = TimelineRow::day(self::TopCommits, $previous?->lane());
+                $rows[] = TimelineRow::day(self::TopCommits, null);
                 $previous = null;
-                $firstLane = $latest[array_key_last($latest)]->lane();
             }
         }
 
         foreach ($ranked as $commit) {
-            $rows[] = TimelineRow::commit($commit, $previous?->lane() ?? $firstLane, self::continuesRun($previous, $commit));
+            $rows[] = self::run($commit, self::continuesRun($previous, $commit));
             $previous = $commit;
+        }
+
+        return self::joinRuns($rows);
+    }
+
+    /**
+     * A commit in a feed: the segment above it only when it carries on its author's run.
+     */
+    private static function run(Commit $commit, bool $continuesRun): TimelineRow
+    {
+        return TimelineRow::commit($commit, $continuesRun ? $commit->lane() : null, $continuesRun);
+    }
+
+    /**
+     * Marks each commit whose run goes on in the row below it.
+     *
+     * @param  list<TimelineRow>  $rows
+     * @return list<TimelineRow>
+     */
+    private static function joinRuns(array $rows): array
+    {
+        foreach ($rows as $index => $row) {
+            if ($row->isCommit() && ($rows[$index + 1] ?? null)?->continuesRun === true) {
+                $rows[$index] = $row->continuingBelow();
+            }
         }
 
         return $rows;
