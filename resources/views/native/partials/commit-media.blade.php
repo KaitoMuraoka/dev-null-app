@@ -1,5 +1,5 @@
 {{--
-    What hangs under a commit's body on the web: its images, then the link preview.
+    What hangs under a commit's body on the web: its images, its poll, the commit it quotes, then the link preview.
     Images hold their space at their aspect ratio on a wash, so one that fails to load leaves the row as it was.
 --}}
 @php($images = $commit->images)
@@ -23,6 +23,14 @@
             </native:column>
         @endforeach
     </native:row>
+@endif
+
+@if ($commit->poll)
+    @include('native.partials.commit-poll')
+@endif
+
+@if ($commit->isQuote())
+    @include('native.partials.quoted-commit')
 @endif
 
 @if ($commit->linkPreview?->isReady())

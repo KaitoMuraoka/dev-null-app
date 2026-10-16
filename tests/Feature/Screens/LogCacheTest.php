@@ -292,10 +292,11 @@ it('keeps your new commit, so the log opens with it next time', function () {
 
 it('shows a star made on a commit as soon as you come back to the log', function () {
     holdRefreshes();
-    keep('log/following', pageJson([commitJson(['id' => 'c1', 'body' => 'Star me', 'stars_count' => 0])]));
-    keep('commits/c1', commitPageJson(commitJson(['id' => 'c1', 'body' => 'Star me', 'stars_count' => 0])));
+    $ada = userJson(['id' => 'u2', 'username' => 'ada']);
+    keep('log/following', pageJson([commitJson(['id' => 'c1', 'body' => 'Star me', 'stars_count' => 0, 'author' => $ada])]));
+    keep('commits/c1', commitPageJson(commitJson(['id' => 'c1', 'body' => 'Star me', 'stars_count' => 0, 'author' => $ada])));
     keep('commits/c1/replies', pageJson([]));
-    fakeApi(['POST /api/v1/commits/c1/star' => [['data' => commitJson(['id' => 'c1', 'starred' => true, 'stars_count' => 1])]]]);
+    fakeApi(['POST /api/v1/commits/c1/star' => [['data' => commitJson(['id' => 'c1', 'starred' => true, 'stars_count' => 1, 'author' => $ada])]]]);
 
     $log = Native::visit('/log');
     $commit = $log->tap('commit-c1')->follow()->tap('star-c1');

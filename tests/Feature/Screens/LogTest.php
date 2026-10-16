@@ -277,11 +277,13 @@ it('lays out several images in the web grid', function () {
         ->assertNativeCalled('Browser.OpenInApp', fn (array $params): bool => $params['url'] === 'https://img.test/3');
 });
 
-it('puts the web action row under each commit: Reply, the star, replies, copy link and the bookmark', function () {
+it('puts the web action row under each commit: the star, Quote, Reply and replies, then the bookmark and copy link', function () {
+    $ada = userJson(['id' => 'u2', 'username' => 'ada']);
+
     Http::fake(['devnull.test/*' => Http::response(pageJson([
-        commitJson(['id' => 'c2', 'stars_count' => 3, 'starred' => true, 'is_saved' => true, 'replies_count' => 1]),
-        commitJson(['id' => 'c1', 'stars_count' => 1, 'starred' => false]),
-        commitJson(['id' => 'c0', 'status' => 'pending', 'author' => userJson(['id' => 'u2', 'username' => 'ada'])]),
+        commitJson(['id' => 'c2', 'stars_count' => 3, 'starred' => true, 'is_saved' => true, 'replies_count' => 1, 'author' => $ada]),
+        commitJson(['id' => 'c1', 'stars_count' => 1, 'starred' => false, 'author' => $ada]),
+        commitJson(['id' => 'c0', 'status' => 'pending', 'author' => $ada]),
     ]))]);
 
     $primary = config('native-ui.theme.light.primary');
@@ -294,8 +296,12 @@ it('puts the web action row under each commit: Reply, the star, replies, copy li
         ->assertElement('pressable', $pressable('star-c1', 'Star commit, 1 star'))
         ->assertElement('pressable', $pressable('bookmark-c2', 'Unsave commit'))
         ->assertElement('pressable', $pressable('bookmark-c1', 'Save commit'))
-        // Someone else's pending commit can't be starred or saved, so the web leaves both off.
-        ->assertMissingElement('pressable', fn (array $node): bool => in_array($node['ref'] ?? null, ['star-c0', 'bookmark-c0'], true));
+        // Someone else's pending commit can't be starred, quoted or saved, so the web leaves them off.
+        ->assertMissingElement('pressable', fn (array $node): bool => in_array($node['ref'] ?? null, ['star-c0', 'bookmark-c0'], true))
+        ->assertMissingElement('column', fn (array $node): bool => ($node['ref'] ?? null) === 'quote-c0');
+
+    // The web's order: star, Quote, Reply and replies on the left, then the bookmark and copy link on the right.
+    expect(array_values(array_filter(childRefs($screen, 'actions-c2'))))->toBe(['star-c2', 'quote-c2', 'reply-to-c2', 'replies-c2', 'bookmark-c2', 'copy-link-c2']);
 
     $icon = fn (string $ref): ?array => findNode(nodeByRef($screen, $ref), fn (array $node): bool => ($node['type'] ?? null) === 'icon');
     $text = fn (string $ref, string $text): ?array => findNode(nodeByRef($screen, $ref), fn (array $node): bool => ($node['props']['text'] ?? null) === $text);
@@ -319,11 +325,41 @@ it('puts the web action row under each commit: Reply, the star, replies, copy li
         ->and($screen->navigationIntent()->data['commit']->id)->toBe('c1');
 });
 
+it('shows Quote dimmed and does nothing with it, since devnull has no way to quote from the app yet', function () {
+    Http::fake(['devnull.test/*' => Http::response(pageJson([commitJson(['id' => 'c1', 'author' => userJson(['id' => 'u2', 'username' => 'ada'])])]))]);
+
+    $screen = Native::visit('/log', platform: 'ios');
+    $quote = nodeByRef($screen, 'quote-c1');
+
+    expect($quote['type'])->toBe('column')
+        ->and($quote['on_press'] ?? null)->toBeNull()
+        ->and($quote['style']['opacity'] ?? $quote['props']['opacity'] ?? null)->toEqual(0.4)
+        ->and($quote['props']['a11y_label'] ?? null)->toBe('Quote, not in the app yet')
+        ->and(findNode($quote, fn (array $node): bool => ($node['type'] ?? null) === 'icon')['props']['name'] ?? null)->toBe('custom:quote');
+});
+
+it("shows only the count on your own commit's star, which devnull won't let you press", function () {
+    Http::fake(['devnull.test/*' => Http::response(pageJson([
+        commitJson(['id' => 'c2', 'stars_count' => 2]),
+        commitJson(['id' => 'c1', 'stars_count' => 0]),
+    ]))]);
+
+    $screen = Native::visit('/log', platform: 'ios')
+        ->assertMissingElement('pressable', fn (array $node): bool => in_array($node['ref'] ?? null, ['star-c2', 'star-c1'], true))
+        ->assertElement('row', fn (array $node): bool => ($node['ref'] ?? null) === 'star-count-c2' && ($node['props']['a11y_label'] ?? null) === '2 stars')
+        ->assertElement('row', fn (array $node): bool => ($node['ref'] ?? null) === 'star-count-c1' && ($node['props']['a11y_label'] ?? null) === 'No stars yet')
+        ->call('toggleStar', 'c2');
+
+    Http::assertNotSent(fn (Request $request): bool => $request->method() === 'POST');
+});
+
 it('stars and unstars from the row, taking the count devnull sends back', function () {
+    $ada = userJson(['id' => 'u2', 'username' => 'ada']);
+
     fakeApi([
-        'GET /api/v1/log/following' => [pageJson([commitJson(['id' => 'c1', 'stars_count' => 1])])],
-        'POST /api/v1/commits/c1/star' => [['data' => commitJson(['id' => 'c1', 'stars_count' => 5, 'starred' => true])]],
-        'DELETE /api/v1/commits/c1/star' => [['data' => commitJson(['id' => 'c1', 'stars_count' => 4, 'starred' => false])]],
+        'GET /api/v1/log/following' => [pageJson([commitJson(['id' => 'c1', 'stars_count' => 1, 'author' => $ada])])],
+        'POST /api/v1/commits/c1/star' => [['data' => commitJson(['id' => 'c1', 'stars_count' => 5, 'starred' => true, 'author' => $ada])]],
+        'DELETE /api/v1/commits/c1/star' => [['data' => commitJson(['id' => 'c1', 'stars_count' => 4, 'starred' => false, 'author' => $ada])]],
     ]);
 
     $screen = Native::visit('/log')->tap('star-c1');
@@ -343,7 +379,7 @@ it('stars and unstars from the row, taking the count devnull sends back', functi
 
 it('puts the star back when devnull says no', function () {
     fakeApi([
-        'GET /api/v1/log/following' => [pageJson([commitJson(['id' => 'c1', 'stars_count' => 1])])],
+        'GET /api/v1/log/following' => [pageJson([commitJson(['id' => 'c1', 'stars_count' => 1, 'author' => userJson(['id' => 'u2', 'username' => 'ada'])])])],
         'POST /api/v1/commits/c1/star' => [['message' => 'Too Many Attempts.'], 429],
     ]);
 

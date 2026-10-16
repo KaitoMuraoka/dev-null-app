@@ -10,12 +10,23 @@ use Native\Mobile\Facades\Browser;
 use Native\Mobile\Facades\Share;
 
 /**
- * The actions under a commit: Reply, the star, copy link and the bookmark,
- * plus opening its link preview or images in the in-app browser. Taps name
- * the commit rather than a URL, so a URL is never rebuilt from an attribute.
+ * The actions under a commit: the star, Reply, the bookmark and copy link,
+ * plus opening its link preview or images in the in-app browser, and "Show
+ * more" on a long one. Taps name the commit rather than a URL, so a URL is
+ * never rebuilt from an attribute.
+ *
+ * A commit can be tapped where a row nests it too: the commit a row quotes,
+ * and the replies a feed shows under a commit.
  */
 trait ShowsCommits
 {
+    /**
+     * Long commits opened in place with "Show more", by id.
+     *
+     * @var list<string>
+     */
+    public array $unfolded = [];
+
     /**
      * Every commit the screen is showing.
      *
@@ -67,15 +78,25 @@ trait ShowsCommits
     }
 
     /**
+     * The web's "Show more" under the start of a long commit: the rest opens where it is.
+     */
+    public function showMore(string $id): void
+    {
+        if (! in_array($id, $this->unfolded, true)) {
+            $this->unfolded[] = $id;
+        }
+    }
+
+    /**
      * Stars or unstars straight away, then takes the count devnull sends back,
-     * or puts the star back if it says no. Like the web, only an approved commit
-     * or your own can be starred.
+     * or puts the star back if it says no. Like the web, only someone else's
+     * approved commit can be starred: on your own the count is all there is.
      */
     public function toggleStar(string $id): void
     {
         $commit = $this->shownCommit($id);
 
-        if ($commit === null || ! $this->canReactTo($commit)) {
+        if ($commit === null || ! $this->canStar($commit)) {
             return;
         }
 
@@ -129,6 +150,11 @@ trait ShowsCommits
         return ! $commit->isDeleted() && ($commit->isApproved() || $commit->author->id === $this->me()?->id);
     }
 
+    private function canStar(Commit $commit): bool
+    {
+        return ! $commit->isDeleted() && $commit->isApproved() && $commit->author->id !== $this->me()?->id;
+    }
+
     /**
      * @param  Closure(Client): Commit  $call
      */
@@ -143,12 +169,32 @@ trait ShowsCommits
 
     private function replaceShownCommit(Commit $replacement): void
     {
-        $this->updateShownCommits(fn (Commit $commit): Commit => $commit->id === $replacement->id ? $replacement : $commit);
+        $replace = fn (Commit $commit): Commit => $commit->id === $replacement->id ? $replacement : $commit;
+
+        $this->updateShownCommits(fn (Commit $commit): Commit => $replace($commit)->withPreviewReplies($replace));
+    }
+
+    /**
+     * Every commit showing, and the ones nested in their rows.
+     *
+     * @return iterable<Commit>
+     */
+    private function everyShownCommit(): iterable
+    {
+        foreach ($this->shownCommits() as $commit) {
+            yield $commit;
+
+            if ($commit->quotedCommit !== null) {
+                yield $commit->quotedCommit;
+            }
+
+            yield from $commit->replyPreview?->replies ?? [];
+        }
     }
 
     private function shownAuthor(string $username): ?User
     {
-        foreach ($this->shownCommits() as $commit) {
+        foreach ($this->everyShownCommit() as $commit) {
             if (! $commit->isDeleted() && $commit->author->username === $username) {
                 return $commit->author;
             }
@@ -159,7 +205,7 @@ trait ShowsCommits
 
     private function shownCommit(string $id): ?Commit
     {
-        foreach ($this->shownCommits() as $commit) {
+        foreach ($this->everyShownCommit() as $commit) {
             if ($commit->id === $id) {
                 return $commit;
             }

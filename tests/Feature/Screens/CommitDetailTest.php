@@ -225,6 +225,7 @@ it('draws code blocks as mono text in a hairline box, from the body rather than 
 
 it('shows the focused commit with its media and stars', function () {
     fakeThread([
+        'author' => userJson(['id' => 'u3', 'username' => 'grace', 'name' => 'Grace']),
         'stars_count' => 2,
         'link_preview' => ['url' => 'https://nativephp.com', 'title' => 'NativePHP', 'description' => null, 'image_url' => null, 'site_name' => 'NativePHP'],
     ]);
@@ -306,7 +307,7 @@ it('focuses the reply composer when opened from a Reply action', function () {
 });
 
 it('stars the focused commit and its replies in place', function () {
-    fakeThread(replies: [replyJson(['id' => 'r1', 'parent_id' => 'c2'])], extra: [
+    fakeThread(['author' => userJson(['id' => 'u3', 'username' => 'grace', 'name' => 'Grace'])], replies: [replyJson(['id' => 'r1', 'parent_id' => 'c2'])], extra: [
         'POST /api/v1/commits/c2/star' => [['data' => commitJson(['id' => 'c2', 'stars_count' => 1, 'starred' => true])]],
         'PUT /api/v1/commits/r1/bookmark' => [['data' => commitJson(['id' => 'r1', 'is_saved' => true])]],
     ]);
