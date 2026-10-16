@@ -8,6 +8,7 @@ use App\Devnull\ErrorCode;
 use App\Devnull\Exceptions\ApiException;
 use App\Devnull\Exceptions\KeychainUnavailable;
 use App\Devnull\Exceptions\Unauthenticated;
+use App\Devnull\ReportReason;
 use App\Devnull\RequestSigner;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Request;
@@ -470,6 +471,25 @@ it('unlinks an Apple ID with a signed bodiless DELETE', function () {
         return true;
     });
 });
+
+it('reports a commit with a signed POST of its reason, and the details when there are some', function (string $details, string $body) {
+    Http::fake(['devnull.test/*' => Http::response(null, 204)]);
+
+    app(Client::class)->reportCommit('c1', ReportReason::Spam, $details);
+
+    Http::assertSent(function (Request $request) use ($body): bool {
+        expect($request->method())->toBe('POST')
+            ->and($request->url())->toBe('http://devnull.test/api/v1/commits/c1/reports')
+            ->and($request->body())->toBe($body)
+            ->and(receivedMessage($request))->toEndWith("\nPOST\n/api/v1/commits/c1/reports\n".$body)
+            ->and($request->header('X-SSH-Signature')[0])->toBe(testKey()->sign(receivedMessage($request), 'devnull-api'));
+
+        return true;
+    });
+})->with([
+    'with details' => ['Misleading link.', '{"reason":"spam","details":"Misleading link."}'],
+    'without' => ['', '{"reason":"spam"}'],
+]);
 
 it('deletes your account with a signed bodiless DELETE of /me', function () {
     Http::fake(['devnull.test/*' => Http::response(null, 204)]);

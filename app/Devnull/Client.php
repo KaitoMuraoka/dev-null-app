@@ -165,6 +165,18 @@ final readonly class Client
         return $this->react('DELETE', 'commits/'.rawurlencode($id).'/bookmark');
     }
 
+    /**
+     * Reports a commit to devnull's moderators, privately, as the web's Report
+     * button does. Nothing on the commit changes, so nothing kept changes
+     * either. Reporting one again keeps the first report.
+     */
+    public function reportCommit(string $id, ReportReason $reason, string $details = ''): void
+    {
+        $payload = $details === '' ? ['reason' => $reason->value] : ['reason' => $reason->value, 'details' => $details];
+
+        $this->send('POST', 'commits/'.rawurlencode($id).'/reports', payload: $payload);
+    }
+
     public function profile(string $username): Profile
     {
         return Profile::fromArray($this->get('users/'.rawurlencode($username)));
