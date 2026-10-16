@@ -4,6 +4,8 @@ namespace App\NativeComponents\Layouts;
 
 use App\Devnull\Account;
 use App\Icons\Lucide;
+use App\NativeComponents\Log;
+use Native\Mobile\Edge\Elements\Image;
 use Native\Mobile\Edge\Layouts\Builders\NavBar;
 use Native\Mobile\Edge\Layouts\Builders\Tab;
 use Native\Mobile\Edge\Layouts\Builders\TabBar;
@@ -22,6 +24,15 @@ class TabsLayout extends NativeLayout
      */
     public const array Tabs = ['/log', '/notifications', '/profile'];
 
+    /**
+     * The icon and "/dev/null" wordmark as the web's MobileHeader draws them, 105 x 28pt.
+     * EDGE images load neither SVG nor a per-appearance variant, so there is a PNG for
+     * each appearance, rendered at @3x and drawn at its 1x size.
+     */
+    public const string LightLogo = 'images/logo-light@3x.png';
+
+    public const string DarkLogo = 'images/logo-dark@3x.png';
+
     protected ?string $font = 'semibold';
 
     public function usesNativeChrome(): bool
@@ -29,11 +40,20 @@ class TabsLayout extends NativeLayout
         return true;
     }
 
+    /**
+     * The Log wears the logo in place of its title, as the web's header does.
+     */
     public function navBar(NativeComponent $screen): ?NavBar
     {
-        return NavBar::make()
+        $navBar = NavBar::make()
             ->title($screen->navTitle())
             ->displayMode('inline');
+
+        if ($screen instanceof Log) {
+            $navBar->titleView(Image::make(isDark() ? self::DarkLogo : self::LightLogo)->height(28)->alt('devnull'));
+        }
+
+        return $navBar;
     }
 
     public function tabBar(NativeComponent $screen): ?TabBar

@@ -90,9 +90,12 @@ class Log extends NativeComponent
         $this->load();
     }
 
+    /**
+     * The bar shows the logo instead (see TabsLayout). This names it for VoiceOver and the back menu.
+     */
     public function navTitle(): string
     {
-        return $this->log === 'following' ? 'Log' : 'Everyone';
+        return 'devnull';
     }
 
     public function navigationOptions(): ?NavBarOptions

@@ -3,10 +3,13 @@
 use App\Devnull\Account;
 use App\Devnull\Data\Commit;
 use App\Devnull\LastVisit;
+use App\NativeComponents\Layouts\TabsLayout;
 use App\NativeComponents\Log;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
+use Native\Mobile\System;
 use Native\Mobile\Testing\Native;
+use Native\Mobile\Testing\TestableComponent;
 
 beforeEach(function () {
     config(['devnull.url' => 'http://devnull.test']);
@@ -24,7 +27,8 @@ it('shows the following log in tab chrome with a compose action', function () {
         ->assertTabActive('Log')
         ->assertHasTab('Notifications')
         ->assertHasTab('Profile')
-        ->assertNavTitle('Log')
+        // The bar wears the logo; the title names it for VoiceOver and the back menu.
+        ->assertNavTitle('devnull')
         // The web's page tabs: "Log" and "Everyone".
         ->assertElement('pressable', fn (array $node): bool => ($node['ref'] ?? null) === 'tab-following' && ($node['props']['a11y_label'] ?? null) === 'Log, selected')
         ->assertElement('pressable', fn (array $node): bool => ($node['ref'] ?? null) === 'tab-everyone' && ($node['props']['a11y_label'] ?? null) === 'Everyone')
@@ -513,4 +517,32 @@ it('lets a drag that starts on a commit, a link preview or a thread reply scroll
     nodeByRef($screen, 'thread-reply-r1');
 
     expect(pressFeedbackInScroller($screen))->toBe([]);
+});
+
+it("wears the web header's logo in place of its title, in the system appearance", function () {
+    fakeApi([
+        'GET /api/v1/log/following' => [pageJson([commitJson()])],
+        'GET /api/v1/notifications' => [pageJson([], path: 'http://devnull.test/api/v1/notifications')],
+    ]);
+
+    $titleView = fn (TestableComponent $screen): ?array => findNode($screen->tree(), fn (array $node): bool => ($node['type'] ?? null) === 'top_bar_title');
+
+    $logo = $titleView(Native::visit('/log'))['children'][0] ?? null;
+
+    expect($logo['type'] ?? null)->toBe('image')
+        ->and($logo['props'])->toMatchArray(['src' => TabsLayout::LightLogo, 'alt' => 'devnull'])
+        ->and($logo['layout']['height'] ?? null)->toBe(28.0)
+        ->and(public_path(TabsLayout::LightLogo))->toBeFile()
+        ->and(public_path(TabsLayout::DarkLogo))->toBeFile();
+
+    System::rememberAppearance('dark');
+
+    try {
+        expect($titleView(Native::visit('/log'))['children'][0]['props']['src'] ?? null)->toBe(TabsLayout::DarkLogo);
+    } finally {
+        System::rememberAppearance('light');
+    }
+
+    // Other screens keep their text titles.
+    expect($titleView(Native::visit('/notifications')->assertNavTitle('Notifications')))->toBeNull();
 });
