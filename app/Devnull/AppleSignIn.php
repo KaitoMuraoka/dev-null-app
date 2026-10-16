@@ -24,6 +24,13 @@ final class AppleSignIn
     public const string NoToken = 'fatal: Apple sent no identity token.';
 
     /**
+     * What Apple's unknown error (1000) usually means on a phone, such as when
+     * someone closes iOS's "Sign in to your Apple Account" alert. A missing
+     * Sign in with Apple capability gives the same error.
+     */
+    public const string NotFinished = "fatal: Sign in with Apple didn't finish. Is this phone signed in to an Apple Account?";
+
+    /**
      * The plugin's code for someone closing Apple's sheet.
      */
     public const string Cancelled = 'USER_CANCELLED';

@@ -135,8 +135,8 @@ it("says so when Apple's sign-in fails another way, and ignores Google's failure
 
     expect(heldAppleNonce())->not->toBeNull();
 
-    $screen->emitNative(SignInFailed::class, ['provider' => 'apple', 'error' => 'The operation couldn’t be completed. (ASAuthorizationError.unknown)', 'errorCode' => 'SIGN_IN_FAILED'])
-        ->assertSet('appleError', 'fatal: Sign in with Apple failed. The operation couldn’t be completed. (ASAuthorizationError.unknown)');
+    $screen->emitNative(SignInFailed::class, ['provider' => 'apple', 'error' => 'The operation couldn’t be completed. (ASAuthorizationError.failed)', 'errorCode' => 'SIGN_IN_FAILED'])
+        ->assertSet('appleError', 'fatal: Sign in with Apple failed. The operation couldn’t be completed. (ASAuthorizationError.failed)');
 
     expect(heldAppleNonce())->toBeNull();
     Http::assertNothingSent();
@@ -250,4 +250,17 @@ it('has no Sign in with Apple on Android', function () {
 
     expect(findNodes($screen->tree(), fn (array $node): bool => ($node['type'] ?? null) === 'button'))->toHaveCount(1);
     $bridge->assertNotCalled('NativephpSocialAuth.AppleSignIn');
+});
+
+it("asks whether the phone has an Apple Account when Apple's error says nothing more", function () {
+    appleBridge();
+    fakeApi([]);
+    $screen = Native::visit('/onboarding', platform: 'ios')->tap('sign-in-apple');
+
+    // What closing iOS's "Sign in to your Apple Account" alert sends back.
+    $screen->emitNative(SignInFailed::class, ['provider' => 'apple', 'error' => 'The operation couldn’t be completed. (com.apple.AuthenticationServices.AuthorizationError error 1000.) (ASAuthorizationError.unknown)', 'errorCode' => 'SIGN_IN_FAILED'])
+        ->assertSet('appleError', AppleSignIn::NotFinished)
+        ->assertDontSee('error 1000');
+
+    expect(heldAppleNonce())->toBeNull();
 });

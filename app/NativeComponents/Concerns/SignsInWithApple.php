@@ -65,6 +65,8 @@ trait SignsInWithApple
             return;
         }
 
-        $this->appleFailed(rtrim('fatal: Sign in with Apple failed. '.$error));
+        $this->appleFailed(str_contains($error, 'ASAuthorizationError.unknown')
+            ? AppleSignIn::NotFinished
+            : rtrim('fatal: Sign in with Apple failed. '.$error));
     }
 }
