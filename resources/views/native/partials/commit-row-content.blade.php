@@ -67,7 +67,7 @@
         @endif
 
         @if ($focused)
-            <native:text font="mono" class="mt-1 text-[13px] text-theme-ink-muted">{{ \App\Devnull\Display::gitDate($commit->createdAt) }} · {{ $commit->shortHash }}</native:text>
+            <native:text ref="focused-hash" font="mono" class="mt-1 text-[13px] text-theme-ink-muted">{{ $commit->shortHash }}</native:text>
         @endif
 
         @if ($focused)

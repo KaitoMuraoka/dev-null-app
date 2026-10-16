@@ -106,7 +106,7 @@ it('draws the commit as the main thing, and what is around it muted', function (
         ->and($linkIcon('c1'))->toEqual(14)
         ->and($linkIcon('r1'))->toEqual(14);
 
-    $screen->assertSee('+0000 · c2');
+    $screen->assertDontSee('+0000')->assertSee('c2');
 });
 
 it("hangs the replies under the commit on the web's thread, the rail ending in a dot above them", function () {
@@ -121,13 +121,21 @@ it("hangs the replies under the commit on the web's thread, the rail ending in a
 
     expect(findNode($first, fn (array $node): bool => ($node['ref'] ?? null) === 'thread-elbow'))->not->toBeNull()
         ->and(findNode($second, fn (array $node): bool => ($node['ref'] ?? null) === 'thread-elbow'))->toBeNull()
-        ->and(findNode(nodeByRef($screen, 'focused-commit'), fn (array $node): bool => ($node['ref'] ?? null) === 'end-dot'))->not->toBeNull();
+        ->and(findNode(nodeByRef($screen, 'focused-commit'), fn (array $node): bool => ($node['ref'] ?? null) === 'end-dot'))->not->toBeNull()
+        // Nothing follows the last reply on a commit page, so it has no closing hairline.
+        ->and(findNode($screen->tree(), fn (array $node): bool => str_starts_with((string) ($node['ref'] ?? ''), 'thread-end-')))->toBeNull();
 });
 
-it('prints the date the way git log does', function () {
+it('shows the short hash under the focused commit, without the full date', function () {
     fakeThread(['created_at' => '2026-10-14T20:13:05Z']);
 
-    Native::visit('/log/commits/c2')->assertSee('Wed Oct 14 20:13:05 2026 +0000 · c2');
+    $screen = Native::visit('/log/commits/c2')
+        ->assertDontSee('Wed Oct 14 20:13:05 2026 +0000')
+        ->assertDontSee('+0000');
+
+    $hash = nodeByRef($screen, 'focused-hash');
+
+    expect($hash['text'] ?? $hash['props']['text'] ?? null)->toBe('c2');
 });
 
 it('posts a reply, with no countdown while there is room', function () {
