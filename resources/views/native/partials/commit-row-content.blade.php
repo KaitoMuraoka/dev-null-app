@@ -1,5 +1,5 @@
 {{-- The inside of a commit row, for commit-row to wrap in a link or, for the focused commit, a plain row. --}}
-@php($author = $commit->user)
+@php($author = $commit->author)
 @php($hairline ??= true)
 <native:column :width="64" />
 
@@ -23,10 +23,10 @@
                 <native:text font="mono" class="text-xs text-theme-ink-muted">replying to [deleted]</native:text>
             </native:row>
         @elseif ($commit->parent)
-            <native:pressable ref="replying-to-{{ $commit->id }}" @press="openCommit('{{ $commit->parent->id }}')" a11y-label="Replying to {{ $commit->parent->user->handle() }}">
+            <native:pressable ref="replying-to-{{ $commit->id }}" @press="openCommit('{{ $commit->parent->id }}')" a11y-label="Replying to {{ $commit->parent->author->handle() }}">
                 <native:row class="gap-1 items-center">
                     <native:icon :ios="\App\Icons\Lucide::CornerDownRight->ios()" :android="\App\Icons\Lucide::CornerDownRight->android()" :size="12" class="text-theme-ink-muted" />
-                    <native:text font="mono" class="text-xs text-theme-ink-muted">replying to {{ $commit->parent->user->handle() }}</native:text>
+                    <native:text font="mono" class="text-xs text-theme-ink-muted">replying to {{ $commit->parent->author->handle() }}</native:text>
                 </native:row>
             </native:pressable>
         @endif
@@ -35,7 +35,7 @@
         @include('native.partials.commit-media')
 
         @if ($focused)
-            <native:text font="mono" class="mt-1 text-[13px] text-theme-ink-muted">{{ \App\Devnull\Display::gitDate($commit->createdAt) }} · {{ $commit->shortHash() }}</native:text>
+            <native:text font="mono" class="mt-1 text-[13px] text-theme-ink-muted">{{ \App\Devnull\Display::gitDate($commit->createdAt) }} · {{ $commit->shortHash }}</native:text>
         @endif
 
         @include('native.partials.commit-actions', ['withReply' => ! $focused, 'withReplies' => ! $focused])

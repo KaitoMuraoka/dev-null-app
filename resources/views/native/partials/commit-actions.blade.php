@@ -10,7 +10,7 @@
 @php($isOpen = $expandable && array_key_exists($commit->id, $threads))
 @php($repliesPress = $expandable ? "toggleReplies('{$commit->id}')" : "openCommit('{$commit->id}')")
 @php($viewer ??= app(\App\Devnull\Account::class)->user())
-@php($canReact = $commit->isApproved() || $commit->user->id === $viewer?->id)
+@php($canReact = $commit->isApproved() || $commit->author->id === $viewer?->id)
 @php($starLabel = ($commit->starred ? 'Unstar commit' : 'Star commit').($commit->starsCount > 0 ? ', '.\App\Devnull\Display::count($commit->starsCount, 'star', 'stars') : ''))
 <native:row ref="actions-{{ $commit->id }}" class="w-full -ml-2 items-center">
     @if ($withReply)

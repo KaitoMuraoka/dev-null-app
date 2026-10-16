@@ -19,17 +19,17 @@ beforeEach(function () {
 function fakeThread(array $commit = [], array $replies = [], array $extra = []): void
 {
     fakeApi([
-        'GET /api/v1/commits/c2' => [[
-            'data' => commitJson(['id' => 'c2', 'parent_id' => 'c1', 'body' => 'The focused commit', ...$commit]),
-            'ancestors' => [commitJson(['id' => 'c1', 'body' => 'The parent commit', 'user' => userJson(['id' => 'u2', 'username' => 'ada', 'name' => 'Ada'])])],
-        ]],
+        'GET /api/v1/commits/c2' => [commitPageJson(
+            commitJson(['id' => 'c2', 'parent_id' => 'c1', 'body' => 'The focused commit', ...$commit]),
+            [commitJson(['id' => 'c1', 'body' => 'The parent commit', 'author' => userJson(['id' => 'u2', 'username' => 'ada', 'name' => 'Ada'])])],
+        )],
         'GET /api/v1/commits/c2/replies' => [pageJson($replies)],
         ...$extra,
     ]);
 }
 
 it('shows the ancestors above the commit and the replies below', function () {
-    fakeThread(replies: [commitJson(['id' => 'r1', 'parent_id' => 'c2', 'body' => 'First reply', 'user' => userJson(['username' => 'grace', 'name' => 'Grace'])])]);
+    fakeThread(replies: [commitJson(['id' => 'r1', 'parent_id' => 'c2', 'body' => 'First reply', 'author' => userJson(['username' => 'grace', 'name' => 'Grace'])])]);
 
     Native::visit('/log/commits/c2')
         ->assertNavTitle('Commit')
@@ -115,7 +115,7 @@ it('deletes your own commit after a confirm', function () {
 });
 
 it('offers delete only on your own commits', function () {
-    fakeThread(['user' => userJson(['username' => 'ada'])], extra: ['DELETE /api/v1/commits/c2' => [null, 204]]);
+    fakeThread(['author' => userJson(['username' => 'ada'])], extra: ['DELETE /api/v1/commits/c2' => [null, 204]]);
 
     Native::visit('/log/commits/c2')
         ->call('delete')
@@ -134,13 +134,13 @@ it('opens ancestors, replies and profiles', function () {
 
 it('keeps deleted ancestors on the rail as tombstones', function () {
     fakeApi([
-        'GET /api/v1/commits/c2' => [[
-            'data' => commitJson(['id' => 'c2', 'parent_id' => 'c1', 'body' => 'The focused commit']),
-            'ancestors' => [
-                commitJson(['id' => 'c0', 'body' => 'The root commit', 'user' => userJson(['username' => 'ada', 'lane' => 1])]),
+        'GET /api/v1/commits/c2' => [commitPageJson(
+            commitJson(['id' => 'c2', 'parent_id' => 'c1', 'body' => 'The focused commit']),
+            [
+                commitJson(['id' => 'c0', 'body' => 'The root commit', 'author' => userJson(['username' => 'ada', 'lane' => 1])]),
                 tombstoneJson(['id' => 'c1', 'parent_id' => 'c0']),
             ],
-        ]],
+        )],
         'GET /api/v1/commits/c2/replies' => [pageJson([])],
     ]);
 
@@ -248,8 +248,8 @@ it('reloads when you come back from a reply you deleted', function () {
                 $replyDeleted = true;
             }),
             $path === '/api/v1/commits/c2/replies' => Http::response(pageJson($replyDeleted ? [] : [commitJson(['id' => 'r1', 'parent_id' => 'c2', 'body' => 'Soon gone'])])),
-            $path === '/api/v1/commits/c2' => Http::response(['data' => commitJson(['id' => 'c2', 'body' => 'Parent']), 'ancestors' => []]),
-            $path === '/api/v1/commits/r1' => Http::response(['data' => commitJson(['id' => 'r1', 'parent_id' => 'c2', 'body' => 'Soon gone']), 'ancestors' => [commitJson(['id' => 'c2', 'body' => 'Parent'])]]),
+            $path === '/api/v1/commits/c2' => Http::response(commitPageJson(commitJson(['id' => 'c2', 'body' => 'Parent']))),
+            $path === '/api/v1/commits/r1' => Http::response(commitPageJson(commitJson(['id' => 'r1', 'parent_id' => 'c2', 'body' => 'Soon gone']), [commitJson(['id' => 'c2', 'body' => 'Parent'])])),
             default => Http::response(pageJson([])),
         };
     });
@@ -269,13 +269,13 @@ it('reloads when you come back from a reply you deleted', function () {
 
 it('shows your avatar once when you reply to yourself', function () {
     fakeApi([
-        'GET /api/v1/commits/c3' => [[
-            'data' => commitJson(['id' => 'c3', 'parent_id' => 'c2', 'body' => 'And one more thing']),
-            'ancestors' => [
-                commitJson(['id' => 'c1', 'body' => 'Started it', 'user' => userJson(['id' => 'u2', 'username' => 'ada', 'name' => 'Ada'])]),
+        'GET /api/v1/commits/c3' => [commitPageJson(
+            commitJson(['id' => 'c3', 'parent_id' => 'c2', 'body' => 'And one more thing']),
+            [
+                commitJson(['id' => 'c1', 'body' => 'Started it', 'author' => userJson(['id' => 'u2', 'username' => 'ada', 'name' => 'Ada'])]),
                 commitJson(['id' => 'c2', 'parent_id' => 'c1', 'body' => 'Replying to Ada']),
             ],
-        ]],
+        )],
         'GET /api/v1/commits/c3/replies' => [pageJson([])],
     ]);
 

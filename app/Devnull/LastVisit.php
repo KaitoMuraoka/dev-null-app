@@ -58,7 +58,7 @@ final class LastVisit
             }
 
             foreach (array_slice($commits, 0, $index) as $newer) {
-                if ($newer->user->id !== $userId) {
+                if ($newer->author->id !== $userId) {
                     return $commit->id;
                 }
             }

@@ -16,7 +16,7 @@ beforeEach(function () {
  */
 function meJson(int $unread, array $user = []): array
 {
-    return ['data' => [...userJson($user), 'commits_count' => 1, 'followers_count' => 0, 'following_count' => 0], 'unread_notifications_count' => $unread];
+    return ['data' => userWithCountsJson($user, commits: 1, followers: 0, following: 0), 'unread_notifications_count' => $unread];
 }
 
 function notificationsBadge(TestableComponent $screen): ?string
@@ -118,7 +118,7 @@ it('keeps the log on screen when the count cannot be fetched', function () {
 
 it('picks up the count on your Profile tab and forgets it with the device', function () {
     fakeApi([
-        'GET /api/v1/users/local_dev' => [['data' => [...userJson(), 'commits_count' => 0, 'followers_count' => 0, 'following_count' => 0], 'is_following' => false, 'activity' => ['scale' => 'week', 'buckets' => []], 'streaks' => ['longest' => 0, 'current' => 0], 'pinned_commit' => null]],
+        'GET /api/v1/users/local_dev' => [['data' => userWithCountsJson(commits: 0, followers: 0, following: 0), 'is_following' => false, 'activity' => ['scale' => 'week', 'buckets' => []], 'streaks' => ['longest' => 0, 'current' => 0], 'pinned_commit' => null]],
         'GET /api/v1/users/local_dev/commits' => [pageJson([])],
         'GET /api/v1/me' => [meJson(5, ['name' => 'Renamed On GitHub'])],
     ]);

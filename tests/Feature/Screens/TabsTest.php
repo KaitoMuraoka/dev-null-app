@@ -45,8 +45,8 @@ it('uses the outlined Material icons on Android to match the web strokes', funct
 it('pushes commits and profiles onto the tab they were opened from, so they slide in', function () {
     // Native tabs only push a URI under the tab's own; anything else swaps the whole screen without a slide.
     Http::fake([
-        'devnull.test/api/v1/log/following' => Http::response(pageJson([commitJson(['id' => 'c1', 'user' => userJson(['id' => 'u2', 'username' => 'ada'])])])),
-        'devnull.test/api/v1/commits/c1' => Http::response(['data' => commitJson(['id' => 'c1', 'user' => userJson(['id' => 'u2', 'username' => 'ada'])]), 'ancestors' => []]),
+        'devnull.test/api/v1/log/following' => Http::response(pageJson([commitJson(['id' => 'c1', 'author' => userJson(['id' => 'u2', 'username' => 'ada'])])])),
+        'devnull.test/api/v1/commits/c1' => Http::response(commitPageJson(commitJson(['id' => 'c1', 'author' => userJson(['id' => 'u2', 'username' => 'ada'])]))),
         'devnull.test/*' => Http::response(pageJson([])),
     ]);
 
@@ -67,7 +67,7 @@ it('pushes commits and profiles onto the tab they were opened from, so they slid
 
 it('stays put when a tap leads to the commit already showing', function () {
     fakeApi([
-        'GET /api/v1/commits/c1' => [['data' => commitJson(['id' => 'c1']), 'ancestors' => []]],
+        'GET /api/v1/commits/c1' => [commitPageJson(commitJson(['id' => 'c1']))],
         'GET /api/v1/commits/c1/replies' => [pageJson([])],
     ]);
 
@@ -79,17 +79,17 @@ it('stays put when a tap leads to the commit already showing', function () {
 
 it('stays put when a tap leads to the profile already showing', function () {
     $ada = userJson(['id' => 'u2', 'username' => 'ada', 'name' => 'Ada']);
-    $profile = ['data' => [...$ada, 'commits_count' => 1, 'followers_count' => 0, 'following_count' => 0], 'is_following' => false, 'activity' => ['scale' => 'week', 'buckets' => []], 'streaks' => ['longest' => 0, 'current' => 0], 'pinned_commit' => null];
+    $profile = ['data' => userWithCountsJson(['id' => 'u2', 'username' => 'ada', 'name' => 'Ada']), 'is_following' => false, 'activity' => ['scale' => 'week', 'buckets' => []], 'streaks' => ['longest' => 0, 'current' => 0], 'pinned_commit' => null];
 
     fakeApi([
         'GET /api/v1/users/ada' => [$profile],
         'GET /api/v1/users/ada/commits' => [pageJson([commitJson([
             'id' => 'c1',
-            'user' => $ada,
+            'author' => $ada,
             'body' => 'Pairing with @ada and @grace',
             'mentions' => [['username' => 'ada', 'offset' => 13, 'length' => 4], ['username' => 'grace', 'offset' => 22, 'length' => 6]],
         ])])],
-        'GET /api/v1/users/local_dev' => [['data' => [...userJson(), 'commits_count' => 1, 'followers_count' => 0, 'following_count' => 0], 'is_following' => false, 'activity' => ['scale' => 'week', 'buckets' => []], 'streaks' => ['longest' => 0, 'current' => 0], 'pinned_commit' => null]],
+        'GET /api/v1/users/local_dev' => [['data' => userWithCountsJson(commits: 1, followers: 0, following: 0), 'is_following' => false, 'activity' => ['scale' => 'week', 'buckets' => []], 'streaks' => ['longest' => 0, 'current' => 0], 'pinned_commit' => null]],
         'GET /api/v1/users/local_dev/commits' => [pageJson([commitJson(['id' => 'c2'])])],
     ]);
 

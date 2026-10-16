@@ -79,7 +79,7 @@ final class Timeline
         return $previous !== null
             && ! $previous->isDeleted()
             && ! $commit->isDeleted()
-            && $previous->user->id === $commit->user->id;
+            && $previous->author->id === $commit->author->id;
     }
 
     private static function startsDay(?Commit $previous, Commit $commit, CarbonInterface $now): bool

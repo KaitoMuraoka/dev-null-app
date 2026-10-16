@@ -91,7 +91,7 @@ it('enables Commit once the commit is long enough', function () {
 });
 
 it('stages your avatar on the rail in a dashed ring, solid once the commit is long enough', function () {
-    Http::fake(['devnull.test/*' => Http::response(pageJson([commitJson(['user' => userJson(['id' => 'u2', 'username' => 'ada', 'lane' => 1])])]))]);
+    Http::fake(['devnull.test/*' => Http::response(pageJson([commitJson(['author' => userJson(['id' => 'u2', 'username' => 'ada', 'lane' => 1])])]))]);
 
     $lane = config('native-ui.theme.light.lane-3');
     $solidRing = fn (array $node): bool => ($node['type'] ?? null) === 'stack' && ($node['layout']['width'] ?? null) === 48.0 && ($node['style']['bg_color'] ?? null) === $lane;
@@ -109,7 +109,7 @@ it('stages your avatar on the rail in a dashed ring, solid once the commit is lo
 
 it('commits without leaving the log, then clears the composer and puts the commit at the top', function () {
     fakeApi([
-        'GET /api/v1/log/following' => [pageJson([commitJson(['id' => 'c1', 'body' => 'An older commit', 'user' => userJson(['id' => 'u2', 'username' => 'ada'])])])],
+        'GET /api/v1/log/following' => [pageJson([commitJson(['id' => 'c1', 'body' => 'An older commit', 'author' => userJson(['id' => 'u2', 'username' => 'ada'])])])],
         'POST /api/v1/commits' => [['data' => commitJson(['id' => '0199e5c4-1111-7000-8000-00000000beef', 'body' => 'Shipped the mobile app.'])], 201],
     ]);
 

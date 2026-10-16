@@ -21,12 +21,12 @@
             <native:column :width="64" />
             <native:column class="flex-1">
                 <native:row class="w-full pr-4 pb-3 gap-[10]">
-                    <native:pressable @press="openProfile('{{ $reply->user->username }}')" a11y-label="{{ $reply->user->name }}'s profile">
-                        @include('native.partials.avatar', ['user' => $reply->user, 'size' => 24])
+                    <native:pressable @press="openProfile('{{ $reply->author->username }}')" a11y-label="{{ $reply->author->name }}'s profile">
+                        @include('native.partials.avatar', ['user' => $reply->author, 'size' => 24])
                     </native:pressable>
                     <native:column class="flex-1 gap-1">
                         <native:row class="w-full gap-[6] items-center">
-                            <native:text font="semibold" class="text-sm text-theme-ink flex-shrink" :max-lines="1">{{ $reply->user->name }}</native:text>
+                            <native:text font="semibold" class="text-sm text-theme-ink flex-shrink" :max-lines="1">{{ $reply->author->name }}</native:text>
                             <native:text class="text-[13px] text-theme-ink-muted">·</native:text>
                             <native:text font="mono" class="text-[13px] text-theme-ink-muted flex-shrink-0">{{ \App\Devnull\Display::relativeTime($reply->createdAt) }}</native:text>
                             @unless ($reply->isApproved())

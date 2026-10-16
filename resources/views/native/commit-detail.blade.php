@@ -53,7 +53,7 @@
                     <native:bare-text-input
                         ref="reply-input"
                         class="flex-1 py-2 text-theme-ink"
-                        placeholder="Reply to {{ $commit->user->handle() }}"
+                        placeholder="Reply to {{ $commit->author->handle() }}"
                         native:model.debounce.150ms="reply"
                         :autofocus="$focusReply"
                         multiline

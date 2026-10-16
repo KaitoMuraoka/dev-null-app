@@ -2,6 +2,7 @@
 
 use App\Devnull\Client;
 use App\Devnull\Data\Commit;
+use App\Devnull\Data\User;
 use App\Devnull\DeviceKey;
 use App\Devnull\Exceptions\ApiException;
 use App\Devnull\Exceptions\KeychainUnavailable;
@@ -191,12 +192,12 @@ it('never replaces a key it cannot read', function () {
 
 it('reads commits, threads, profiles and notifications into data objects', function () {
     Http::fake([
-        'devnull.test/api/v1/commits/c1' => Http::response([
-            'data' => commitJson(['id' => 'c1', 'parent_id' => 'p1', 'user_id' => 'u9', 'user' => ['username' => 'ada', 'name' => null]]),
-            'ancestors' => [commitJson(['id' => 'p1'])],
-        ]),
+        'devnull.test/api/v1/commits/c1' => Http::response(commitPageJson(
+            commitJson(['id' => 'c1', 'parent_id' => 'p1', 'author' => ['id' => 'u9', 'username' => 'ada', 'name' => null]]),
+            [commitJson(['id' => 'p1'])],
+        )),
         'devnull.test/api/v1/users/ada' => Http::response([
-            'data' => [...userJson(['username' => 'ada', 'lane' => 4]), 'commits_count' => 3, 'followers_count' => 5, 'following_count' => 1],
+            'data' => userWithCountsJson(['username' => 'ada', 'lane' => 4], commits: 3, followers: 5, following: 1),
             'is_following' => true,
             'activity' => ['scale' => 'day', 'buckets' => [['date' => '2026-10-15T09:00:00Z', 'count' => 2]]],
             'streaks' => ['longest' => 4, 'current' => 1],
@@ -213,8 +214,8 @@ it('reads commits, threads, profiles and notifications into data objects', funct
     $notifications = app(Client::class)->notifications();
 
     expect($thread->commit->id)->toBe('c1')
-        ->and($thread->commit->user->id)->toBe('u9')
-        ->and($thread->commit->user->name)->toBe('ada')
+        ->and($thread->commit->author->id)->toBe('u9')
+        ->and($thread->commit->author->name)->toBe('ada')
         ->and($thread->ancestors[0]->id)->toBe('p1')
         ->and($profile->user->username)->toBe('ada')
         ->and($profile->commitsCount)->toBe(3)
@@ -235,14 +236,18 @@ it('reads commits, threads, profiles and notifications into data objects', funct
 });
 
 it('tolerates missing optional fields', function () {
-    $commit = Commit::fromArray(['id' => 'c1', 'body' => 'Hello', 'user' => ['username' => 'ada']]);
+    $commit = Commit::fromArray(['id' => 'c1', 'body' => 'Hello', 'author' => ['username' => 'ada']]);
 
     expect($commit->status)->toBe('approved')
         ->and($commit->createdAt)->toBeNull()
         ->and($commit->repliesCount)->toBe(0)
-        ->and($commit->url)->toBeNull()
-        ->and($commit->user->avatarUrl)->toBeNull()
-        ->and($commit->user->id)->toBe('ada')
+        ->and($commit->htmlUrl)->toBeNull()
+        ->and($commit->shortHash)->toBe('c1')
+        ->and($commit->author->avatarUrl)->toBeNull()
+        ->and($commit->author->id)->toBe('ada')
+        ->and($commit->author->htmlUrl)->toBeNull()
+        ->and($commit->author->githubUrl)->toBeNull()
+        ->and($commit->author->createdAt)->toBeNull()
         ->and($commit->isDeleted())->toBeFalse()
         ->and($commit->starsCount)->toBe(0)
         ->and($commit->starred)->toBeFalse()
@@ -290,8 +295,58 @@ it('reads what the web shows on a commit', function () {
         ->and($commit->parent?->isDeleted())->toBeTrue();
 });
 
+it('reads a commit\'s author, and its parent\'s, as full users', function () {
+    $ada = userJson([
+        'id' => 'u2',
+        'username' => 'ada',
+        'name' => 'Ada Lovelace',
+        'bio' => null,
+        'company' => 'Analytical Engines',
+        'location' => 'London',
+        'website' => 'https://ada.example',
+        'github_url' => 'https://github.com/ada',
+        'html_url' => 'https://dev-null.sh/@ada',
+        'feed_url' => 'https://dev-null.sh/@ada/feed.atom',
+        'created_at' => '2026-09-01T08:00:00Z',
+        'lane' => 4,
+    ]);
+
+    $commit = Commit::fromArray(commitJson([
+        'id' => '0199e5c4-1111-7000-8000-00000000c0de',
+        'short_hash' => 'abc1234',
+        'html_url' => 'https://dev-null.sh/@local_dev/commits/0199e5c4-1111-7000-8000-00000000c0de',
+        'parent_id' => 'p1',
+        'parent' => commitJson(['id' => 'p1', 'author' => $ada]),
+    ]));
+
+    expect($commit->author->username)->toBe('local_dev')
+        ->and($commit->author->name)->toBe('Local Dev')
+        ->and($commit->author->lane())->toBe(3)
+        ->and($commit->author->githubUrl)->toBe('https://github.com/local_dev')
+        // The API's own short hash and link, not ones worked out here.
+        ->and($commit->shortHash)->toBe('abc1234')
+        ->and($commit->htmlUrl)->toBe('https://dev-null.sh/@local_dev/commits/0199e5c4-1111-7000-8000-00000000c0de')
+        ->and($commit->parent?->author->id)->toBe('u2')
+        ->and($commit->parent?->author->username)->toBe('ada')
+        ->and($commit->parent?->author->bio)->toBeNull()
+        ->and($commit->parent?->author->company)->toBe('Analytical Engines')
+        ->and($commit->parent?->author->location)->toBe('London')
+        ->and($commit->parent?->author->website)->toBe('https://ada.example')
+        ->and($commit->parent?->author->githubUrl)->toBe('https://github.com/ada')
+        ->and($commit->parent?->author->htmlUrl)->toBe('https://dev-null.sh/@ada')
+        ->and($commit->parent?->author->feedUrl)->toBe('https://dev-null.sh/@ada/feed.atom')
+        ->and($commit->parent?->author->createdAt?->toIso8601ZuluString())->toBe('2026-09-01T08:00:00Z')
+        ->and($commit->parent?->author->lane())->toBe(4);
+});
+
+it('keeps you between launches with everything devnull said about you', function () {
+    $user = User::fromArray(userJson(['company' => 'devnull', 'website' => 'https://local.dev']));
+
+    expect(User::fromArray($user->toArray()))->toEqual($user);
+});
+
 it('reads who you are and how many notifications are unread', function () {
-    Http::fake(['devnull.test/api/v1/me' => Http::response(['data' => userJson(['lane' => 2]), 'unread_notifications_count' => 7])]);
+    Http::fake(['devnull.test/api/v1/me' => Http::response(['data' => userWithCountsJson(['lane' => 2]), 'unread_notifications_count' => 7])]);
 
     $current = app(Client::class)->me();
 

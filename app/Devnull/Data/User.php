@@ -3,7 +3,12 @@
 namespace App\Devnull\Data;
 
 use App\Devnull\Lane;
+use Carbon\CarbonImmutable;
 
+/**
+ * A devnull user, as the API sends a commit's author, a notification's actors,
+ * a profile and you. Only the username is sure to be there.
+ */
 final readonly class User
 {
     public function __construct(
@@ -13,6 +18,13 @@ final readonly class User
         public ?string $avatarUrl = null,
         public ?string $bio = null,
         public ?int $lane = null,
+        public ?string $company = null,
+        public ?string $location = null,
+        public ?string $website = null,
+        public ?string $githubUrl = null,
+        public ?string $htmlUrl = null,
+        public ?string $feedUrl = null,
+        public ?CarbonImmutable $createdAt = null,
     ) {}
 
     /**
@@ -29,13 +41,22 @@ final readonly class User
             username: $username,
             name: is_string($name) && $name !== '' ? $name : $username,
             avatarUrl: is_string($data['avatar_url'] ?? null) ? $data['avatar_url'] : null,
-            bio: is_string($data['bio'] ?? null) && $data['bio'] !== '' ? $data['bio'] : null,
+            bio: self::text($data['bio'] ?? null),
             lane: Lane::from($data['lane'] ?? null),
+            company: self::text($data['company'] ?? null),
+            location: self::text($data['location'] ?? null),
+            website: self::text($data['website'] ?? null),
+            githubUrl: self::text($data['github_url'] ?? null),
+            htmlUrl: self::text($data['html_url'] ?? null),
+            feedUrl: self::text($data['feed_url'] ?? null),
+            createdAt: Commit::date($data['created_at'] ?? null),
         );
     }
 
     /**
-     * @return array{id: string, username: string, name: string, avatar_url: ?string, bio: ?string, lane: ?int}
+     * The user in the API's shape, so it can be kept and read back.
+     *
+     * @return array{id: string, username: string, name: string, avatar_url: ?string, bio: ?string, lane: ?int, company: ?string, location: ?string, website: ?string, github_url: ?string, html_url: ?string, feed_url: ?string, created_at: ?string}
      */
     public function toArray(): array
     {
@@ -46,6 +67,13 @@ final readonly class User
             'avatar_url' => $this->avatarUrl,
             'bio' => $this->bio,
             'lane' => $this->lane,
+            'company' => $this->company,
+            'location' => $this->location,
+            'website' => $this->website,
+            'github_url' => $this->githubUrl,
+            'html_url' => $this->htmlUrl,
+            'feed_url' => $this->feedUrl,
+            'created_at' => $this->createdAt?->toIso8601ZuluString(),
         ];
     }
 
@@ -61,5 +89,10 @@ final readonly class User
     public function handle(): string
     {
         return '@'.$this->username;
+    }
+
+    private static function text(mixed $value): ?string
+    {
+        return is_string($value) && trim($value) !== '' ? $value : null;
     }
 }

@@ -80,7 +80,7 @@ class CommitDetail extends NativeComponent
 
     public function navigationOptions(): ?NavBarOptions
     {
-        $options = NavBarOptions::make()->subtitle(Display::shortHash($this->id));
+        $options = NavBarOptions::make()->subtitle($this->commit?->shortHash ?? Display::shortHash($this->id));
 
         if ($this->isOwn()) {
             $options = $options->action(
@@ -193,7 +193,7 @@ class CommitDetail extends NativeComponent
         });
 
         if ($deleted === true) {
-            Dialog::toast('rm '.Display::shortHash($this->id).' → /dev/null', 'short');
+            Dialog::toast('rm '.($this->commit?->shortHash ?? Display::shortHash($this->id)).' → /dev/null', 'short');
             $this->back();
         }
     }
@@ -235,7 +235,7 @@ class CommitDetail extends NativeComponent
 
     public function isOwn(): bool
     {
-        return $this->commit !== null && $this->commit->user->username === $this->me()?->username;
+        return $this->commit !== null && $this->commit->author->username === $this->me()?->username;
     }
 
     public function render(): View

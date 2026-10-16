@@ -121,56 +121,101 @@ function signIn(array $user = []): FakeBridge
 }
 
 /**
+ * A user as the API sends one to a signed request: a commit's author, a
+ * notification's actor. Its links follow the username unless a test sends its own.
+ *
  * @param  array<string, mixed>  $overrides
  * @return array<string, mixed>
  */
 function userJson(array $overrides = []): array
 {
+    $username = $overrides['username'] ?? 'local_dev';
+
     return [
         'id' => '0199e5c4-0000-7000-8000-000000000001',
-        'username' => 'local_dev',
+        'username' => $username,
         'name' => 'Local Dev',
         'avatar_url' => 'https://avatars.githubusercontent.com/u/1?v=4',
         'bio' => 'Ships things.',
+        'company' => null,
+        'location' => null,
+        'website' => null,
+        'github_url' => "https://github.com/{$username}",
+        'html_url' => "http://devnull.test/@{$username}",
+        'feed_url' => "http://devnull.test/@{$username}/feed.atom",
+        'created_at' => '2026-10-15T15:43:47Z',
         'lane' => 3,
         ...$overrides,
     ];
 }
 
 /**
- * A commit as the API sends it. The body's segments follow the body unless
- * a test sends its own, as the server always splits the body it stores.
+ * A user with their counts, as `/me`, a profile and a key sync send them.
+ *
+ * @param  array<string, mixed>  $overrides
+ * @return array<string, mixed>
+ */
+function userWithCountsJson(array $overrides = [], int $commits = 1, int $followers = 0, int $following = 0): array
+{
+    $user = userJson($overrides);
+    $lane = $user['lane'];
+    unset($user['lane']);
+
+    return [...$user, 'commits_count' => $commits, 'followers_count' => $followers, 'following_count' => $following, 'lane' => $lane];
+}
+
+/**
+ * A commit as the API sends it to a signed request. The short hash and the link
+ * follow the id and the author, and the body's segments follow the body, unless
+ * a test sends its own, as the server always works them out from what it stores.
  *
  * @param  array<string, mixed>  $overrides
  * @return array<string, mixed>
  */
 function commitJson(array $overrides = []): array
 {
-    $commit = [
-        'id' => '0199e5c4-1111-7000-8000-00000000c0de',
-        'body' => 'Shipped the mobile app.',
-        'status' => 'approved',
+    $id = $overrides['id'] ?? '0199e5c4-1111-7000-8000-00000000c0de';
+    $body = $overrides['body'] ?? 'Shipped the mobile app.';
+    $author = $overrides['author'] ?? userJson();
+
+    return [
+        'id' => $id,
+        'short_hash' => substr(str_replace('-', '', $id), -7),
+        'body' => $body,
         'parent_id' => null,
-        'replies_count' => 0,
+        'html_url' => 'http://devnull.test/@'.($author['username'] ?? '').'/commits/'.$id,
+        'created_at' => now()->subMinutes(5)->toIso8601ZuluString(),
         'stars_count' => 0,
-        'starred' => false,
-        'is_saved' => false,
-        'is_pinned' => false,
-        'url' => 'http://devnull.test/@local_dev/commits/0199e5c4-1111-7000-8000-00000000c0de',
-        'created_at' => now()->subMinutes(5)->toIso8601String(),
-        'deleted_at' => null,
-        'mentions' => [],
+        'replies_count' => 0,
         'link_preview' => null,
         'images' => [],
-        'user' => userJson(),
+        'author' => $author,
+        'body_segments' => $body === '' ? [] : [['type' => 'text', 'text' => $body]],
+        'mentions' => [],
+        'status' => 'approved',
+        'series_id' => null,
+        'series_position' => null,
+        'series_size' => null,
+        'is_pinned' => false,
+        'starred' => false,
+        'is_saved' => false,
+        'deleted_at' => null,
         ...$overrides,
     ];
+}
 
-    if (! array_key_exists('body_segments', $overrides)) {
-        $commit['body_segments'] = $commit['body'] === '' ? [] : [['type' => 'text', 'text' => $commit['body']]];
-    }
-
-    return $commit;
+/**
+ * A `GET /commits/{id}` response: the commit, what it replies to (or the earlier
+ * parts of its series) and the later parts of its series.
+ *
+ * @param  array<string, mixed>  $commit
+ * @param  list<array<string, mixed>>  $ancestors
+ * @param  list<array<string, mixed>>  $series
+ * @return array<string, mixed>
+ */
+function commitPageJson(array $commit, array $ancestors = [], array $series = []): array
+{
+    return ['data' => $commit, 'ancestors' => $ancestors, 'series' => $series];
 }
 
 /**
@@ -191,15 +236,23 @@ function tombstoneJson(array $overrides = []): array
 }
 
 /**
+ * One page of a cursor-paginated list, as Laravel sends it. links.next carries
+ * the list's own query, such as a profile's ?replies=1, ahead of the cursor.
+ *
  * @param  list<array<string, mixed>>  $items
  * @return array<string, mixed>
  */
-function pageJson(array $items, ?string $nextCursor = null): array
+function pageJson(array $items, ?string $nextCursor = null, string $path = 'http://devnull.test/api/v1/log/following', string $query = '', int $perPage = 20): array
 {
     return [
         'data' => $items,
-        'meta' => ['next_cursor' => $nextCursor],
-        'links' => ['next' => $nextCursor === null ? null : 'http://devnull.test/api/v1/x?cursor='.$nextCursor],
+        'links' => [
+            'first' => null,
+            'last' => null,
+            'prev' => null,
+            'next' => $nextCursor === null ? null : $path.'?'.($query === '' ? '' : $query.'&').'cursor='.$nextCursor,
+        ],
+        'meta' => ['path' => $path, 'per_page' => $perPage, 'next_cursor' => $nextCursor, 'prev_cursor' => null],
     ];
 }
 

@@ -8,9 +8,9 @@ use Carbon\CarbonImmutable;
 use Throwable;
 
 /**
- * A commit as the web shows it. A deleted commit that still has replies comes
- * back as a tombstone: an id, its parent, when it went and its replies count,
- * with no body or author.
+ * A commit as the web shows it, with its author. A deleted commit that still
+ * has replies comes back as a tombstone: an id, its parent, when it went and
+ * its replies count, with no body or author.
  */
 final readonly class Commit
 {
@@ -27,11 +27,11 @@ final readonly class Commit
         public string $id,
         public string $body,
         public string $status,
-        public User $user,
+        public User $author,
         public ?CarbonImmutable $createdAt = null,
         public ?string $parentId = null,
         public int $repliesCount = 0,
-        public ?string $url = null,
+        public ?string $htmlUrl = null,
         public ?CarbonImmutable $deletedAt = null,
         public int $starsCount = 0,
         public bool $starred = false,
@@ -42,6 +42,7 @@ final readonly class Commit
         public array $images = [],
         public array $content = [],
         public ?Commit $parent = null,
+        public string $shortHash = '',
     ) {}
 
     /**
@@ -58,17 +59,12 @@ final readonly class Commit
                 id: $id,
                 body: '',
                 status: '',
-                user: User::fromArray([]),
+                author: User::fromArray([]),
                 parentId: $parentId,
                 repliesCount: $repliesCount,
                 deletedAt: self::date($data['deleted_at']) ?? CarbonImmutable::now(),
+                shortHash: Display::shortHash($id),
             );
-        }
-
-        $user = is_array($data['user'] ?? null) ? $data['user'] : [];
-
-        if (! isset($user['id']) && isset($data['user_id'])) {
-            $user['id'] = $data['user_id'];
         }
 
         $body = (string) ($data['body'] ?? '');
@@ -79,11 +75,11 @@ final readonly class Commit
             id: $id,
             body: $body,
             status: (string) ($data['status'] ?? 'approved'),
-            user: User::fromArray($user),
+            author: User::fromArray(is_array($data['author'] ?? null) ? $data['author'] : []),
             createdAt: self::date($data['created_at'] ?? null),
             parentId: $parentId,
             repliesCount: $repliesCount,
-            url: is_string($data['url'] ?? null) ? $data['url'] : null,
+            htmlUrl: is_string($data['html_url'] ?? null) ? $data['html_url'] : null,
             starsCount: max(0, (int) ($data['stars_count'] ?? 0)),
             starred: ($data['starred'] ?? false) === true,
             isSaved: is_bool($data['is_saved'] ?? null) ? $data['is_saved'] : null,
@@ -93,6 +89,7 @@ final readonly class Commit
             images: self::listOf($data['images'] ?? null, CommitImage::fromArray(...)),
             content: CommitBody::blocks($body, $segments, $mentions),
             parent: is_array($data['parent'] ?? null) ? self::fromArray($data['parent']) : null,
+            shortHash: is_string($data['short_hash'] ?? null) && $data['short_hash'] !== '' ? $data['short_hash'] : Display::shortHash($id),
         );
     }
 
@@ -140,17 +137,12 @@ final readonly class Commit
         return $this->status === 'approved';
     }
 
-    public function shortHash(): string
-    {
-        return Display::shortHash($this->id);
-    }
-
     /**
      * The author's lane, or Rail Gray for a deleted commit, which has no author.
      */
     public function lane(): int|string
     {
-        return $this->isDeleted() ? Lane::Rail : $this->user->lane();
+        return $this->isDeleted() ? Lane::Rail : $this->author->lane();
     }
 
     public static function date(mixed $value): ?CarbonImmutable

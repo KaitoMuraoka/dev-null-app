@@ -97,12 +97,12 @@ trait ShowsCommits
             return;
         }
 
-        Share::url('', '', $commit->url ?? rtrim((string) config('devnull.url'), '/')."/@{$commit->user->username}/commits/{$commit->id}");
+        Share::url('', '', $commit->htmlUrl ?? rtrim((string) config('devnull.url'), '/')."/@{$commit->author->username}/commits/{$commit->id}");
     }
 
     private function canReactTo(Commit $commit): bool
     {
-        return ! $commit->isDeleted() && ($commit->isApproved() || $commit->user->id === $this->me()?->id);
+        return ! $commit->isDeleted() && ($commit->isApproved() || $commit->author->id === $this->me()?->id);
     }
 
     /**

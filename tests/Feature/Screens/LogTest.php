@@ -16,7 +16,7 @@ beforeEach(function () {
 it('shows the following log in tab chrome with a compose action', function () {
     Http::fake(['devnull.test/api/v1/log/following' => Http::response(pageJson([
         commitJson(['id' => 'c2', 'body' => 'Second commit', 'replies_count' => 2]),
-        commitJson(['id' => 'c1', 'body' => 'First commit', 'user' => userJson(['id' => 'u2', 'username' => 'ada', 'name' => 'Ada'])]),
+        commitJson(['id' => 'c1', 'body' => 'First commit', 'author' => userJson(['id' => 'u2', 'username' => 'ada', 'name' => 'Ada'])]),
     ]))]);
 
     Native::visit('/log')
@@ -38,8 +38,8 @@ it('shows the following log in tab chrome with a compose action', function () {
 
 it('colours each node and segment by the lane the author picked', function () {
     Http::fake(['devnull.test/*' => Http::response(pageJson([
-        commitJson(['id' => 'c2', 'user' => userJson(['id' => 'local_dev', 'lane' => 2])]),
-        commitJson(['id' => 'c1', 'user' => userJson(['id' => '1', 'lane' => 4])]),
+        commitJson(['id' => 'c2', 'author' => userJson(['id' => 'local_dev', 'lane' => 2])]),
+        commitJson(['id' => 'c1', 'author' => userJson(['id' => '1', 'lane' => 4])]),
     ]))]);
 
     $light = config('native-ui.theme.light');
@@ -57,7 +57,7 @@ it('falls back to hashing the id when the server sends no lane', function () {
     $user = userJson(['id' => 'local_dev']);
     unset($user['lane']);
 
-    Http::fake(['devnull.test/*' => Http::response(pageJson([commitJson(['user' => $user])]))]);
+    Http::fake(['devnull.test/*' => Http::response(pageJson([commitJson(['author' => $user])]))]);
 
     // local_dev hashes to lane 5, as on the web before lanes could be picked.
     Native::visit('/log')
@@ -256,7 +256,7 @@ it('puts the web action row under each commit: Reply, the star, replies, copy li
     Http::fake(['devnull.test/*' => Http::response(pageJson([
         commitJson(['id' => 'c2', 'stars_count' => 3, 'starred' => true, 'is_saved' => true, 'replies_count' => 1]),
         commitJson(['id' => 'c1', 'stars_count' => 1, 'starred' => false]),
-        commitJson(['id' => 'c0', 'status' => 'pending', 'user' => userJson(['id' => 'u2', 'username' => 'ada'])]),
+        commitJson(['id' => 'c0', 'status' => 'pending', 'author' => userJson(['id' => 'u2', 'username' => 'ada'])]),
     ]))]);
 
     $primary = config('native-ui.theme.light.primary');
@@ -345,7 +345,7 @@ it('saves and unsaves from the row', function () {
 });
 
 it("leaves the star and bookmark alone on someone else's pending commit", function () {
-    fakeApi(['GET /api/v1/log/following' => [pageJson([commitJson(['id' => 'c1', 'status' => 'pending', 'user' => userJson(['id' => 'u2', 'username' => 'ada'])])])]]);
+    fakeApi(['GET /api/v1/log/following' => [pageJson([commitJson(['id' => 'c1', 'status' => 'pending', 'author' => userJson(['id' => 'u2', 'username' => 'ada'])])])]]);
 
     Native::visit('/log')->call('toggleStar', 'c1')->call('toggleBookmark', 'c1');
 
@@ -359,7 +359,7 @@ it('opens a thread in place, as the web does, and closes it again', function () 
             commitJson(['id' => 'c1']),
         ])],
         'GET /api/v1/commits/c2/replies' => [pageJson([
-            commitJson(['id' => 'r1', 'parent_id' => 'c2', 'body' => 'First reply in place', 'user' => userJson(['id' => 'u2', 'username' => 'ada', 'name' => 'Ada'])]),
+            commitJson(['id' => 'r1', 'parent_id' => 'c2', 'body' => 'First reply in place', 'author' => userJson(['id' => 'u2', 'username' => 'ada', 'name' => 'Ada'])]),
             tombstoneJson(['id' => 'r2', 'parent_id' => 'c2', 'replies_count' => 0]),
         ])],
         'POST /api/v1/commits/r1/star' => [['data' => commitJson(['id' => 'r1', 'stars_count' => 1, 'starred' => true])]],
@@ -404,12 +404,12 @@ it('closes a thread whose replies have all gone', function () {
     expect($screen->instance()->threads)->toBe([]);
 });
 
-it('copies a commit link through the share sheet', function () {
-    Http::fake(['devnull.test/*' => Http::response(pageJson([commitJson(['id' => 'c1'])]))]);
+it('copies the commit link devnull sends through the share sheet', function () {
+    Http::fake(['devnull.test/*' => Http::response(pageJson([commitJson(['id' => 'c1', 'html_url' => 'https://dev-null.sh/@local_dev/commits/c1'])]))]);
 
     Native::visit('/log')
         ->tap('copy-link-c1')
-        ->assertNativeCalled('Share.Url', fn (array $params): bool => $params['url'] === 'http://devnull.test/@local_dev/commits/0199e5c4-1111-7000-8000-00000000c0de')
+        ->assertNativeCalled('Share.Url', fn (array $params): bool => $params['url'] === 'https://dev-null.sh/@local_dev/commits/c1')
         ->assertNoNavigation();
 });
 
@@ -430,9 +430,9 @@ it('shows an author once per run, and starts a new run at each day', function ()
     $ada = userJson(['id' => 'u2', 'username' => 'ada', 'name' => 'Ada', 'lane' => 1]);
 
     Http::fake(['devnull.test/*' => Http::response(pageJson([
-        commitJson(['id' => 'c5', 'user' => $ada, 'created_at' => '2026-10-15T11:00:00Z']),
-        commitJson(['id' => 'c4', 'user' => $ada, 'created_at' => '2026-10-15T10:00:00Z']),
-        commitJson(['id' => 'c3', 'user' => $ada, 'created_at' => '2026-10-15T09:00:00Z']),
+        commitJson(['id' => 'c5', 'author' => $ada, 'created_at' => '2026-10-15T11:00:00Z']),
+        commitJson(['id' => 'c4', 'author' => $ada, 'created_at' => '2026-10-15T10:00:00Z']),
+        commitJson(['id' => 'c3', 'author' => $ada, 'created_at' => '2026-10-15T09:00:00Z']),
         commitJson(['id' => 'c2', 'created_at' => '2026-10-15T08:00:00Z']),
         commitJson(['id' => 'c1', 'created_at' => '2026-10-14T20:00:00Z']),
         commitJson(['id' => 'c0', 'created_at' => '2026-10-13T20:00:00Z']),
@@ -459,9 +459,9 @@ it('marks where your last visit ended, which also starts a new run', function ()
     app(LastVisit::class)->remember(userJson()['id'], 'following', [Commit::fromArray(commitJson(['created_at' => now()->subHour()->toIso8601String()]))]);
 
     Http::fake(['devnull.test/*' => Http::response(pageJson([
-        commitJson(['id' => 'c3', 'user' => $ada, 'created_at' => now()->subMinutes(10)->toIso8601String()]),
-        commitJson(['id' => 'c2', 'user' => $ada, 'created_at' => now()->subHour()->toIso8601String()]),
-        commitJson(['id' => 'c1', 'user' => $ada, 'created_at' => now()->subHours(2)->toIso8601String()]),
+        commitJson(['id' => 'c3', 'author' => $ada, 'created_at' => now()->subMinutes(10)->toIso8601String()]),
+        commitJson(['id' => 'c2', 'author' => $ada, 'created_at' => now()->subHour()->toIso8601String()]),
+        commitJson(['id' => 'c1', 'author' => $ada, 'created_at' => now()->subHours(2)->toIso8601String()]),
     ]))]);
 
     $screen = Native::visit('/log')
@@ -482,7 +482,7 @@ it('marks where your last visit ended, which also starts a new run', function ()
 it('leaves out the last-visit marker on a first visit, or when only you committed since', function () {
     Http::fake(['devnull.test/*' => Http::response(pageJson([
         commitJson(['id' => 'c2', 'created_at' => now()->subMinutes(10)->toIso8601String()]),
-        commitJson(['id' => 'c1', 'user' => userJson(['id' => 'u2', 'username' => 'ada']), 'created_at' => now()->subHour()->toIso8601String()]),
+        commitJson(['id' => 'c1', 'author' => userJson(['id' => 'u2', 'username' => 'ada']), 'created_at' => now()->subHour()->toIso8601String()]),
     ]))]);
 
     Native::visit('/log')->assertDontSee('HEAD@{last visit}');
