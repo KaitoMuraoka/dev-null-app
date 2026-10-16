@@ -17,6 +17,10 @@ use Carbon\CarbonInterface;
  */
 final class Timeline
 {
+    public const string JustNow = 'Just now';
+
+    public const string TopCommits = 'Top commits';
+
     /**
      * A feed, like the web's CommitFeed: a day marker wherever the day changes and
      * the last-visit marker above the first commit you had already seen.
@@ -44,6 +48,45 @@ final class Timeline
             }
 
             $rows[] = TimelineRow::commit($commit, $previousLane, ! $startsDay && ! $isFirstSeen && self::continuesRun($previous, $commit));
+            $previous = $commit;
+        }
+
+        return $rows;
+    }
+
+    /**
+     * A ranked log, like the web's Trending: no day markers and no last-visit
+     * marker, since it isn't newest first. Commits newer than the ranking, put
+     * on top by the new commits pill, sit above it under "Just now", and the
+     * ranking follows under "Top commits". A run of one author's commits still
+     * shows their avatar once.
+     *
+     * @param  list<Commit>  $latest  newest first
+     * @param  list<Commit>  $ranked
+     * @return list<TimelineRow>
+     */
+    public static function ranked(array $latest, array $ranked, int|string|null $firstLane = null): array
+    {
+        $rows = [];
+        $previous = null;
+
+        if ($latest !== []) {
+            $rows[] = TimelineRow::day(self::JustNow, $firstLane);
+
+            foreach ($latest as $commit) {
+                $rows[] = TimelineRow::commit($commit, $previous?->lane() ?? $firstLane, self::continuesRun($previous, $commit));
+                $previous = $commit;
+            }
+
+            if ($ranked !== []) {
+                $rows[] = TimelineRow::day(self::TopCommits, $previous?->lane());
+                $previous = null;
+                $firstLane = $latest[array_key_last($latest)]->lane();
+            }
+        }
+
+        foreach ($ranked as $commit) {
+            $rows[] = TimelineRow::commit($commit, $previous?->lane() ?? $firstLane, self::continuesRun($previous, $commit));
             $previous = $commit;
         }
 

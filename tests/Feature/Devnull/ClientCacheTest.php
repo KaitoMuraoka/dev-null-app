@@ -31,13 +31,13 @@ it('keeps the first page of what it fetches, and never a later one', function ()
 
 it('signs a GET for the background to send, and the background sends it as signed', function () {
     $this->travelTo(now()->setTimestamp(1760000000));
-    serveApi(['GET /api/v1/log/everyone' => [pageJson([commitJson()])]]);
+    serveApi(['GET /api/v1/log/latest' => [pageJson([commitJson()])]]);
 
-    $request = $this->devnull->signedGet('log/everyone', ['cursor' => null]);
+    $request = $this->devnull->signedGet('log/latest', ['cursor' => null]);
 
-    expect($request->url)->toBe('http://devnull.test/api/v1/log/everyone')
+    expect($request->url)->toBe('http://devnull.test/api/v1/log/latest')
         ->and($request->headers['X-Devnull-Timestamp'])->toBe('1760000000')
-        ->and($request->headers['X-SSH-Signature'])->toBe(testKey()->sign(RequestSigner::message('1760000000', $request->headers['X-Devnull-Nonce'], 'GET', '/api/v1/log/everyone', ''), 'devnull-api'));
+        ->and($request->headers['X-SSH-Signature'])->toBe(testKey()->sign(RequestSigner::message('1760000000', $request->headers['X-Devnull-Nonce'], 'GET', '/api/v1/log/latest', ''), 'devnull-api'));
 
     Http::assertNothingSent();
 

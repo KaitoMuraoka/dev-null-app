@@ -250,9 +250,9 @@ it('signs out and empties the cache when a background refresh gets a 401', funct
 it('opens the other log at once when it was kept', function () {
     holdRefreshes();
     keep('log/following', pageJson([commitJson(['id' => 'c1', 'body' => 'From following'])]));
-    keep('log/everyone', pageJson([commitJson(['id' => 'c2', 'body' => 'From everyone'])]));
+    keep('log/latest', pageJson([commitJson(['id' => 'c2', 'body' => 'From everyone'])]));
 
-    $screen = Native::visit('/log')->tap('tab-everyone')->assertSee('From everyone')->assertDontSee('From following');
+    $screen = Native::visit('/log')->tap('tab-latest')->assertSee('From everyone')->assertDontSee('From following');
 
     expect(showsLoading($screen->tree()))->toBeFalse()
         ->and(count(Http::recorded()))->toBe(0);
@@ -260,12 +260,12 @@ it('opens the other log at once when it was kept', function () {
 
 it('ignores an answer for the log you have since left', function () {
     holdRefreshes();
-    keep('log/everyone', pageJson([commitJson(['id' => 'c2', 'body' => 'From everyone'])]));
+    keep('log/latest', pageJson([commitJson(['id' => 'c2', 'body' => 'From everyone'])]));
     fakeFreshLog([commitJson(['id' => 'c1', 'body' => 'From following'])], extra: [
-        'GET /api/v1/log/everyone' => [pageJson([commitJson(['id' => 'c2', 'body' => 'From everyone'])])],
+        'GET /api/v1/log/latest' => [pageJson([commitJson(['id' => 'c2', 'body' => 'From everyone'])])],
     ]);
 
-    $screen = finishRefreshes(Native::visit('/log')->tap('tab-everyone'))
+    $screen = finishRefreshes(Native::visit('/log')->tap('tab-latest'))
         ->assertSee('From everyone')
         ->assertDontSee('From following')
         ->assertSet('error', null);

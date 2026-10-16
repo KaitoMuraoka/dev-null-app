@@ -69,7 +69,7 @@ it('keeps the secret key out of dumps', function () {
 describe('against OpenSSH', function () {
     it('passes ssh-keygen -Y check-novalidate', function () {
         $key = SshKey::generate();
-        $message = RequestSigner::message((string) time(), RequestSigner::nonce(), 'GET', '/api/v1/log/everyone?cursor=abc', '');
+        $message = RequestSigner::message((string) time(), RequestSigner::nonce(), 'GET', '/api/v1/log/latest?cursor=abc', '');
         $signatureFile = OpenSsh::temporaryFile(OpenSsh::armorSignature($key->sign($message, 'devnull-api')));
 
         [$exitCode, $stdout, $stderr] = OpenSsh::keygen(['-Y', 'check-novalidate', '-n', 'devnull-api', '-s', $signatureFile], $message);

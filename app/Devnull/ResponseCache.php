@@ -36,12 +36,29 @@ final class ResponseCache
     private const array Cacheable = [
         '#^me$#',
         '#^notifications$#',
+        '#^notifications/[^/]+/group$#',
         '#^log/[^/]+$#',
         '#^commits/[^/]+$#',
         '#^commits/[^/]+/replies$#',
         '#^users/[^/]+$#',
         '#^users/[^/]+/commits$#',
     ];
+
+    /**
+     * Query parameters that only ask devnull what changed since what's showing.
+     * They don't change the page, so an answer is kept and found without them.
+     */
+    private const array Transient = ['since'];
+
+    /**
+     * What a log answers only for ?since=, which is about that moment and not worth keeping.
+     */
+    private const array TransientLogKeys = ['latest_commits', 'new_commits_count'];
+
+    /**
+     * How many of the commits deleted on this phone it remembers.
+     */
+    private const int RememberedDeletions = 50;
 
     /**
      * Whether a GET of $path with $query is kept: a known path, and a first page.
@@ -101,7 +118,13 @@ final class ResponseCache
             return;
         }
 
-        $this->write($userId, $path, $query, $path === 'notifications' ? self::read($json) : $json, CarbonImmutable::now()->getTimestamp());
+        $json = match (true) {
+            $path === 'notifications' => self::read($json),
+            str_starts_with($path, 'log/') => array_diff_key($json, array_flip(self::TransientLogKeys)),
+            default => $json,
+        };
+
+        $this->write($userId, $path, $query, $json, CarbonImmutable::now()->getTimestamp());
     }
 
     /**
@@ -207,7 +230,8 @@ final class ResponseCache
         $parentId = is_string($commit['parent_id'] ?? null) ? $commit['parent_id'] : null;
 
         if ($parentId === null) {
-            foreach (['log/following', 'log/everyone', "users/{$me}/commits"] as $path) {
+            // Trending is ranked, so a new commit has no place at the top of it.
+            foreach (['log/following', 'log/latest', "users/{$me}/commits"] as $path) {
                 $this->patch($path, [], fn (array $json): array => self::prepend($json, $commit));
             }
 
@@ -230,6 +254,8 @@ final class ResponseCache
     public function commitDeleted(string $id): void
     {
         $parentId = $this->findCommit($id)['parent_id'] ?? null;
+
+        $this->rememberDeletion($id);
 
         $this->patchCommit($id, fn (array $commit): ?array => null);
         $this->forget("commits/{$id}");
@@ -257,6 +283,29 @@ final class ResponseCache
 
         if ($changed && ($me = $this->username()) !== null) {
             $this->patch("users/{$me}", [], fn (array $json): array => self::count($json, 'following_count', $following ? 1 : -1));
+        }
+    }
+
+    /**
+     * Commits deleted on this phone lately, for a ranked log, which can't tell
+     * a commit that went from one that only fell down the ranking.
+     *
+     * @return list<string>
+     */
+    public function deletedIds(): array
+    {
+        $userId = $this->userId();
+        $ids = $userId === null ? null : $this->store()->get("{$userId} deleted");
+
+        return is_array($ids) ? array_values(array_filter($ids, is_string(...))) : [];
+    }
+
+    private function rememberDeletion(string $id): void
+    {
+        $userId = $this->userId();
+
+        if ($userId !== null) {
+            $this->store()->forever("{$userId} deleted", array_slice([$id, ...array_diff($this->deletedIds(), [$id])], 0, self::RememberedDeletions));
         }
     }
 
@@ -380,7 +429,7 @@ final class ResponseCache
      */
     private static function normalise(array $query): array
     {
-        $query = array_filter($query, fn (?string $value): bool => $value !== null && $value !== '');
+        $query = array_filter(array_diff_key($query, array_flip(self::Transient)), fn (?string $value): bool => $value !== null && $value !== '');
         ksort($query);
 
         return $query;

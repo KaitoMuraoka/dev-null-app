@@ -38,6 +38,12 @@ trait HoldsNewCommits
     public ?string $newCommitsCursor = null;
 
     /**
+     * How many new commits devnull counted since the newest one showing, when
+     * it was asked. It can be more than one page holds.
+     */
+    public ?int $newCommitsCount = null;
+
+    /**
      * Mounts a fresh list when it changes, which puts it back at the top.
      */
     public int $listKey = 0;
@@ -63,13 +69,15 @@ trait HoldsNewCommits
     }
 
     /**
-     * How the pill reads, as on the web: "3 new commits". A "+" says more came in than one page holds.
+     * How the pill reads, as on the web: "3 new commits", counted by devnull
+     * when it was asked. Otherwise a "+" says more came in than one page holds.
      */
     public function newCommitsLabel(): string
     {
-        $count = count($this->newCommits);
+        $count = max(count($this->newCommits), $this->newCommitsCount ?? 0);
+        $more = $this->newCommitsCount === null && $this->newCommitsReplaceList && $this->newCommitsCursor !== null;
 
-        return $count.($this->newCommitsReplaceList && $this->newCommitsCursor !== null ? '+' : '').' '.($count === 1 ? 'new commit' : 'new commits');
+        return $count.($more ? '+' : '').' '.($count === 1 ? 'new commit' : 'new commits');
     }
 
     /**
@@ -87,6 +95,7 @@ trait HoldsNewCommits
         $this->newCommits = $fresh->newer;
         $this->newCommitsReplaceList = $fresh->replacesAll;
         $this->newCommitsCursor = $fresh->freshCursor;
+        $this->newCommitsCount = $fresh->hasNewer() && is_int($json['new_commits_count'] ?? null) ? $json['new_commits_count'] : null;
 
         if ($showNewer) {
             $this->putNewCommitsOnTop();
@@ -115,5 +124,6 @@ trait HoldsNewCommits
         $this->newCommits = [];
         $this->newCommitsReplaceList = false;
         $this->newCommitsCursor = null;
+        $this->newCommitsCount = null;
     }
 }

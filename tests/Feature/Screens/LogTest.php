@@ -30,9 +30,11 @@ it('shows the following log in tab chrome with a compose action', function () {
         ->assertHasTab('Profile')
         // The bar wears the logo; the title names it for VoiceOver and the back menu.
         ->assertNavTitle('devnull')
-        // The web's page tabs: "Log" and "Everyone".
-        ->assertElement('pressable', fn (array $node): bool => ($node['ref'] ?? null) === 'tab-following' && ($node['props']['a11y_label'] ?? null) === 'Log, selected')
-        ->assertElement('pressable', fn (array $node): bool => ($node['ref'] ?? null) === 'tab-everyone' && ($node['props']['a11y_label'] ?? null) === 'Everyone')
+        // The web's page tabs: Following, Latest and Trending.
+        ->assertElement('pressable', fn (array $node): bool => ($node['ref'] ?? null) === 'tab-following' && ($node['props']['a11y_label'] ?? null) === 'Following, selected')
+        ->assertElement('pressable', fn (array $node): bool => ($node['ref'] ?? null) === 'tab-latest' && ($node['props']['a11y_label'] ?? null) === 'Latest')
+        ->assertElement('pressable', fn (array $node): bool => ($node['ref'] ?? null) === 'tab-trending' && ($node['props']['a11y_label'] ?? null) === 'Trending')
+        ->assertMissingElement('pressable', fn (array $node): bool => ($node['ref'] ?? null) === 'tab-everyone')
         ->assertSee('Second commit')
         ->assertSee('First commit')
         ->assertSee('@ada')
@@ -69,27 +71,27 @@ it('falls back to hashing the id when the server sends no lane', function () {
         ->assertElement('stack', fn (array $node): bool => ($node['style']['bg_color'] ?? null) === config('native-ui.theme.light.lane-5'));
 });
 
-it('switches to everyone', function () {
+it('switches to Latest', function () {
     Http::fake([
         'devnull.test/api/v1/log/following' => Http::response(pageJson([])),
-        'devnull.test/api/v1/log/everyone' => Http::response(pageJson([commitJson(['body' => 'Hello from everyone'])])),
+        'devnull.test/api/v1/log/latest' => Http::response(pageJson([commitJson(['body' => 'Hello from everyone'])])),
     ]);
 
     Native::visit('/log')
         ->assertSee('fatal: your log does not have any commits yet')
-        ->tap('tab-everyone')
-        ->assertSet('log', 'everyone')
+        ->tap('tab-latest')
+        ->assertSet('log', 'latest')
         ->assertSee('Hello from everyone');
 });
 
-it('uses the git voice when everyone is empty', function () {
+it('uses the git voice when Latest or Trending is empty', function (string $log) {
     Http::fake(['devnull.test/*' => Http::response(pageJson([]))]);
 
     Native::test(Log::class)
-        ->call('show', 'everyone')
+        ->call('show', $log)
         ->assertSee('fatal: no commits yet')
-        ->assertSee("Nobody has committed anything. Be the first. It's 280 characters; you'll be fine.");
-});
+        ->assertSee("Nobody has committed anything. Be the first. It's just plain text; you'll be fine.");
+})->with(['latest', 'trending']);
 
 it('loads the next page by cursor', function () {
     Http::fake(function (Request $request) {

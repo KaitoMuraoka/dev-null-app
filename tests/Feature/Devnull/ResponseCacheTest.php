@@ -45,7 +45,7 @@ it('gives back what devnull sent', function () {
     $this->cache->put('log/following', [], $json);
 
     expect($this->cache->get('log/following'))->toBe($json)
-        ->and($this->cache->get('log/everyone'))->toBeNull();
+        ->and($this->cache->get('log/latest'))->toBeNull();
 });
 
 it('shows an answer for seven days and treats anything older as missing', function () {
@@ -141,6 +141,8 @@ it('takes a new star into every copy of the commit, wherever it sits', function 
 
 it('puts your new commit on top of your logs and profile, and counts it', function () {
     $this->cache->put('log/following', [], pageJson([commitJson(['id' => 'c1'])]));
+    $this->cache->put('log/latest', [], pageJson([commitJson(['id' => 'c1'])]));
+    $this->cache->put('log/trending', [], [...pageJson([commitJson(['id' => 'c2']), commitJson(['id' => 'c1'])]), 'is_ranked' => true, 'newest_commit_id' => 'c1']);
     $this->cache->put('users/local_dev/commits', [], pageJson([commitJson(['id' => 'c1'])]));
     $this->cache->put('users/local_dev', [], ['data' => userWithCountsJson(commits: 4)]);
 
@@ -149,7 +151,9 @@ it('puts your new commit on top of your logs and profile, and counts it', functi
     expect(array_column($this->cache->get('log/following')['data'], 'id'))->toBe(['c9', 'c1'])
         ->and(array_column($this->cache->get('users/local_dev/commits')['data'], 'id'))->toBe(['c9', 'c1'])
         ->and($this->cache->get('users/local_dev')['data']['commits_count'])->toBe(5)
-        ->and($this->cache->get('log/everyone'))->toBeNull();
+        ->and(array_column($this->cache->get('log/latest')['data'], 'id'))->toBe(['c9', 'c1'])
+        // Trending is ranked, so a new commit has no place on top of it.
+        ->and(array_column($this->cache->get('log/trending')['data'], 'id'))->toBe(['c2', 'c1']);
 });
 
 it('puts your reply under its parent and counts it there', function () {
@@ -184,6 +188,34 @@ it('takes a deleted commit out of every list and forgets its page', function () 
         ->and($this->cache->get('log/following')['data'][0]['replies_count'])->toBe(0)
         ->and($this->cache->get('commits/c1/replies')['data'])->toBe([])
         ->and($this->cache->get('commits/r1'))->toBeNull();
+});
+
+it('remembers the commits deleted on this phone, newest first and only the last fifty', function () {
+    foreach (range(1, 52) as $n) {
+        $this->cache->commitDeleted("c{$n}");
+    }
+
+    expect($this->cache->deletedIds())->toHaveCount(50)
+        ->and($this->cache->deletedIds()[0])->toBe('c52')
+        ->and($this->cache->deletedIds())->not->toContain('c1');
+
+    $this->cache->flush();
+
+    expect($this->cache->deletedIds())->toBe([]);
+});
+
+it('keeps a log the same whatever it was asked since, without what only ?since= answers', function () {
+    $this->cache->put('log/trending', ['since' => 'c1'], [
+        ...pageJson([commitJson(['id' => 'c2'])]),
+        'is_ranked' => true,
+        'newest_commit_id' => 'c3',
+        'latest_commits' => [commitJson(['id' => 'c3'])],
+        'new_commits_count' => 1,
+    ]);
+
+    expect($this->cache->get('log/trending'))->toMatchArray(['is_ranked' => true, 'newest_commit_id' => 'c3'])
+        ->and($this->cache->get('log/trending'))->not->toHaveKeys(['latest_commits', 'new_commits_count'])
+        ->and($this->cache->get('log/trending', ['since' => 'c9']))->toBe($this->cache->get('log/trending'));
 });
 
 it('follows and unfollows on the kept profiles', function () {

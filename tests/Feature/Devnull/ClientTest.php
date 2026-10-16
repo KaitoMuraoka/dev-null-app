@@ -40,14 +40,14 @@ function receivedMessage(Request $request): string
 it('signs a GET with the device key, the query string as sent and an empty body', function () {
     Http::fake(['devnull.test/*' => Http::response(pageJson([commitJson()], 'next+page/1='))]);
 
-    $page = app(Client::class)->log('everyone', 'abc def=');
+    $page = app(Client::class)->log('latest', 'abc def=');
 
     expect($page->items)->toHaveCount(1)
         ->and($page->items[0])->toBeInstanceOf(Commit::class)
         ->and($page->nextCursor)->toBe('next+page/1=');
 
     Http::assertSent(function (Request $request): bool {
-        expect($request->url())->toBe('http://devnull.test/api/v1/log/everyone?cursor=abc%20def%3D')
+        expect($request->url())->toBe('http://devnull.test/api/v1/log/latest?cursor=abc%20def%3D')
             ->and($request->method())->toBe('GET')
             ->and($request->body())->toBe('')
             ->and($request->hasHeader('Content-Type'))->toBeFalse()
@@ -55,7 +55,7 @@ it('signs a GET with the device key, the query string as sent and an empty body'
             ->and($request->header('X-Devnull-Timestamp'))->toBe(['1760000000'])
             ->and($request->header('X-Devnull-Nonce')[0])->toMatch('/^[0-9a-f]{32}$/')
             ->and(receivedMessage($request))->toStartWith("1760000000\n")
-            ->toEndWith("\nGET\n/api/v1/log/everyone?cursor=abc%20def%3D\n")
+            ->toEndWith("\nGET\n/api/v1/log/latest?cursor=abc%20def%3D\n")
             ->and($request->header('X-SSH-Signature')[0])->toBe(testKey()->sign(receivedMessage($request), 'devnull-api'));
 
         return true;
