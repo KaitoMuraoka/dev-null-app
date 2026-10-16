@@ -250,10 +250,73 @@ it('keeps each filter on its own, and opens one kept before at once', function (
         ->assertSee('mentioned you')
         ->assertDontSee('followed you');
 
-    expect(showsLoading($screen->tree()))->toBeFalse()
+    expect(showsLoading(showingNotifications($screen)))->toBeFalse()
         ->and(count(Http::recorded()))->toBe($requests)
         ->and(kept('notifications', ['type' => 'mentions']))->not->toBeNull()
         ->and(kept('notifications', ['type' => 'stars']))->toBeNull();
+});
+
+it('swipes between the filters both ways, with the filters along the top following, and stops at the ends', function () {
+    holdRefreshes();
+    keep('notifications', inboxJson([notificationJson('followed')]), ['type' => null]);
+    keep('notifications', inboxJson([notificationJson('replied')], 'replies'), ['type' => 'replies']);
+    serveApi(fn () => Http::response(inboxJson([])));
+
+    $screen = Native::visit('/notifications');
+    $pager = fn (): array => nodeByRef($screen, 'notifications-pager');
+    $selected = fn (): array => array_values(array_filter(array_keys(Notifications::Types), fn (string $type): bool => str_ends_with(nodeByRef($screen, 'filter-'.$type)['props']['a11y_label'] ?? '', ', selected')));
+
+    // All is first: it and Replies are shipped, nothing before it.
+    expect($pager()['props'])->toMatchArray(['horizontal' => true, 'count' => 7, 'page' => 0, 'window_from' => 0, 'window_to' => 1])
+        ->and(treeShows(nodeByRef($screen, 'notifications-replies'), 'replied'))->toBeTrue();
+
+    $screen->changeTab('showPage', 1)->assertSet('type', 'replies');
+
+    expect($selected())->toBe(['replies'])
+        ->and($pager()['props'])->toMatchArray(['page' => 1, 'window_from' => 0, 'window_to' => 2])
+        ->and(treeShows(showingNotifications($screen), 'replied'))->toBeTrue()
+        ->and(showsLoading(showingNotifications($screen)))->toBeFalse();
+
+    $screen->changeTab('showPage', 0)->assertSet('type', 'all');
+
+    expect($selected())->toBe(['all']);
+
+    // Nothing before All, and no wrapping round from Moderation to All.
+    $screen->changeTab('showPage', -1)->assertSet('type', 'all');
+    $screen->changeTab('showPage', 6)->assertSet('type', 'moderation');
+
+    expect($pager()['props'])->toMatchArray(['page' => 6, 'window_from' => 5, 'window_to' => 6]);
+
+    $screen->changeTab('showPage', 7)->assertSet('type', 'moderation');
+});
+
+it('gives each filter its own list, starts the one you leave again in a fresh one, and only lets the one you are on page', function () {
+    holdRefreshes();
+    keep('notifications', inboxJson([notificationJson('followed')]), ['type' => null]);
+    keep('notifications', inboxJson(array_map(fn (int $n): array => notificationJson('replied', ['id' => "r{$n}"]), range(1, 10)), 'replies', cursor: 'next'), ['type' => 'replies']);
+    serveApi(fn () => Http::response(inboxJson([])));
+
+    $screen = Native::visit('/notifications');
+    $all = showingNotifications($screen)['id'];
+    $replies = nodeByRef($screen, 'notifications-replies');
+
+    // Beside All, Replies shows the first few groups kept for it, with nothing under them yet.
+    expect(count(findNodes($replies, fn (array $node): bool => str_starts_with((string) ($node['ref'] ?? ''), 'notification-'))))->toBe(Notifications::PreviewGroups)
+        ->and(showsLoading($replies))->toBeFalse()
+        ->and($replies['props'])->toHaveKey('on_refresh')
+        ->and($replies['props'])->not->toHaveKey('on_end_reached')
+        ->and(showingNotifications($screen)['props'])->toHaveKey('on_end_reached');
+
+    $screen->changeTab('showPage', 1);
+
+    // Swiped to, Replies keeps its list and fills it. All, left behind, starts again at the top of a fresh one.
+    expect(showingNotifications($screen)['id'])->toBe($replies['id'])
+        ->and(nodeByRef($screen, 'notifications-all')['id'])->not->toBe($all);
+
+    // The filter you're on takes you back to its top.
+    $screen->tap('filter-replies');
+
+    expect(showingNotifications($screen)['id'])->not->toBe($replies['id']);
 });
 
 it('opens a group in place, as the web expands it, and folds it away again', function () {

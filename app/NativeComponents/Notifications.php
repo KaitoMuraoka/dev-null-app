@@ -28,6 +28,11 @@ use Native\Mobile\Edge\NativeComponent;
  * any of it, and says when, so the groups read since then are the new ones:
  * their node is ringed in blue, above the last-visit marker. New ones go in
  * at the top quietly, since a group's id moves on as people join it.
+ *
+ * The filters are pages you swipe between, as on the Log (see Log), and the
+ * filters along the top follow. The filters either side of the one you're on
+ * show the first few groups kept for them, ready for a swipe. Each has its
+ * own list, and a filter you leave starts again at the top of a fresh one.
  */
 class Notifications extends NativeComponent
 {
@@ -48,7 +53,24 @@ class Notifications extends NativeComponent
         'moderation' => ['Moderation', 'No moderation updates. Approved and rejected commits show up here.'],
     ];
 
+    /**
+     * How many kept groups a filter beside the one you're on shows, enough to fill the screen while you swipe to it.
+     */
+    public const int PreviewGroups = 6;
+
     public string $type = 'all';
+
+    /**
+     * Mounts a fresh list for the filter you're on when it changes, at the top.
+     */
+    public int $listKey = 0;
+
+    /**
+     * The list key of each filter you're not on.
+     *
+     * @var array<string, int>
+     */
+    public array $listKeys = [];
 
     /** @var list<Notification> */
     public array $notifications = [];
@@ -102,19 +124,51 @@ class Notifications extends NativeComponent
     }
 
     /**
-     * A filter along the top: its own list, from what was kept for it, then asked again.
+     * A filter along the top: its own list, from what was kept for it, then
+     * asked again. The one you're on takes you back to its top.
      */
     public function show(string $type): void
     {
-        if (! array_key_exists($type, self::Types) || $type === $this->type) {
+        if (! array_key_exists($type, self::Types)) {
             return;
         }
 
+        if ($type === $this->type) {
+            $this->listKey++;
+
+            return;
+        }
+
+        $this->switchTo($type);
+    }
+
+    /**
+     * The pager settling on a filter, from a swipe. It says so again for the one it's already on.
+     */
+    public function showPage(int $index): void
+    {
+        $type = array_keys(self::Types)[$index] ?? null;
+
+        if ($type !== null && $type !== $this->type) {
+            $this->switchTo($type);
+        }
+    }
+
+    /**
+     * The filter you go to keeps the list its first groups were drawn in, which
+     * can't have been scrolled, and fills it. The one you leave starts again at
+     * the top of a fresh one.
+     */
+    private function switchTo(string $type): void
+    {
+        $this->listKeys[$this->type] = $this->listKey + 1;
+        $this->listKey = $this->listKeys[$type] ?? 0;
         $this->type = $type;
         $this->notifications = [];
         $this->nextCursor = null;
         $this->loaded = false;
         $this->error = null;
+        $this->refreshFailed = false;
         $this->expanded = [];
         $this->expandedCursors = [];
         $this->failedGroups = [];
@@ -376,12 +430,71 @@ class Notifications extends NativeComponent
     public function render(): View
     {
         $readAt = $this->readAt === null ? null : CarbonImmutable::parse($this->readAt);
+        $types = array_keys(self::Types);
+        $index = (int) array_search($this->type, $types, true);
+        $from = max(0, $index - 1);
+        $to = min(count($types) - 1, $index + 1);
+
+        $pages = [];
+
+        foreach (array_slice($types, $from, $to - $from + 1) as $type) {
+            $pages[] = $type === $this->type
+                ? $this->page($type, $this->notifications, $this->nextCursor, $this->loaded, $this->error, $readAt, $this->listKey)
+                : $this->preview($type, $readAt);
+        }
 
         return view('native.notifications', [
             'types' => self::Types,
             'readAt' => $readAt,
-            'lastVisitBefore' => self::firstSeen($this->notifications, $readAt),
+            'pages' => $pages,
+            'pageIndex' => $index,
+            'pagesFrom' => $from,
+            'pagesTo' => $to,
         ]);
+    }
+
+    /**
+     * A filter beside the one you're on: the first few groups kept for it, as it will open.
+     *
+     * @return array<string, mixed>
+     */
+    private function preview(string $type, ?CarbonImmutable $readAt): array
+    {
+        $json = $this->cached('notifications', Client::notificationsQuery($type));
+        $kept = is_array($json['data'] ?? null) ? $json['data'] : [];
+        $page = $json === null ? null : Page::fromArray(['data' => array_slice($kept, 0, self::PreviewGroups)] + $json, Notification::fromArray(...));
+
+        // Groups past the preview are left out, with nothing under them yet.
+        return $this->page($type, $page->items ?? [], $page?->nextCursor, $page !== null, null, $readAt, $this->listKeys[$type] ?? 0, cut: count($kept) > self::PreviewGroups);
+    }
+
+    /**
+     * What a filter's page shows.
+     *
+     * @param  list<Notification>  $notifications
+     * @return array<string, mixed>
+     */
+    private function page(string $type, array $notifications, ?string $nextCursor, bool $loaded, ?string $error, ?CarbonImmutable $readAt, int $listKey, bool $cut = false): array
+    {
+        $showing = $type === $this->type;
+
+        return [
+            'end' => match (true) {
+                $cut || $notifications === [] => null,
+                $nextCursor !== null => 'more',
+                default => 'oldest',
+            },
+            'type' => $type,
+            'showing' => $showing,
+            'listKey' => $listKey,
+            'notifications' => $notifications,
+            'loaded' => $loaded,
+            'error' => $error,
+            'lastVisitBefore' => self::firstSeen($notifications, $readAt),
+            'expanded' => $showing ? $this->expanded : [],
+            'expandedCursors' => $showing ? $this->expandedCursors : [],
+            'failedGroups' => $showing ? $this->failedGroups : [],
+        ];
     }
 
     /**

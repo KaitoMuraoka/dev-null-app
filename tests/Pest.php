@@ -221,6 +221,17 @@ function showingLog(TestableComponent $screen): array
 }
 
 /**
+ * The list of the notifications filter that's showing in its pager. The pages
+ * beside it show the filters either side, ready for a swipe.
+ *
+ * @return array<string, mixed>
+ */
+function showingNotifications(TestableComponent $screen): array
+{
+    return nodeByRef($screen, 'notifications');
+}
+
+/**
  * Whether a tree shows some text.
  *
  * @param  array<string, mixed>  $tree

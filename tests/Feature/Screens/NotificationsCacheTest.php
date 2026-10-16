@@ -42,7 +42,7 @@ it('opens on the notifications kept last time, with no request and no spinner, t
 
     $screen = Native::visit('/notifications')->assertSee('followed you');
 
-    expect(showsLoading($screen->tree()))->toBeFalse()
+    expect(showsLoading(showingNotifications($screen)))->toBeFalse()
         ->and(count(Http::recorded()))->toBe(0)
         // Kept as read: it's been seen.
         ->and($screen->instance()->notifications[0]->isUnread)->toBeFalse();
