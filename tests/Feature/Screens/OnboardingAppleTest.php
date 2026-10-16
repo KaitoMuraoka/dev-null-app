@@ -3,7 +3,6 @@
 use App\Devnull\Account;
 use App\Devnull\AppleSignIn;
 use App\Devnull\Client;
-use App\NativeComponents\Onboarding;
 use Codingwithrk\NativephpSocialAuth\Events\SignInFailed;
 use Illuminate\Http\Client\Request;
 use Illuminate\Log\Events\MessageLogged;
@@ -30,6 +29,8 @@ it('offers Sign in with Apple under GitHub on iOS, as big as it and in Apple\'s 
     $buttons = findNodes($screen->tree(), fn (array $node): bool => ($node['type'] ?? null) === 'button');
 
     expect(array_column($buttons, 'ref'))->toBe(['sign-in', 'sign-in-apple'])
+        ->and(childRefs($screen, 'actions'))->toBe(['sign-in', 'sign-in-apple'])
+        ->and(shownText($screen))->toBe([])
         ->and($buttons[1]['props'])->toMatchArray(['label' => 'Sign in with Apple', 'variant' => 'accent', 'leading_icon' => 'apple.logo'])
         ->and($buttons[1]['layout'])->toEqual($buttons[0]['layout'])->toEqual(['width' => 'fill'])
         ->and($buttons[1]['props'])->not->toHaveKey('size')
@@ -79,18 +80,20 @@ it("signs in with Apple's token and the raw nonce, which approves this phone", f
     expect(hash('sha256', $nonce))->toMatch('/^[0-9a-f]{64}$/')->not->toBe($nonce);
 });
 
-it("shows devnull's message when no account has this Apple ID linked", function () {
+it("shows devnull's message above the buttons when no account has this Apple ID linked", function () {
     appleBridge();
-    fakeApi(['POST /api/v1/devices' => [['message' => AppleNotLinkedMessage, 'code' => Onboarding::AppleNotLinked], 404]]);
+    fakeApi(['POST /api/v1/devices' => [['message' => AppleNotLinkedMessage, 'code' => 'apple_not_linked'], 404]]);
     $screen = Native::visit('/onboarding', platform: 'ios')->tap('sign-in-apple');
 
-    appleAnswers($screen, heldAppleNonce())
+    $screen = appleAnswers($screen, heldAppleNonce())
         ->assertNoNavigation()
         ->assertSee(AppleNotLinkedMessage)
-        ->assertSet('notice', AppleNotLinkedMessage)
-        ->assertSet('appleError', null)
+        ->assertSet('appleError', AppleNotLinkedMessage)
         ->assertSet('error', null)
         ->assertElement('button', fn (array $node): bool => ($node['ref'] ?? null) === 'sign-in' && $node['props']['label'] === 'Sign in with GitHub');
+
+    expect(childRefs($screen, 'actions'))->toBe(['apple-error', 'sign-in', 'sign-in-apple'])
+        ->and(shownText($screen))->toBe([AppleNotLinkedMessage]);
 
     expect(app(Account::class)->user())->toBeNull();
 });
@@ -118,8 +121,9 @@ it("returns quietly when Apple's sheet is closed", function () {
         ->assertNoNavigation()
         ->assertSet('appleError', null)
         ->assertSet('error', null)
-        ->assertSet('notice', null)
         ->assertDontSee('cancelled');
+
+    expect(shownText($screen))->toBe([]);
 
     expect(heldAppleNonce())->toBeNull();
     Http::assertNothingSent();

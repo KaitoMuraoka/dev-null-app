@@ -1,34 +1,26 @@
 @use('App\Icons\Ios')
 @use('App\Icons\Android')
 
-<native:scroll-view fill class="safe-area bg-theme-background">
-    <native:column class="w-full px-6 pt-10 pb-12 gap-6">
-        {{-- The Log header's lockup, 40pt high as a title. Width and height are both set so it sits left, not centred. --}}
-        <native:image ref="logo" :src="$logo" :width="150" :height="40" alt="devnull" />
+<native:column fill class="safe-area bg-theme-background">
+    {{-- The lockup, two thirds of the screen wide at its own 15:4, centred in the space above the buttons. --}}
+    <native:column ref="logo-space" class="w-full flex-1 items-center justify-center">
+        <native:image ref="logo" :src="$logo" alt="devnull" class="w-2/3 aspect-[15/4]" />
+    </native:column>
 
-        <native:text ref="intro" class="text-[15px] leading-relaxed text-theme-ink">This phone makes its own key. You approve it once on dev-null.sh, and that signs you in.</native:text>
-
-        @if ($notice)
-            <native:column ref="notice" class="w-full p-3 rounded-lg border border-theme-hairline bg-theme-surface">
-                <native:text class="text-sm leading-relaxed text-theme-ink">{{ $notice }}</native:text>
-            </native:column>
-        @endif
-
+    <native:column ref="actions" class="w-full px-6 pb-4 gap-3">
         @if ($error)
-            <native:text ref="error" font="mono" class="text-[13px] leading-snug text-theme-destructive">{{ $error }}</native:text>
+            <native:text ref="error" font="mono" class="w-full text-center text-[13px] leading-snug text-theme-destructive">{{ $error }}</native:text>
         @endif
 
         @if ($appleError)
-            <native:text ref="apple-error" font="mono" class="text-[13px] leading-snug text-theme-destructive">{{ $appleError }}</native:text>
+            <native:text ref="apple-error" font="mono" class="w-full text-center text-[13px] leading-snug text-theme-destructive">{{ $appleError }}</native:text>
         @endif
 
-        <native:column class="w-full gap-3">
-            <native:button ref="sign-in" variant="primary" :ios-icon="Ios::PersonBadgeKey" :android-icon="Android::Login" :disabled="$fingerprint === ''" @press="signIn" class="w-full">{{ $error && $fingerprint !== '' ? 'Try again' : 'Sign in with GitHub' }}</native:button>
+        <native:button ref="sign-in" variant="primary" :ios-icon="Ios::PersonBadgeKey" :android-icon="Android::Login" :disabled="$fingerprint === ''" @press="signIn" class="w-full">{{ $error && $fingerprint !== '' ? 'Try again' : 'Sign in with GitHub' }}</native:button>
 
-            {{-- Apple's black button (white in dark mode, the theme's accent) with its logo, the same size as GitHub's, as Apple's guidelines ask. --}}
-            @if ($offersApple)
-                <native:button ref="sign-in-apple" variant="accent" :ios-icon="Ios::AppleLogo" :disabled="$fingerprint === ''" @press="signInWithApple" class="w-full">Sign in with Apple</native:button>
-            @endif
-        </native:column>
+        {{-- Apple's black button (white in dark mode, the theme's accent) with its logo, the same size as GitHub's, as Apple's guidelines ask. --}}
+        @if ($offersApple)
+            <native:button ref="sign-in-apple" variant="accent" :ios-icon="Ios::AppleLogo" :disabled="$fingerprint === ''" @press="signInWithApple" class="w-full">Sign in with Apple</native:button>
+        @endif
     </native:column>
-</native:scroll-view>
+</native:column>

@@ -22,6 +22,10 @@ use SensitiveParameter;
 /**
  * This phone has its own SSH key. Approve it once on dev-null.sh and you're signed in.
  *
+ * The screen is the logo and the sign-in buttons, nothing else. A short error
+ * shows above the buttons only after an attempt goes wrong. When a 401 or a
+ * lost key sends someone here, the reason isn't shown: the buttons are enough.
+ *
  * Sign in with GitHub opens dev-null.sh in the system's auth browser, which
  * shares Safari's cookies, so someone already signed in there only taps
  * Approve. dev-null.sh sends the browser back to devnull://auth/callback with
@@ -36,22 +40,13 @@ class Onboarding extends NativeComponent
 {
     use SignsInWithApple;
 
-    public const string Cancelled = 'You cancelled, nothing changed.';
-
     public const string NotStartedHere = "fatal: that sign-in didn't start on this phone, so it was ignored.";
 
     public const string NeedsApproval = "This phone isn't approved on devnull. Sign in to approve it.";
 
-    /**
-     * devnull's code for an Apple ID that no account has linked.
-     */
-    public const string AppleNotLinked = 'apple_not_linked';
-
     public string $fingerprint = '';
 
     public ?string $error = null;
-
-    public ?string $notice = null;
 
     /**
      * Kept apart from $error, so a failed Apple sign-in doesn't turn the
@@ -69,7 +64,7 @@ class Onboarding extends NativeComponent
 
     public function mount(DeviceKey $deviceKey): void
     {
-        $this->notice = $this->data('message');
+        $sentWithReason = $this->data('message') !== null;
 
         try {
             $existing = $deviceKey->existing();
@@ -86,7 +81,7 @@ class Onboarding extends NativeComponent
             Log::info('devnull device key', ['public_key' => $key->openSsh(), 'fingerprint' => $this->fingerprint]);
         }
 
-        $this->signInOnTick = $existing !== null && $this->notice === null && ! app(SignIn::class)->hasCallback();
+        $this->signInOnTick = $existing !== null && ! $sentWithReason && ! app(SignIn::class)->hasCallback();
 
         $this->finishSignIn();
     }
@@ -157,11 +152,7 @@ class Onboarding extends NativeComponent
         try {
             $user = app(Client::class)->signInWithApple($identityToken, $nonce, $this->deviceName());
         } catch (ApiException $exception) {
-            if ($exception->errorCode === self::AppleNotLinked) {
-                $this->notice = $exception->getMessage();
-            } else {
-                $this->appleError = $exception->firstError();
-            }
+            $this->appleError = $exception->firstError();
 
             return;
         } catch (KeychainUnavailable $exception) {
@@ -183,7 +174,6 @@ class Onboarding extends NativeComponent
     {
         $this->error = null;
         $this->appleError = null;
-        $this->notice = null;
         $this->signInOnTick = false;
     }
 
@@ -210,9 +200,8 @@ class Onboarding extends NativeComponent
 
         $error = $callback['error'] ?? '';
 
+        // Cancelling on dev-null.sh isn't a failure, so it says nothing.
         if ($error === 'access_denied') {
-            $this->notice = self::Cancelled;
-
             return;
         }
 

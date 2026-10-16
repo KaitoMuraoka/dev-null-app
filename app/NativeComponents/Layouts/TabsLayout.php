@@ -27,8 +27,9 @@ class TabsLayout extends NativeLayout
     /**
      * The icon and "/dev/null" wordmark as the web's MobileHeader draws them, 105 x 28pt.
      * EDGE images load neither SVG nor a per-appearance variant, so there is a PNG for
-     * each appearance. It's rendered at @3x of the largest size it's drawn at, 40pt high
-     * as onboarding's title, so the bar's 28pt scales it down rather than up.
+     * each appearance. It's rendered at @3x of the largest size it's drawn at, 300pt wide,
+     * since onboarding draws it at two thirds of the screen width. Everything else
+     * scales it down rather than up.
      */
     public const string LightLogo = 'images/logo-light@3x.png';
 

@@ -6,12 +6,15 @@ use App\Devnull\DeviceKey;
 use App\Devnull\SignIn;
 use App\Devnull\SignInAttempt;
 use App\NativeComponents\AuthCallback;
+use App\NativeComponents\Launch;
 use App\NativeComponents\Layouts\TabsLayout;
 use App\NativeComponents\Onboarding;
 use App\Providers\NativeServiceProvider;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
+use Native\Mobile\Edge\Enums\AlignItems;
+use Native\Mobile\Edge\Enums\JustifyContent;
 use Native\Mobile\Edge\NativeRouter;
 use Native\Mobile\Edge\NavigationIntent;
 use Native\Mobile\System;
@@ -88,12 +91,14 @@ function sendBack(TestableComponent $screen, array $query): TestableComponent
         ->assertScreen(Onboarding::class);
 }
 
-it('makes a key on first launch and shows one line and one button', function () {
+it('makes a key on first launch and shows only the logo and the button', function () {
     $bridge = signInBridge();
 
     $screen = Native::visit('/onboarding');
 
-    $screen->assertSee('This phone makes its own key. You approve it once on dev-null.sh, and that signs you in.')
+    expect(shownText($screen))->toBe([]);
+
+    $screen->assertDontSee('This phone makes its own key')
         ->assertSet('fingerprint', app(DeviceKey::class)->current()->fingerprint())
         ->assertElement('button', fn (array $node): bool => ($node['ref'] ?? null) === 'sign-in'
             && $node['props']['label'] === 'Sign in with GitHub'
@@ -106,14 +111,24 @@ it('makes a key on first launch and shows one line and one button', function () 
     $bridge->assertCalledTimes('SecureStorage.Set', 1);
 });
 
-it("wears the Log header's logo as its title, in the system appearance", function () {
+it("centres the Log header's logo, two thirds of the screen wide, above the buttons at the bottom", function () {
     signInBridge(testSeed());
 
-    $logo = nodeByRef(Native::visit('/onboarding'), 'logo');
+    $screen = Native::visit('/onboarding');
+    $logo = nodeByRef($screen, 'logo');
+    $space = nodeByRef($screen, 'logo-space');
+    [$width, $height] = getimagesize(public_path(TabsLayout::LightLogo));
 
     expect($logo['type'])->toBe('image')
         ->and($logo['props'])->toMatchArray(['src' => TabsLayout::LightLogo, 'alt' => 'devnull'])
-        ->and($logo['layout'])->toEqual(['width' => 150, 'height' => 40]);
+        ->and($logo['layout'])->toEqual(['width' => '67%', 'aspect_ratio' => 3.75])
+        ->and($space['layout'])->toMatchArray(['width' => 'fill', 'flex_grow' => 1, 'align_items' => AlignItems::Center->value, 'justify_content' => JustifyContent::Center->value])
+        ->and(array_column($screen->tree()['children'], 'ref'))->toBe(['logo-space', 'actions'])
+        ->and($screen->tree()['layout'])->toMatchArray(['height' => 'fill', 'safe_area' => 1])
+        ->and(childRefs($screen, 'actions'))->toBe(['sign-in'])
+        // Drawn at up to 293pt on the widest iPhone, so it's rendered 300pt wide at @3x, at the lockup's own 15:4.
+        ->and([$width, $height])->toBe([900, 240])
+        ->and(getimagesize(public_path(TabsLayout::DarkLogo))[0])->toBe(900);
 
     System::rememberAppearance('dark');
 
@@ -243,16 +258,19 @@ it('ignores a callback on a phone that is already signed in', function () {
     expect(app(SignIn::class)->hasCallback())->toBeFalse();
 });
 
-it('says nothing changed when you cancel on dev-null.sh', function () {
+it('says nothing when you cancel on dev-null.sh', function () {
     $bridge = signInBridge(testSeed());
     fakeApi([]);
     $screen = Native::visit('/onboarding');
     $state = tapSignIn($screen, $bridge);
 
-    sendBack($screen, ['error' => 'access_denied', 'state' => $state])
+    $screen = sendBack($screen, ['error' => 'access_denied', 'state' => $state])
         ->assertNoNavigation()
-        ->assertSee(Onboarding::Cancelled)
-        ->assertSet('error', null)
+        ->assertSet('error', null);
+
+    expect(shownText($screen))->toBe([]);
+
+    $screen
         ->assertElement('button', fn (array $node): bool => ($node['ref'] ?? null) === 'sign-in' && $node['props']['label'] === 'Sign in with GitHub');
 
     Http::assertNothingSent();
@@ -267,6 +285,10 @@ it("shows dev-null.sh's error and offers to try again with a new attempt", funct
     $screen = sendBack($screen, ['error' => 'server_error', 'error_description' => 'Something broke on our side.', 'state' => $state])
         ->assertSee('Something broke on our side.')
         ->assertElement('button', fn (array $node): bool => ($node['ref'] ?? null) === 'sign-in' && $node['props']['label'] === 'Try again');
+
+    // Just above the buttons, and the only text on the screen.
+    expect(childRefs($screen, 'actions'))->toBe(['error', 'sign-in'])
+        ->and(shownText($screen))->toBe(['Something broke on our side.']);
 
     $retry = tapSignIn($screen, $bridge);
 
@@ -334,11 +356,18 @@ it('says so when the auth browser does not open', function () {
     Native::visit('/onboarding')->tap('sign-in')->assertSee('fatal: could not open dev-null.sh to sign in.');
 });
 
-it('explains why it came back here after a 401', function () {
+it("doesn't say why a 401 sent it here: the buttons are enough", function (string $message) {
     signInBridge(testSeed());
 
-    Native::visit('/onboarding', ['message' => 'This key is no longer accepted.'])->assertSee('This key is no longer accepted.');
-});
+    $screen = Native::visit('/onboarding', ['message' => $message])->assertDontSee($message);
+
+    expect(shownText($screen))->toBe([])
+        ->and(childRefs($screen, 'actions'))->toBe(['sign-in']);
+})->with([
+    'a key devnull no longer takes' => ['This key is no longer accepted.'],
+    'a phone to approve' => [Onboarding::NeedsApproval],
+    'a lost key' => [Launch::KeyGone],
+]);
 
 it('says so when the Keychain is locked, and cannot start a sign-in', function () {
     $bridge = Native::fakeBridge()

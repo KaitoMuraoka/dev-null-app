@@ -477,6 +477,29 @@ function nodeByRef(TestableComponent $screen, string $ref): array
 }
 
 /**
+ * Every piece of text a screen shows, top to bottom. Button labels are props, not text.
+ *
+ * @return list<string>
+ */
+function shownText(TestableComponent $screen): array
+{
+    return array_map(
+        fn (array $node): string => (string) ($node['text'] ?? $node['props']['text'] ?? ''),
+        findNodes($screen->tree(), fn (array $node): bool => ($node['type'] ?? null) === 'text'),
+    );
+}
+
+/**
+ * The refs of a node's direct children, in order.
+ *
+ * @return list<string|null>
+ */
+function childRefs(TestableComponent $screen, string $ref): array
+{
+    return array_map(fn (array $child): ?string => $child['ref'] ?? null, nodeByRef($screen, $ref)['children'] ?? []);
+}
+
+/**
  * The refs of everything inside the screen's list or scroll view that draws press-* feedback. EDGE draws it
  * with a zero-distance DragGesture, which on iOS keeps the list from scrolling when a drag starts there.
  *
