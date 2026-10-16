@@ -29,11 +29,10 @@
                 'previousLane' => $index === 0 ? null : $threadReplies[$index - 1]->lane(),
                 'hasNext' => ! $loop->last || $hasMoreReplies,
                 'railLane' => $railLane,
-                'last' => $loop->last && ! $hasMoreReplies,
+                'thread' => $feedCommit,
+                'more' => $loop->last && $hasMoreReplies ? "showMoreReplies('{$feedCommit->id}')" : null,
+                'last' => $loop->last,
             ])
         @endforeach
-        @if ($hasMoreReplies && $threadReplies !== [])
-            @include('native.partials.thread-more', ['commit' => $feedCommit, 'previousLane' => end($threadReplies)->lane(), 'railLane' => $railLane])
-        @endif
     @endif
 @endforeach

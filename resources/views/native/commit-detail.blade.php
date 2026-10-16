@@ -45,7 +45,9 @@
                             'hasNext' => $hasNext,
                             'railLane' => $railLane,
                             'tombstones' => true,
-                            'last' => ! $hasNext && $nested === [],
+                            'thread' => $commit,
+                            'more' => $loop->last && $nested === [] && $repliesCursor !== null ? 'loadMoreReplies' : null,
+                            'last' => $loop->last && $nested === [],
                         ])
                         @foreach ($nested as $nestedIndex => $nestedReply)
                             @include('native.partials.thread-reply', [
@@ -56,13 +58,12 @@
                                 'railLane' => $railLane,
                                 'indent' => 32,
                                 'spine' => $hasNext ? $threadReply->lane() : null,
-                                'last' => $loop->last && ! $hasNext,
+                                'thread' => $commit,
+                                'more' => $loop->last && $loop->parent->last && $repliesCursor !== null ? 'loadMoreReplies' : null,
+                                'last' => $loop->last && $loop->parent->last,
                             ])
                         @endforeach
                     @endforeach
-                    @if ($repliesCursor !== null)
-                        @include('native.partials.thread-more', ['commit' => $commit, 'previousLane' => end($replies)->lane(), 'railLane' => $railLane, 'press' => 'loadMoreReplies'])
-                    @endif
                 @endif
             @endforeach
 

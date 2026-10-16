@@ -17,5 +17,6 @@
 @endif
 
 @if ($hasNext)
-    @include('native.partials.dashed-line', ['position' => 'top-[38] bottom-0', 'left' => $avatarLine - 0.5, 'colour' => $segment($reply->lane()), 'dashes' => \App\Devnull\Display::dashesFor($reply)])
+    {{-- Down to the next reply, or to the top of Show more's dot: 12pt under it, its padding and the hairline below. --}}
+    @include('native.partials.dashed-line', ['position' => 'top-[38] '.($more !== null ? 'bottom-[34]' : 'bottom-0'), 'left' => $avatarLine - 0.5, 'colour' => $segment($reply->lane()), 'dashes' => \App\Devnull\Display::dashesFor($reply)])
 @endif

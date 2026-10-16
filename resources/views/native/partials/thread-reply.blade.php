@@ -10,12 +10,16 @@
     On a commit page a deleted reply's own replies open in place ($tombstones), since it has no page of their own,
     one level in ($indent 32), hanging off a dashed spine from its ring as the web nests them. $spine carries the
     thread's line on past a nested reply when the deleted one has another reply after it.
+
+    The last reply carries the thread's "Show more" when there's more ($more, what it presses), with the line from its
+    avatar running down to it.
 --}}
 @php($previousLane ??= null)
 @php($railLane ??= null)
 @php($indent ??= 0)
 @php($spine ??= null)
 @php($tombstones ??= false)
+@php($more ??= null)
 @php($segment = fn (int|string $lane): string => $lane === \App\Devnull\Lane::Rail ? 'bg-theme-rail' : 'bg-theme-lane-'.$lane)
 @php($avatarLine = 76 + $indent)
 @if ($reply->isDeleted())
@@ -23,7 +27,7 @@
     <native:row ref="thread-reply-{{ $reply->id }}" class="w-full bg-theme-surface">
         <native:column :width="64" />
         <native:column class="flex-1">
-            <native:row class="w-full pr-4 pt-[10] gap-2 {{ $last ? 'pb-3' : 'pb-1' }} {{ $indent > 0 ? 'pl-['.$indent.']' : '' }}">
+            <native:row class="w-full pr-4 pt-[10] gap-2 {{ $last && $more === null ? 'pb-3' : 'pb-1' }} {{ $indent > 0 ? 'pl-['.$indent.']' : '' }}">
                 <native:column :width="24" :height="24" class="rounded-full">
                     @include('native.partials.dashed-ring', ['size' => 24, 'colour' => 'bg-theme-rail'])
                 </native:column>
@@ -41,6 +45,9 @@
                     @endif
                 </native:column>
             </native:row>
+            @if ($more !== null)
+                @include('native.partials.thread-more', ['commit' => $thread ?? $reply])
+            @endif
             @if ($last)
                 <native:column class="w-full h-[1] bg-theme-hairline" />
             @endif
@@ -57,7 +64,7 @@
         <native:row class="w-full">
             <native:column :width="64" />
             <native:column class="flex-1">
-                <native:row class="w-full pr-4 pt-[10] gap-2 {{ $last ? 'pb-3' : '' }} {{ $indent > 0 ? 'pl-['.$indent.']' : '' }}">
+                <native:row class="w-full pr-4 pt-[10] gap-2 {{ $last && $more === null ? 'pb-3' : '' }} {{ $indent > 0 ? 'pl-['.$indent.']' : '' }}">
                     <native:pressable @press="openProfile('{{ $reply->author->username }}')" a11y-label="{{ $reply->author->name }}'s profile">
                         @include('native.partials.avatar', ['user' => $reply->author, 'size' => 24])
                     </native:pressable>
@@ -75,6 +82,9 @@
                         @include('native.partials.commit-actions', ['expandable' => false, 'withQuote' => false])
                     </native:column>
                 </native:row>
+                @if ($more !== null)
+                    @include('native.partials.thread-more', ['commit' => $thread ?? $reply])
+                @endif
                 @if ($last)
                     <native:column class="w-full h-[1] bg-theme-hairline" />
                 @endif
