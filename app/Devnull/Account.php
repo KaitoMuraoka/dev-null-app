@@ -43,8 +43,13 @@ final class Account
         Cache::forever(self::UnreadKey, max(0, $count));
     }
 
+    /**
+     * Signs this phone out: who it was, the badge, and every answer kept for a quick start.
+     */
     public function forget(): void
     {
+        app(ResponseCache::class)->flush();
+
         Cache::forget(self::CacheKey);
         Cache::forget(self::UnreadKey);
     }

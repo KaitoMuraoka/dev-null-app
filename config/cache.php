@@ -53,6 +53,17 @@ return [
             'lock_path' => storage_path('framework/cache/data'),
         ],
 
+        /*
+         * The devnull API's answers, kept so screens show at once (App\Devnull\ResponseCache).
+         * It lives under storage/app, which outlives launches and app updates on both
+         * platforms. NativePHP empties framework/cache/data on every update.
+         */
+        'responses' => [
+            'driver' => env('DEVNULL_RESPONSE_CACHE_DRIVER', 'file'),
+            'path' => storage_path('app/devnull/responses'),
+            'serialize' => false,
+        ],
+
         'storage' => [
             'driver' => 'storage',
             'disk' => env('CACHE_STORAGE_DISK'),
