@@ -1,16 +1,50 @@
 {{--
-    The sheet More opens under someone else's published commit (see OpensCommitSheet). It starts with two rows, Share
-    link and Report commit. Report commit turns it into the web's Report dialog: the private, not-hidden line, the
+    The sheet under a commit (see OpensCommitSheet). Quote opens it as a composer: the field, focused, with the commit
+    being quoted under it as a static card, then the counter and Commit, which waits for a body long enough to make.
+    If devnull says no, why shows here and the draft stays.
+
+    More opens it under someone else's published commit, with two rows, Share link and Report commit. Report commit turns it into the web's Report dialog: the private, not-hidden line, the
     commit's body clamped to three lines, the four reasons, optional details, and Send report, which waits for a
     reason. Once devnull has the report, the sheet says so, with Done. If devnull says no, why shows here and the form
     keeps what you wrote.
 
-    It's short for the two rows and the receipt, and full height for the form. It's always on the screen, shown or
+    It's short for the two rows and the receipt, and full height for the forms. It's always on the screen, shown or
     not, so iOS can slide it away and say when it's gone.
 --}}
-<native:bottom-sheet ref="sheet" :visible="$sheetOpen" :detents="$sheetView === 'report' ? 'large' : '0.3'" @dismiss="commitSheetClosed">
+<native:bottom-sheet ref="sheet" :visible="$sheetOpen" :detents="in_array($sheetView, ['report', 'quote'], true) ? 'large' : '0.3'" @dismiss="commitSheetClosed">
     @if ($sheetCommit)
-        @if ($sheetView === 'report')
+        @if ($sheetView === 'quote')
+            @php($quoteLength = mb_strlen(trim($quoteBody)))
+            <native:scroll-view ref="quote-form" class="w-full flex-1">
+                <native:column class="w-full px-5 pt-6 pb-10 gap-4">
+                    <native:text font="semibold" class="text-lg text-theme-ink">Quote {{ $sheetCommit->author->handle() }}</native:text>
+
+                    <native:bare-text-input
+                        ref="quote-body"
+                        class="w-full text-theme-ink"
+                        placeholder="Add your take"
+                        native:model.debounce.150ms="quoteBody"
+                        autofocus
+                        multiline
+                        :max-lines="8"
+                        :max-length="\App\Devnull\Data\Commit::MaxLength"
+                        size="lg"
+                        a11y-label="Your commit"
+                    />
+
+                    @include('native.partials.quoted-commit', ['quoted' => $sheetCommit, 'static' => true])
+
+                    @if ($sheetError)
+                        <native:text ref="sheet-error" class="w-full text-sm text-theme-destructive">{{ $sheetError }}</native:text>
+                    @endif
+
+                    <native:row class="w-full gap-3 items-center justify-end">
+                        @include('native.partials.body-counter', ['body' => $quoteBody, 'ref' => 'quote-budget'])
+                        <native:button ref="send-quote" variant="primary" :disabled="$quoteLength < \App\Devnull\Data\Commit::MinLength || $quoteLength > \App\Devnull\Data\Commit::MaxLength" @press="sendQuote">Commit</native:button>
+                    </native:row>
+                </native:column>
+            </native:scroll-view>
+        @elseif ($sheetView === 'report')
             <native:scroll-view ref="report-form" class="w-full flex-1">
                 <native:column class="w-full px-5 pt-6 pb-10 gap-5">
                     <native:column class="w-full gap-2">

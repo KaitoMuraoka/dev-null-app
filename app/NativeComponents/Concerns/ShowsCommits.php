@@ -10,11 +10,11 @@ use Native\Mobile\Facades\Browser;
 use Native\Mobile\Facades\Share;
 
 /**
- * The actions under a commit: the star, Reply, the bookmark and copy link,
- * or More on a commit you can report (see OpensCommitSheet), plus opening its
- * link preview or images in the in-app browser, and "Show more" on a long
- * one. Taps name the commit rather than a URL, so a URL is never rebuilt from
- * an attribute.
+ * The actions under a commit: the star, Quote, Reply, the bookmark and copy
+ * link, or More on a commit you can report (Quote and More open a sheet, see
+ * OpensCommitSheet), plus opening its link preview or images in the in-app
+ * browser, and "Show more" on a long one. Taps name the commit rather than a
+ * URL, so a URL is never rebuilt from an attribute.
  *
  * A commit can be tapped where a row nests it too: the commit a row quotes,
  * and the replies a feed shows under a commit.

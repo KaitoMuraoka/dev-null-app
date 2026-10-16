@@ -11,7 +11,7 @@
     place, as on the web; elsewhere it opens the commit. Like the web, someone else's commit that isn't approved gets no
     star, Quote or bookmark, and your own commit's star is just its count, since you can't star it.
 
-    Quote is drawn as the web draws it but dimmed, and does nothing: devnull has no way to quote from the app yet.
+    Quote opens a sheet to write the quote in, over the commit being quoted (see commit-sheet).
 
     Each action is at least 44pt wide and 36pt tall to tap, as Apple asks, with the row pulled in by the extra height so
     the commit keeps its rhythm. EDGE makes a pressable's whole box tappable, so the box is the target. Off the log,
@@ -59,9 +59,11 @@
     @endif
 
     @if ($withQuote && $canReact)
-        <native:column ref="quote-{{ $commit->id }}" class="min-w-[44] h-[36] px-2 items-center justify-center opacity-40" a11y-label="Quote, not in the app yet">
-            <native:icon :ios="\App\Icons\Lucide::Quote->ios()" :android="\App\Icons\Lucide::Quote->android()" :size="$iconSize" class="text-theme-ink-muted" />
-        </native:column>
+        <native:pressable ref="quote-{{ $commit->id }}" @press="quoteCommit('{{ $commit->id }}')" a11y-label="Quote">
+            <native:column class="min-w-[44] h-[36] px-2 items-center justify-center">
+                <native:icon :ios="\App\Icons\Lucide::Quote->ios()" :android="\App\Icons\Lucide::Quote->android()" :size="$iconSize" class="text-theme-ink-muted" />
+            </native:column>
+        </native:pressable>
     @endif
 
     @if ($withReply)

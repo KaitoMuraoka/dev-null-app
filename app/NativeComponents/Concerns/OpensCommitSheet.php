@@ -13,6 +13,10 @@ use Closure;
  * sheet into the web's Report dialog. As on the web, only someone else's
  * published commit can be reported, so only those have More.
  *
+ * Quote opens the same sheet as a composer, over the commit being quoted, as
+ * the web's Quote dialog. Once devnull has the quote the sheet goes, and a
+ * screen that lists your new commits puts it in place (see showCommitted()).
+ *
  * The sheet keeps its commit while it slides away, so it doesn't empty on the
  * way down, and forgets it and any draft once iOS says it's gone, however it
  * was closed. Share link waits for that too: iOS shows the share sheet over
@@ -31,7 +35,7 @@ trait OpensCommitSheet
     public ?Commit $sheetCommit = null;
 
     /**
-     * What the sheet shows: 'more' (Share link and Report commit), 'report' (the form) or 'reported' (sent).
+     * What the sheet shows: 'more' (Share link and Report commit), 'report' (the form), 'reported' (sent) or 'quote'.
      */
     public string $sheetView = 'more';
 
@@ -43,7 +47,12 @@ trait OpensCommitSheet
     public string $reportDetails = '';
 
     /**
-     * Why devnull didn't take the report, shown in the sheet.
+     * The commit you're writing to quote the sheet's commit.
+     */
+    public string $quoteBody = '';
+
+    /**
+     * Why devnull didn't take the report or the quote, shown in the sheet.
      */
     public ?string $sheetError = null;
 
@@ -114,6 +123,45 @@ trait OpensCommitSheet
     }
 
     /**
+     * Quote, under someone else's published commit or one of your own, as on the web.
+     */
+    public function quoteCommit(string $id): void
+    {
+        $commit = $this->shownCommit($id);
+
+        if ($commit === null || ! $this->canQuote($commit)) {
+            return;
+        }
+
+        $this->forgetCommitSheet();
+        $this->sheetCommit = $commit;
+        $this->sheetView = 'quote';
+        $this->sheetOpen = true;
+    }
+
+    /**
+     * Commits the quote. The sheet goes once devnull has it, or keeps the draft with why it didn't take it.
+     */
+    public function sendQuote(): void
+    {
+        $quoted = $this->sheetCommit;
+        $body = trim($this->quoteBody);
+
+        if ($quoted === null || $this->sheetView !== 'quote' || mb_strlen($body) < Commit::MinLength || mb_strlen($body) > Commit::MaxLength) {
+            return;
+        }
+
+        $commit = $this->attemptInSheet(fn (Client $devnull): Commit => $devnull->createCommit($body, quotedCommitId: $quoted->id));
+
+        if ($commit === null) {
+            return;
+        }
+
+        $this->sheetOpen = false;
+        $this->showCommitted($commit);
+    }
+
+    /**
      * Done: the sheet goes.
      */
     public function hideCommitSheet(): void
@@ -136,6 +184,21 @@ trait OpensCommitSheet
         }
     }
 
+    /**
+     * A commit you just made, for a screen to put where it lists your new ones. Most don't.
+     */
+    protected function showCommitted(Commit $commit): void
+    {
+        //
+    }
+
+    private function canQuote(Commit $commit): bool
+    {
+        $viewer = $this->me();
+
+        return $viewer !== null && ! $commit->isDeleted() && ($commit->isApproved() || $commit->author->id === $viewer->id);
+    }
+
     private function canReport(Commit $commit): bool
     {
         $viewer = $this->me();
@@ -150,6 +213,7 @@ trait OpensCommitSheet
         $this->sheetView = 'more';
         $this->reportReason = '';
         $this->reportDetails = '';
+        $this->quoteBody = '';
         $this->sheetError = null;
         $this->shareAfterSheet = null;
     }
