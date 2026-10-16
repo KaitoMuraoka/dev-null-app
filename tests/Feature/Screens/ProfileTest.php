@@ -384,3 +384,16 @@ it('leads from your own profile to this device with the Settings2 icon', functio
 
     $screen->press('openDevice')->assertNavigatedTo('/profile/device');
 });
+
+it('lets a drag that starts on a commit scroll the profile', function () {
+    fakeApi([
+        'GET /api/v1/users/ada' => [profileJson()],
+        'GET /api/v1/users/ada/commits' => [pageJson([adaCommitJson(['id' => 'c1'])])],
+    ]);
+
+    $screen = Native::visit('/log/users/ada', platform: 'ios');
+
+    nodeByRef($screen, 'commit-c1');
+
+    expect(pressFeedbackInScroller($screen))->toBe([]);
+});

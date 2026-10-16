@@ -16,7 +16,7 @@
     </native:row>
 @else
     @php($commit = $reply)
-    <native:pressable ref="thread-reply-{{ $reply->id }}" @press="openCommit('{{ $reply->id }}')" class="w-full bg-theme-surface" :press-opacity="0.7">
+    <native:pressable ref="thread-reply-{{ $reply->id }}" @press="openCommit('{{ $reply->id }}')" class="w-full bg-theme-surface">
         <native:row class="w-full">
             <native:column :width="64" />
             <native:column class="flex-1">

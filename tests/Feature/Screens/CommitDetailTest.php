@@ -308,3 +308,14 @@ it('stars the focused commit and its replies in place', function () {
         ->and($screen->instance()->commit->body)->toBe('The focused commit')
         ->and($screen->instance()->replies[0]->isSaved)->toBeTrue();
 });
+
+it('lets a drag that starts on an ancestor or a reply scroll the thread', function () {
+    fakeThread(replies: [replyJson(['id' => 'r1', 'parent_id' => 'c2'])]);
+
+    $screen = Native::visit('/log/commits/c2', platform: 'ios');
+
+    nodeByRef($screen, 'commit-c1');
+    nodeByRef($screen, 'reply-r1');
+
+    expect(pressFeedbackInScroller($screen))->toBe([]);
+});

@@ -497,3 +497,20 @@ it('is accessible', function () {
 
     Native::visit('/log')->assertAccessible();
 });
+
+it('lets a drag that starts on a commit, a link preview or a thread reply scroll the log', function () {
+    fakeApi([
+        'GET /api/v1/log/following' => [pageJson([
+            commitJson(['id' => 'c2', 'replies_count' => 1, 'link_preview' => ['url' => 'https://laravel.com', 'title' => 'Laravel', 'description' => null, 'image_url' => null, 'site_name' => null]]),
+            commitJson(['id' => 'c1']),
+        ])],
+        'GET /api/v1/commits/c2/replies' => [pageJson([replyJson(['id' => 'r1', 'parent_id' => 'c2'])])],
+    ]);
+
+    $screen = Native::visit('/log', platform: 'ios')->tap('replies-c2');
+
+    nodeByRef($screen, 'link-preview-c2');
+    nodeByRef($screen, 'thread-reply-r1');
+
+    expect(pressFeedbackInScroller($screen))->toBe([]);
+});

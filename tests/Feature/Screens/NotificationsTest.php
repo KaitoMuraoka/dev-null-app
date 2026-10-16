@@ -197,3 +197,20 @@ it('speaks git when there is nothing', function () {
         ->assertSee('$ cat /dev/notifications')
         ->assertSee('Nothing here yet. Follows, stars, replies, mentions, and moderation updates for your commits will show up here.');
 });
+
+it('lets a drag that starts on a row scroll the list, with the list filling the screen under the bars', function () {
+    fakeApi(['GET /api/v1/notifications' => [pageJson([
+        notificationJson('followed'),
+        notificationJson('starred'),
+        notificationJson('rejected'),
+    ])]]);
+
+    $screen = Native::visit('/notifications', platform: 'ios');
+    $list = findNode($screen->tree(), fn (array $node): bool => ($node['type'] ?? null) === 'list');
+
+    // Same as the Log and Profile lists: no safe-area or bottom padding of its own, the bars inset it.
+    expect($list['layout'])->toBe(['width' => 'fill', 'flex_grow' => 1.0, 'flex_shrink' => 1.0])
+        ->and(pressFeedbackInScroller($screen))->toBe([]);
+
+    $screen->tap('notification-n-followed')->assertNavigatedTo('/notifications/users/ada');
+});

@@ -28,7 +28,7 @@
 @if ($commit->linkPreview?->isReady())
     @php($preview = $commit->linkPreview)
     {{-- A compact row, not a card: a small image, the mono site, then the title and description. --}}
-    <native:pressable ref="link-preview-{{ $commit->id }}" @press="openLinkPreview('{{ $commit->id }}')" class="w-full mt-2" :press-opacity="0.7" a11y-label="{{ $preview->title }}, {{ $preview->site() }}">
+    <native:pressable ref="link-preview-{{ $commit->id }}" @press="openLinkPreview('{{ $commit->id }}')" class="w-full mt-2" a11y-label="{{ $preview->title }}, {{ $preview->site() }}">
         <native:row class="w-full gap-3 p-2 items-center rounded-lg border border-theme-hairline">
             @if ($preview->imageUrl)
                 <native:column :width="56" :height="56" class="rounded-md bg-theme-wash">

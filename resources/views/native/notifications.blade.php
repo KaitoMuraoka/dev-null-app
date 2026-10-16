@@ -18,7 +18,8 @@
                 'rejected' => [Ios::Xmark, Android::Close],
                 default => [Ios::ArrowshapeTurnUpLeft, Android::Reply],
             })
-            <native:pressable ref="notification-{{ $notification->id }}" @press="open('{{ $notification->id }}')" class="w-full {{ $notification->isUnread ? 'bg-theme-primary-soft' : 'bg-theme-surface' }}" :press-opacity="0.7">
+            {{-- No press-* feedback: on iOS it holds any drag that starts on the row, and these rows cover the whole list (see commit-row). --}}
+            <native:pressable ref="notification-{{ $notification->id }}" @press="open('{{ $notification->id }}')" class="w-full {{ $notification->isUnread ? 'bg-theme-primary-soft' : 'bg-theme-surface' }}">
                 <native:row class="w-full px-4 py-3 gap-3">
                     <native:column :width="24" class="items-center pt-1">
                         {{-- A person's notification wears their lane; a moderator's stays muted. --}}

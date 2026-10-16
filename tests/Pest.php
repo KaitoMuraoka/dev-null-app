@@ -448,6 +448,23 @@ function nodeByRef(TestableComponent $screen, string $ref): array
 }
 
 /**
+ * The refs of everything inside the screen's list or scroll view that draws press-* feedback. EDGE draws it
+ * with a zero-distance DragGesture, which on iOS keeps the list from scrolling when a drag starts there.
+ *
+ * @return list<string>
+ */
+function pressFeedbackInScroller(TestableComponent $screen): array
+{
+    $scroller = findNode($screen->tree(), fn (array $node): bool => in_array($node['type'] ?? null, ['list', 'scroll_view'], true));
+
+    expect($scroller)->not->toBeNull('Nothing scrolls on this screen.');
+
+    $pressing = findNodes($scroller, fn (array $node): bool => array_intersect_key($node['props'] ?? [], array_flip(['press-opacity', 'press-scale', 'press-translate-y'])) !== []);
+
+    return array_map(fn (array $node): string => $node['ref'] ?? $node['type'], $pressing);
+}
+
+/**
  * What sits on the rail of a commit row: 'avatar' for the author's ringed avatar,
  * 'dot' for a lane dot carrying on their run.
  */

@@ -20,7 +20,7 @@
     </native:row>
 @else
     @php($commit = $reply)
-    <native:pressable ref="reply-{{ $reply->id }}" @press="openCommit('{{ $reply->id }}')" class="w-full" :press-opacity="0.7">
+    <native:pressable ref="reply-{{ $reply->id }}" @press="openCommit('{{ $reply->id }}')" class="w-full">
         <native:row class="w-full {{ $nested ? 'pl-8' : 'pl-4' }} pr-4 py-3 gap-3">
             <native:column :width="1" class="h-full bg-theme-rail" />
             <native:pressable @press="openProfile('{{ $reply->author->username }}')" a11y-label="{{ $reply->author->name }}'s profile">
