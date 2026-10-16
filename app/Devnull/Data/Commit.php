@@ -5,6 +5,7 @@ namespace App\Devnull\Data;
 use App\Devnull\Display;
 use App\Devnull\Lane;
 use Carbon\CarbonImmutable;
+use Closure;
 use Throwable;
 
 /**
@@ -12,6 +13,10 @@ use Throwable;
  * its place in it. A deleted commit that still has replies comes back as a
  * tombstone: an id, its parent, when it went, its replies count and its place
  * in a series, with no body or author.
+ *
+ * Like the web's cards it can carry a poll, the commit it quotes, the start of
+ * a body too long to show whole in a list ($previewContent), and in a list the
+ * thread the web shows under it ($replyPreview).
  */
 final readonly class Commit
 {
@@ -20,9 +25,17 @@ final readonly class Commit
     public const int MaxLength = 280;
 
     /**
+     * A list shows a body longer than this, or longer than PreviewLines lines, as its start and "Show more".
+     */
+    public const int PreviewLength = 280;
+
+    public const int PreviewLines = 8;
+
+    /**
      * @param  list<Mention>  $mentions
      * @param  list<CommitImage>  $images
      * @param  list<BodyBlock>  $content
+     * @param  list<BodyBlock>|null  $previewContent  The start of a long body, which a list shows with "Show more".
      */
     public function __construct(
         public string $id,
@@ -47,6 +60,11 @@ final readonly class Commit
         public ?string $seriesId = null,
         public ?int $seriesPosition = null,
         public ?int $seriesSize = null,
+        public ?Poll $poll = null,
+        public ?string $quotedCommitId = null,
+        public ?Commit $quotedCommit = null,
+        public ?array $previewContent = null,
+        public ?ReplyPreview $replyPreview = null,
     ) {}
 
     /**
@@ -76,6 +94,7 @@ final readonly class Commit
         $body = (string) ($data['body'] ?? '');
         $mentions = self::listOf($data['mentions'] ?? null, Mention::fromArray(...));
         $segments = is_array($data['body_segments'] ?? null) ? array_values(array_filter($data['body_segments'], is_array(...))) : null;
+        $previewSegments = is_array($data['preview_segments'] ?? null) ? array_values(array_filter($data['preview_segments'], is_array(...))) : null;
 
         return new self(
             id: $id,
@@ -99,6 +118,11 @@ final readonly class Commit
             seriesId: is_string($data['series_id'] ?? null) ? $data['series_id'] : null,
             seriesPosition: self::positiveInt($data['series_position'] ?? null),
             seriesSize: self::positiveInt($data['series_size'] ?? null),
+            poll: is_array($data['poll'] ?? null) ? Poll::fromArray($data['poll']) : null,
+            quotedCommitId: is_scalar($data['quoted_commit_id'] ?? null) && (string) $data['quoted_commit_id'] !== '' ? (string) $data['quoted_commit_id'] : null,
+            quotedCommit: is_array($data['quoted_commit'] ?? null) ? self::fromArray($data['quoted_commit']) : null,
+            previewContent: $previewSegments === null ? null : CommitBody::blocks($body, $previewSegments, $mentions),
+            replyPreview: is_array($data['reply_preview'] ?? null) ? ReplyPreview::fromArray($data['reply_preview']) : null,
         );
     }
 
@@ -129,6 +153,50 @@ final readonly class Commit
             'starsCount' => $fresh->starsCount,
             'isSaved' => $fresh->isSaved ?? $this->isSaved,
         ]);
+    }
+
+    /**
+     * This commit with $update applied to the replies under it, as a feed draws them.
+     *
+     * @param  Closure(Commit): Commit  $update
+     */
+    public function withPreviewReplies(Closure $update): self
+    {
+        if ($this->replyPreview === null || $this->replyPreview->isEmpty()) {
+            return $this;
+        }
+
+        return new self(...[...get_object_vars($this), 'replyPreview' => new ReplyPreview(array_map($update, $this->replyPreview->replies), $this->replyPreview->hasMore)]);
+    }
+
+    /**
+     * Whether it quotes a commit, even one you may no longer see.
+     */
+    public function isQuote(): bool
+    {
+        return $this->quotedCommitId !== null;
+    }
+
+    /**
+     * Whether a list shows only the start of it, with "Show more".
+     */
+    public function isFolded(): bool
+    {
+        return $this->previewContent !== null;
+    }
+
+    /**
+     * The body as plain text, for an excerpt that can't link anything: prose
+     * and inline code as written, minus the backticks, and code blocks whole.
+     */
+    public function plainText(): string
+    {
+        return implode("\n", array_map(
+            fn (BodyBlock $block): string => $block->isCode()
+                ? (string) $block->code
+                : implode('', array_map(fn (BodyRun $run): string => $run->text, $block->runs)),
+            $this->content,
+        ));
     }
 
     public function isDeleted(): bool

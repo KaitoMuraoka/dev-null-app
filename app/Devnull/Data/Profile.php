@@ -14,12 +14,14 @@ final readonly class Profile
         public ?Commit $pinnedCommit = null,
         public Streaks $streaks = new Streaks,
         public Activity $activity = new Activity,
+        public bool $isMuting = false,
+        public ?Achievements $achievements = null,
     ) {}
 
     /**
      * Reads a `GET /users/{username}` response: the user and counts in `data`,
-     * and alongside it whether you follow them, their pinned commit, their
-     * streaks and their activity.
+     * and alongside it whether you follow or mute them, their pinned commit,
+     * their streaks, their activity and their achievements.
      *
      * @param  array<string, mixed>  $json
      */
@@ -39,6 +41,8 @@ final readonly class Profile
             pinnedCommit: is_array($pinned) ? Commit::fromArray($pinned) : null,
             streaks: Streaks::fromArray($json['streaks'] ?? $data['streaks'] ?? null),
             activity: Activity::fromArray($json['activity'] ?? $data['activity'] ?? null),
+            isMuting: ($json['is_muting'] ?? $data['is_muting'] ?? false) === true,
+            achievements: Achievements::fromArray($json['achievements'] ?? $data['achievements'] ?? null),
         );
     }
 
@@ -46,17 +50,7 @@ final readonly class Profile
     {
         $change = $isFollowing === $this->isFollowing ? 0 : ($isFollowing ? 1 : -1);
 
-        return new self(
-            $this->user,
-            $this->commitsCount,
-            max(0, $this->followersCount + $change),
-            $this->followingCount,
-            $isFollowing,
-            $this->followsYou,
-            $this->pinnedCommit,
-            $this->streaks,
-            $this->activity,
-        );
+        return new self(...[...get_object_vars($this), 'followersCount' => max(0, $this->followersCount + $change), 'isFollowing' => $isFollowing]);
     }
 
     public function withPinnedCommit(?Commit $pinnedCommit): self

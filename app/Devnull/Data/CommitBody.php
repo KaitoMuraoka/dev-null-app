@@ -11,6 +11,9 @@ namespace App\Devnull\Data;
  * exact slices of it: inline code loses its backticks, a block its fences, and
  * prose the line break next to a block. So each segment is found in the body,
  * moving forward, and mentions are placed by where their segment starts.
+ *
+ * A long commit's preview segments are the start of the body with an ellipsis
+ * after the last of them, so they're found in the body the same way.
  */
 final class CommitBody
 {
@@ -18,6 +21,8 @@ final class CommitBody
      * A fenced block from where it starts: an opening line of three or more
      * backticks, then up to a line of only backticks. The server's rule.
      */
+    private const string Ellipsis = '…';
+
     private const string FencedBlock = '/\G`{3,}[^`\r\n]*\r?\n(?:([\s\S]*?)\r?\n)?`{3,}[ \t]*(?![^\r\n])/u';
 
     /**
@@ -42,16 +47,23 @@ final class CommitBody
                         break;
                     }
 
-                    $start = mb_strpos($body, $text, $cursor);
+                    // A preview's last run ends in the ellipsis it was cut with, which isn't in the body.
+                    $cut = str_ends_with($text, self::Ellipsis) && mb_strpos($body, $text, $cursor) === false;
+                    $text = $cut ? mb_substr($text, 0, -1) : $text;
+                    $start = $text === '' ? false : mb_strpos($body, $text, $cursor);
 
                     if ($start === false) {
-                        $runs[] = new BodyRun($text);
+                        $runs[] = new BodyRun($text.($cut ? self::Ellipsis : ''));
 
                         break;
                     }
 
                     array_push($runs, ...self::withMentions($text, $start, $mentions));
                     $cursor = $start + mb_strlen($text);
+
+                    if ($cut) {
+                        $runs[] = new BodyRun(self::Ellipsis);
+                    }
 
                     break;
                 case 'code':
