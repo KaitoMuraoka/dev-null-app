@@ -30,4 +30,18 @@ return [
 
     'key_store' => env('DEVNULL_KEY_STORE'),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Sign in with Apple
+    |--------------------------------------------------------------------------
+    |
+    | Sign in with Apple needs the app's App ID to have that capability, and a
+    | provisioning profile that carries it. Turn it off to build for a phone
+    | with a wildcard profile: the social auth plugin and its entitlement are
+    | left out of the build, and the app offers no Apple buttons.
+    |
+    */
+
+    'apple_sign_in' => (bool) env('DEVNULL_APPLE_SIGN_IN', true),
+
 ];

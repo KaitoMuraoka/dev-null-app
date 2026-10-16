@@ -4,7 +4,9 @@ use App\Devnull\Account;
 use App\Devnull\AppleSignIn;
 use App\Devnull\Client;
 use App\Devnull\ErrorCode;
+use App\Providers\NativeServiceProvider;
 use Codingwithrk\NativephpSocialAuth\Events\SignInFailed;
+use Codingwithrk\NativephpSocialAuth\NativephpSocialAuthServiceProvider;
 use Illuminate\Http\Client\Request;
 use Illuminate\Log\Events\MessageLogged;
 use Illuminate\Support\Facades\Cache;
@@ -36,6 +38,27 @@ it('offers Sign in with Apple under GitHub on iOS, as big as it and in Apple\'s 
         ->and($buttons[0]['props'])->not->toHaveKey('size')
         ->and(array_map(strtolower(...), config('native-ui.theme.light')))->toMatchArray(['accent' => '#000000', 'on-accent' => '#ffffff'])
         ->and(array_map(strtolower(...), config('native-ui.theme.dark')))->toMatchArray(['accent' => '#ffffff', 'on-accent' => '#000000']);
+});
+
+it('leaves Sign in with Apple out of a build that has it turned off, plugin and buttons both', function () {
+    expect((new NativeServiceProvider(app()))->plugins())->toContain(NativephpSocialAuthServiceProvider::class);
+
+    config(['devnull.apple_sign_in' => false]);
+    appleBridge();
+
+    $screen = Native::visit('/onboarding', platform: 'ios');
+
+    expect(AppleSignIn::isAvailable())->toBeFalse()
+        ->and((new NativeServiceProvider(app()))->plugins())->not->toContain(NativephpSocialAuthServiceProvider::class)
+        ->and(childRefs($screen, 'actions'))->toBe(['sign-in']);
+
+    fakeApi(['GET /api/v1/me' => [['data' => userWithCountsJson(), 'unread_notifications_count' => 0, 'apple_linked' => false]]]);
+    signIn();
+
+    Native::visit('/profile/device', platform: 'ios')
+        ->assertSee('Sign out')
+        ->assertDontSee('apple id')
+        ->assertDontSee('Sign in with Apple');
 });
 
 it("opens Apple's sheet with a fresh raw nonce, held in memory, and asks for no name or email", function () {

@@ -35,6 +35,9 @@ class NativeServiceProvider extends ServiceProvider
      * This is a security measure to prevent transitive dependencies from
      * automatically registering plugins without your explicit consent.
      *
+     * The social auth plugin brings the Sign in with Apple entitlement, so it
+     * only goes in when that's turned on (see config/devnull.php).
+     *
      * @return array<int, class-string<ServiceProvider>>
      */
     public function plugins(): array
@@ -45,7 +48,7 @@ class NativeServiceProvider extends ServiceProvider
             SecureStorageServiceProvider::class,
             ShareServiceProvider::class,
             MobileSplashscreenServiceProvider::class,
-            NativephpSocialAuthServiceProvider::class,
+            ...(config('devnull.apple_sign_in') ? [NativephpSocialAuthServiceProvider::class] : []),
         ];
     }
 }

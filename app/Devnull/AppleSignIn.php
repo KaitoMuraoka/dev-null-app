@@ -38,11 +38,12 @@ final class AppleSignIn
     private ?SensitiveParameterValue $nonce = null;
 
     /**
-     * Apple has no sign-in on Android, so the app only offers it on iOS.
+     * Apple has no sign-in on Android, so the app only offers it on iOS, and
+     * only in a build that has it turned on (see config/devnull.php).
      */
     public static function isAvailable(): bool
     {
-        return Platform::isIos();
+        return Platform::isIos() && config('devnull.apple_sign_in') === true;
     }
 
     /**
