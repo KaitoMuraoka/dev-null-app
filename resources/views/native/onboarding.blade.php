@@ -113,11 +113,11 @@
             @endif
 
             <native:column class="w-full gap-3">
-                <native:column ref="public-key" class="w-full p-3 gap-2 rounded-lg border border-theme-hairline bg-theme-surface select-text">
-                    <native:text font="mono" class="text-[13px] leading-snug text-theme-ink">{{ $publicKey }}</native:text>
-                    <native:text font="mono" class="text-xs text-theme-ink-muted">{{ $fingerprint }}</native:text>
+                <native:column ref="public-key" class="w-full p-3 gap-2 rounded-lg border border-theme-hairline bg-theme-surface">
+                    <native:text font="mono" class="text-[13px] leading-snug text-theme-ink">{{ \App\Devnull\Display::maskedKey($publicKey) }}</native:text>
+                    <native:text font="mono" class="text-xs text-theme-ink-muted select-text">{{ $fingerprint }}</native:text>
                 </native:column>
-                <native:text class="text-xs text-theme-ink-muted">Press and hold the key to copy it, or share it to wherever you'll paste it.</native:text>
+                <native:text class="text-xs text-theme-ink-muted">Share the key to copy it or send it to wherever you'll paste it.</native:text>
                 <native:row class="w-full gap-3">
                     <native:column class="flex-1">
                         <native:button ref="share-key" variant="secondary" :ios-icon="Ios::SquareAndArrowUp" :android-icon="Android::Share" @press="shareKey" class="w-full">Share key</native:button>

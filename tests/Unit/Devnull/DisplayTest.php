@@ -38,3 +38,11 @@ it('labels days the way the web day markers do', function (string $date, string 
     // Counted in the app's time zone, whatever offset the API sent.
     ['2026-10-15T01:30:00+02:00', 'Yesterday'],
 ]);
+
+it('masks a public key after the first 10 characters of the key itself', function () {
+    expect(Display::maskedKey('ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKuhlNtNELRJAJBUbtmUnZKdwgGf devnull-mobile'))
+        ->toBe('ssh-ed25519 AAAAC3NzaC•••••••••••• devnull-mobile')
+        ->and(Display::maskedKey('ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKuhlNtNELRJAJBUbtmUnZKdwgGf'))
+        ->toBe('ssh-ed25519 AAAAC3NzaC••••••••••••')
+        ->and(Display::maskedKey('nothing'))->toBe('nothing');
+});

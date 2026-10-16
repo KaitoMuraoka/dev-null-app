@@ -2,6 +2,7 @@
 
 use App\Devnull\Account;
 use App\Devnull\DeviceKey;
+use App\Devnull\Display;
 use Native\Mobile\Events\Alert\ButtonPressed;
 use Native\Mobile\Testing\Native;
 
@@ -17,7 +18,8 @@ it('shows this device key and where it talks to, pushed onto the Profile tab', f
         ->assertTabActive('Profile')
         ->assertSee('ssh-ed25519')
         ->assertSee('SHA256:lbmsoA0yIEcEiVDRnMWuzm+nV+3ZEEpVIURqFoeSspg')
-        ->assertSee(testKey()->openSsh())
+        ->assertSee(Display::maskedKey(testKey()->openSsh()))
+        ->assertDontSee(testKey()->openSsh())
         ->assertSee('http://devnull.test')
         ->assertSee('Share public key')
         ->assertSee('Forget this device');

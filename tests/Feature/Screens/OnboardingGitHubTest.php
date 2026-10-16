@@ -2,6 +2,7 @@
 
 use App\Devnull\Account;
 use App\Devnull\DeviceKey;
+use App\Devnull\Display;
 use App\Devnull\GitHubStep;
 use App\Devnull\GitHubToken;
 use App\NativeComponents\Onboarding;
@@ -87,7 +88,8 @@ it('offers GitHub first and keeps adding the key by hand below', function () {
         ->assertSee("devnull asks GitHub for one thing: permission to add this phone's signing key. The same token shows devnull it's you, then it's dropped.")
         ->assertSee('Connect GitHub')
         ->assertSee('Add the key yourself')
-        ->assertSee(testKey()->openSsh())
+        ->assertSee(Display::maskedKey(testKey()->openSsh()))
+        ->assertDontSee(testKey()->openSsh())
         ->assertElement('button', fn (array $node): bool => ($node['ref'] ?? null) === 'connect-github' && $node['props']['variant'] === 'primary')
         ->assertElement('button', fn (array $node): bool => ($node['ref'] ?? null) === 'connect' && $node['props']['variant'] === 'secondary')
         ->assertSet('step', GitHubStep::Start);
@@ -103,7 +105,8 @@ it('hides Connect GitHub without a client id', function () {
         ->assertDontSee('devnull asks GitHub')
         ->assertDontSee('Add the key yourself')
         ->assertSee('Add the public half to GitHub once, as a signing key.')
-        ->assertSee(testKey()->openSsh())
+        ->assertSee(Display::maskedKey(testKey()->openSsh()))
+        ->assertDontSee(testKey()->openSsh())
         ->assertElement('button', fn (array $node): bool => ($node['ref'] ?? null) === 'connect' && $node['props']['variant'] === 'primary')
         ->call('connectGitHub')
         ->assertSet('step', GitHubStep::Start);

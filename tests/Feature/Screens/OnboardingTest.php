@@ -2,6 +2,7 @@
 
 use App\Devnull\Account;
 use App\Devnull\DeviceKey;
+use App\Devnull\Display;
 use App\NativeComponents\Onboarding;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
@@ -17,7 +18,8 @@ it('makes a key on first launch and shows the public half', function () {
     $publicKey = app(DeviceKey::class)->current()->openSsh();
 
     $screen->assertSee('This phone made its own SSH key')
-        ->assertSee($publicKey)
+        ->assertSee(Display::maskedKey($publicKey))
+        ->assertDontSee($publicKey)
         ->assertSee(app(DeviceKey::class)->current()->fingerprint())
         ->assertSet('publicKey', $publicKey)
         ->assertSee('Connect');

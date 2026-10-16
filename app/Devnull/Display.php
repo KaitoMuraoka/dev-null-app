@@ -72,6 +72,23 @@ final class Display
         return substr(str_replace('-', '', $id), -7);
     }
 
+    /**
+     * An OpenSSH public key with everything after the first 10 characters of the
+     * key itself masked. The type and comment stay readable.
+     */
+    public static function maskedKey(string $openSsh): string
+    {
+        $parts = explode(' ', trim($openSsh), 3);
+
+        if (count($parts) < 2) {
+            return $openSsh;
+        }
+
+        $parts[1] = substr($parts[1], 0, 10).str_repeat('•', 12);
+
+        return implode(' ', $parts);
+    }
+
     public static function count(int $count, string $singular, string $plural): string
     {
         return $count === 1 ? "1 {$singular}" : "{$count} {$plural}";
