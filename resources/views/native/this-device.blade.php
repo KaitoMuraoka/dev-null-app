@@ -6,34 +6,22 @@
         @include('native.partials.error')
         @include('native.partials.refresh-failed')
 
+        {{-- dev-null.sh lists each phone by name and fingerprint, so this is how you tell which one is this phone. --}}
         <native:column class="mx-4 rounded-lg border border-theme-hairline bg-theme-surface">
-            <native:row class="w-full px-3 py-3 gap-3">
-                <native:text font="mono" class="w-[88] text-[13px] text-theme-ink-muted">key</native:text>
-                <native:text font="mono" class="flex-1 text-[13px] text-theme-ink">ssh-ed25519</native:text>
-            </native:row>
-            <native:column class="w-full h-[1] bg-theme-hairline" />
             <native:row ref="fingerprint" class="w-full px-3 py-3 gap-3 select-text">
                 <native:text font="mono" class="w-[88] text-[13px] text-theme-ink-muted">fingerprint</native:text>
                 <native:text font="mono" class="flex-1 text-[13px] text-theme-ink">{{ $fingerprint ?: 'null' }}</native:text>
             </native:row>
-            <native:column class="w-full h-[1] bg-theme-hairline" />
-            <native:row class="w-full px-3 py-3 gap-3">
-                <native:text font="mono" class="w-[88] text-[13px] text-theme-ink-muted">public</native:text>
-                <native:text ref="public-key" font="mono" class="flex-1 text-[13px] leading-snug text-theme-ink">{{ $publicKey ? \App\Devnull\Display::maskedKey($publicKey) : 'null' }}</native:text>
-            </native:row>
-            <native:column class="w-full h-[1] bg-theme-hairline" />
-            <native:row class="w-full px-3 py-3 gap-3">
-                <native:text font="mono" class="w-[88] text-[13px] text-theme-ink-muted">remote</native:text>
-                <native:text font="mono" class="flex-1 text-[13px] text-theme-ink">{{ $remote }}</native:text>
-            </native:row>
+            @if ($remote !== null)
+                <native:column class="w-full h-[1] bg-theme-hairline" />
+                <native:row ref="remote" class="w-full px-3 py-3 gap-3">
+                    <native:text font="mono" class="w-[88] text-[13px] text-theme-ink-muted">remote</native:text>
+                    <native:text font="mono" class="flex-1 text-[13px] text-theme-ink">{{ $remote }}</native:text>
+                </native:row>
+            @endif
         </native:column>
 
-        <native:column class="w-full px-4 pt-2">
-            <native:text class="text-xs leading-relaxed text-theme-ink-muted">The secret half of this key lives in the Keychain and never leaves the phone. Share the public key to copy it.</native:text>
-        </native:column>
-
-        <native:column class="w-full px-4 pt-4 gap-3">
-            <native:button ref="share-key" variant="secondary" :ios-icon="Ios::SquareAndArrowUp" :android-icon="Android::Share" @press="shareKey" class="w-full">Share public key</native:button>
+        <native:column class="w-full px-4 pt-4">
             <native:button ref="devices" variant="secondary" :ios-icon="Ios::Iphone" :android-icon="Android::Smartphone" @press="openDevices" class="w-full">Your devices on dev-null.sh</native:button>
         </native:column>
 

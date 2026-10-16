@@ -1,5 +1,7 @@
 <?php
 
+use App\Devnull\Client;
+
 return [
 
     /*
@@ -12,7 +14,7 @@ return [
     |
     */
 
-    'url' => env('DEVNULL_URL', 'https://dev-null.sh'),
+    'url' => env('DEVNULL_URL', Client::ProductionUrl),
 
     /*
     |--------------------------------------------------------------------------

@@ -27,6 +27,11 @@ use SensitiveParameter;
 final readonly class Client
 {
     /**
+     * Where the app talks to unless DEVNULL_URL says otherwise.
+     */
+    public const string ProductionUrl = 'https://dev-null.sh';
+
+    /**
      * The one place the sign-in's redeem endpoint lives.
      */
     public const string SignInPath = 'devices';

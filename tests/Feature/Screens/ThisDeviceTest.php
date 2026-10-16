@@ -1,6 +1,7 @@
 <?php
 
 use App\Devnull\Account;
+use App\Devnull\Client;
 use App\Devnull\DeviceKey;
 use App\Devnull\Display;
 use Native\Mobile\Events\Alert\ButtonPressed;
@@ -10,27 +11,45 @@ beforeEach(function () {
     config(['devnull.url' => 'http://devnull.test']);
 });
 
-it('shows this device key and where it talks to, pushed onto the Profile tab', function () {
+it('shows this phone\'s fingerprint, pushed onto the Profile tab', function () {
     signIn();
 
     Native::visit('/profile/device')
         ->assertNavTitle('This device')
         ->assertTabActive('Profile')
-        ->assertSee('ssh-ed25519')
         ->assertSee('SHA256:lbmsoA0yIEcEiVDRnMWuzm+nV+3ZEEpVIURqFoeSspg')
-        ->assertSee(Display::maskedKey(testKey()->openSsh()))
-        ->assertDontSee(testKey()->openSsh())
-        ->assertSee('http://devnull.test')
-        ->assertSee('Share public key')
-        ->assertSee('Forget this device');
+        ->assertSee('Your devices on dev-null.sh')
+        ->assertSee('Forget this device')
+        ->assertDontSee('ssh-ed25519')
+        ->assertDontSee(Display::maskedKey(testKey()->openSsh()))
+        ->assertDontSee('Share public key')
+        ->assertDontSee('Keychain');
 });
 
-it('shares the public key and opens your devices on dev-null.sh', function () {
+it('shows where the app talks to only when it is not dev-null.sh', function (string $url, ?string $shown) {
+    config(['devnull.url' => $url]);
+    signIn();
+
+    $screen = Native::visit('/profile/device');
+    $remote = findNode($screen->tree(), fn (array $node): bool => ($node['ref'] ?? null) === 'remote');
+
+    if ($shown === null) {
+        expect($remote)->toBeNull();
+        $screen->assertDontSee('remote')->assertDontSee('https://');
+    } else {
+        expect($remote)->not->toBeNull();
+        $screen->assertSee('remote')->assertSee($shown);
+    }
+})->with([
+    'production' => [Client::ProductionUrl, null],
+    'production with a trailing slash' => [Client::ProductionUrl.'/', null],
+    'a local copy' => ['http://devnull.test', 'http://devnull.test'],
+]);
+
+it('opens your devices on dev-null.sh', function () {
     signIn();
 
     Native::visit('/profile/device')
-        ->tap('share-key')
-        ->assertNativeCalled('Share.File', fn (array $params): bool => $params['message'] === testKey()->openSsh())
         ->tap('devices')
         ->assertNativeCalled('Browser.OpenInApp', fn (array $params): bool => $params['url'] === 'http://devnull.test/settings/devices');
 });

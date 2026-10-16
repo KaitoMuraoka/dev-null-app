@@ -17,11 +17,12 @@ use Native\Mobile\Edge\NativeComponent;
 use Native\Mobile\Events\Alert\ButtonPressed;
 use Native\Mobile\Facades\Browser;
 use Native\Mobile\Facades\Dialog;
-use Native\Mobile\Facades\Share;
 use SensitiveParameter;
 
 /**
- * This device's key and where it talks to, reached from your own profile.
+ * This phone's fingerprint, as your devices on dev-null.sh list it, reached
+ * from your own profile. Where the app talks to only shows when it isn't
+ * dev-null.sh.
  *
  * On iOS it also links an Apple ID to your account, as a second way in on a
  * new phone. The account stays the GitHub one: Apple only signs you into it.
@@ -37,8 +38,6 @@ class ThisDevice extends NativeComponent
 
     public const string UnlinkAppleAlert = 'unlink-apple';
 
-    public string $publicKey = '';
-
     public string $fingerprint = '';
 
     /**
@@ -49,9 +48,7 @@ class ThisDevice extends NativeComponent
     public function mount(): void
     {
         try {
-            $key = app(DeviceKey::class)->current();
-            $this->publicKey = $key->openSsh();
-            $this->fingerprint = $key->fingerprint();
+            $this->fingerprint = app(DeviceKey::class)->current()->fingerprint();
         } catch (KeychainUnavailable $exception) {
             $this->error = $exception->getMessage();
 
@@ -82,11 +79,6 @@ class ThisDevice extends NativeComponent
     public function navTitle(): string
     {
         return 'This device';
-    }
-
-    public function shareKey(): void
-    {
-        Share::file('', $this->publicKey, '');
     }
 
     /**
@@ -170,7 +162,7 @@ class ThisDevice extends NativeComponent
     public function render(): View
     {
         return view('native.this-device', [
-            'remote' => config('devnull.url'),
+            'remote' => self::remote(),
             'offersApple' => AppleSignIn::isAvailable(),
             'appleStatus' => match ($this->appleLinked) {
                 true => 'linked',
@@ -178,6 +170,16 @@ class ThisDevice extends NativeComponent
                 null => 'unknown',
             },
         ]);
+    }
+
+    /**
+     * Where the app talks to, or null when it's dev-null.sh itself.
+     */
+    private static function remote(): ?string
+    {
+        $url = rtrim((string) config('devnull.url'), '/');
+
+        return $url === Client::ProductionUrl ? null : $url;
     }
 
     /**
