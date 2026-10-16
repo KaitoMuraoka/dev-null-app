@@ -181,11 +181,35 @@ final readonly class Client
     }
 
     /**
+     * Your notifications grouped as the web groups them, filtered by the web's
+     * ?type= (all, replies, quotes, stars, mentions, follows or moderation).
+     * Listing any of them marks them all read.
+     *
      * @return Page<Notification>
      */
-    public function notifications(?string $cursor = null): Page
+    public function notifications(string $type = 'all', ?string $cursor = null): Page
     {
-        return Page::fromArray($this->get('notifications', ['cursor' => $cursor]), Notification::fromArray(...));
+        return Page::fromArray($this->get('notifications', self::notificationsQuery($type, $cursor)), Notification::fromArray(...));
+    }
+
+    /**
+     * Every notification in the group led by $id, with the same filter, as the web expands a group.
+     *
+     * @return Page<Notification>
+     */
+    public function notificationGroup(string $id, string $type = 'all', ?string $cursor = null): Page
+    {
+        return Page::fromArray($this->get('notifications/'.rawurlencode($id).'/group', self::notificationsQuery($type, $cursor)), Notification::fromArray(...));
+    }
+
+    /**
+     * All is the default, so it's left off, as the web's own links leave it off.
+     *
+     * @return array<string, string|null>
+     */
+    public static function notificationsQuery(string $type, ?string $cursor = null): array
+    {
+        return ['type' => $type === 'all' ? null : $type, 'cursor' => $cursor];
     }
 
     /**

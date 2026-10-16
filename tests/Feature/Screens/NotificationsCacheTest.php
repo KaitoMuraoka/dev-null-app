@@ -20,13 +20,18 @@ function serveNotifications(array $groups, int $unread = 0): void
     ]);
 }
 
-it('keeps notifications as read, since devnull marked them read as it sent them', function () {
-    serveNotifications([notificationJson('followed')]);
+it('keeps notifications as read, since devnull marked them read as it sent them, and nothing kept shows as new', function () {
+    serveApi([
+        'GET /api/v1/notifications' => [[...pageJson([notificationJson('followed')]), 'filters' => ['type' => 'all'], 'read_at' => now()->toIso8601ZuluString()]],
+        'GET /api/v1/me' => [['data' => userWithCountsJson(), 'unread_notifications_count' => 0]],
+    ]);
 
-    Native::visit('/notifications')->assertElement('pressable', fn (array $node): bool => ($node['ref'] ?? null) === 'notification-n-followed'
-        && ($node['style']['bg_color'] ?? null) === config('native-ui.theme.light.primary-soft'));
+    // New on this visit, so its node is ringed in Commit Blue.
+    Native::visit('/notifications')->assertElement('stack', fn (array $node): bool => ($node['ref'] ?? null) === 'node-n-followed'
+        && ($node['style']['border_color'] ?? $node['style']['borderColor'] ?? null) === config('native-ui.theme.light.primary'));
 
-    expect(kept('notifications')['data'][0]['unread_count'])->toBe(0);
+    expect(kept('notifications')['data'][0]['unread_count'])->toBe(0)
+        ->and(kept('notifications'))->not->toHaveKey('read_at');
 });
 
 it('opens on the notifications kept last time, with no request and no spinner, then puts new ones on top quietly', function () {

@@ -63,6 +63,22 @@ enum Lucide
     case Key;
 
     /**
+     * The icon the web's inbox draws for a kind of notification.
+     */
+    public static function forNotification(string $type): self
+    {
+        return match ($type) {
+            'followed' => self::UserPlus,
+            'quoted' => self::Quote,
+            'starred' => self::Star,
+            'mentioned' => self::AtSign,
+            'approved' => self::Check,
+            'rejected' => self::X,
+            default => self::MessageSquareReply,
+        };
+    }
+
+    /**
      * The icon devnull names for an achievement badge, as the web's shelf maps it, or the terminal for one it doesn't know.
      */
     public static function forBadge(string $icon): self

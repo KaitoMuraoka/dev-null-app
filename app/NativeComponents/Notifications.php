@@ -2,22 +2,32 @@
 
 namespace App\NativeComponents;
 
+use App\Devnull\Client;
 use App\Devnull\Data\Notification;
 use App\Devnull\Data\Page;
+use App\Devnull\Exceptions\ApiException;
+use App\Devnull\Exceptions\KeychainUnavailable;
+use App\Devnull\Exceptions\Unauthenticated;
 use App\NativeComponents\Concerns\OpensInTab;
 use App\NativeComponents\Concerns\RefreshesInBackground;
 use App\NativeComponents\Concerns\TalksToDevnull;
+use Carbon\CarbonImmutable;
 use Illuminate\View\View;
 use Native\Mobile\Edge\NativeComponent;
 
 /**
- * Follows, stars, replies, mentions, and moderation updates for your commits,
- * grouped as the web groups them.
+ * Follows, stars, replies, quotes, mentions, and moderation updates for your
+ * commits, grouped as the web groups them, on a Rail Gray rail.
+ *
+ * The web's filters run along the top: All, Replies, Quotes, Stars, Mentions,
+ * Follows and Moderation, each kept on its own for next time. A group of
+ * more than one opens in place to list them all, as the web expands it.
  *
  * It opens on the notifications as they were last time, all read by then,
- * then asks devnull behind them. New ones go straight in at the top, quietly:
- * a group's id moves on as people join it, so there's no telling a new group
- * from a busier one, and the tab's badge has already said they're coming.
+ * then asks devnull behind them. devnull marks everything read as it lists
+ * any of it, and says when, so the groups read since then are the new ones:
+ * their node is ringed in blue, above the last-visit marker. New ones go in
+ * at the top quietly, since a group's id moves on as people join it.
  */
 class Notifications extends NativeComponent
 {
@@ -25,12 +35,54 @@ class Notifications extends NativeComponent
     use RefreshesInBackground;
     use TalksToDevnull;
 
+    /**
+     * The web's filters, their labels and what each says when it has nothing.
+     */
+    public const array Types = [
+        'all' => ['All', 'Nothing here yet. Follows, stars, replies, quotes, mentions, and moderation updates for your commits will show up here.'],
+        'replies' => ['Replies', 'No replies yet. When someone replies to one of your commits, it shows up here.'],
+        'quotes' => ['Quotes', 'No quotes yet. When someone quotes one of your commits, it shows up here.'],
+        'stars' => ['Stars', 'No stars yet. When someone stars one of your commits, it shows up here.'],
+        'mentions' => ['Mentions', 'No mentions yet. When someone mentions you in a commit, it shows up here.'],
+        'follows' => ['Follows', 'No followers yet. When someone follows you, it shows up here.'],
+        'moderation' => ['Moderation', 'No moderation updates. Approved and rejected commits show up here.'],
+    ];
+
+    public string $type = 'all';
+
     /** @var list<Notification> */
     public array $notifications = [];
 
     public ?string $nextCursor = null;
 
     public bool $loaded = false;
+
+    /**
+     * When devnull marked everything read the first time it answered on this
+     * screen. Groups read at or after it arrived since your last visit.
+     */
+    public ?string $readAt = null;
+
+    /**
+     * The notifications of each group opened in place, by the id of the group's newest.
+     *
+     * @var array<string, list<Notification>>
+     */
+    public array $expanded = [];
+
+    /**
+     * The cursor for an opened group's older notifications, by the group's id.
+     *
+     * @var array<string, string>
+     */
+    public array $expandedCursors = [];
+
+    /**
+     * Groups that couldn't be opened, which say so with Try again.
+     *
+     * @var list<string>
+     */
+    public array $failedGroups = [];
 
     public function mount(): void
     {
@@ -50,11 +102,33 @@ class Notifications extends NativeComponent
     }
 
     /**
+     * A filter along the top: its own list, from what was kept for it, then asked again.
+     */
+    public function show(string $type): void
+    {
+        if (! array_key_exists($type, self::Types) || $type === $this->type) {
+            return;
+        }
+
+        $this->type = $type;
+        $this->notifications = [];
+        $this->nextCursor = null;
+        $this->loaded = false;
+        $this->error = null;
+        $this->expanded = [];
+        $this->expandedCursors = [];
+        $this->failedGroups = [];
+        $this->showKept();
+        $this->revalidate();
+    }
+
+    /**
      * Pull to refresh.
      */
     public function load(): void
     {
-        $this->refresh('notifications', [], fn (array $json) => $this->takeFresh($json), again: true);
+        $type = $this->type;
+        $this->refresh('notifications', Client::notificationsQuery($type), fn (array $json) => $this->takeFresh($type, $json), again: true);
     }
 
     /**
@@ -63,7 +137,12 @@ class Notifications extends NativeComponent
      */
     protected function revalidate(): void
     {
-        $this->refresh('notifications', [], fn (array $json) => $this->takeFresh($json));
+        $type = $this->type;
+        $this->refresh('notifications', Client::notificationsQuery($type), fn (array $json) => $this->takeFresh($type, $json));
+
+        foreach (array_keys($this->expanded) as $id) {
+            $this->refreshGroup((string) $id);
+        }
     }
 
     protected function showsContent(): bool
@@ -77,7 +156,7 @@ class Notifications extends NativeComponent
             return;
         }
 
-        $page = $this->attempt(fn ($devnull) => $devnull->notifications($this->nextCursor));
+        $page = $this->attempt(fn ($devnull) => $devnull->notifications($this->type, $this->nextCursor));
 
         if ($page !== null) {
             $this->notifications = [...$this->notifications, ...$page->items];
@@ -88,24 +167,166 @@ class Notifications extends NativeComponent
 
     public function open(string $id): void
     {
-        foreach ($this->notifications as $notification) {
-            if ($notification->id !== $id) {
-                continue;
-            }
+        $notification = $this->find($id);
 
-            $commitId = $notification->commitToOpen();
+        if ($notification === null) {
+            return;
+        }
 
-            $this->openInTab($commitId !== null
-                ? '/commits/'.$commitId
-                : '/users/'.$notification->actor->username);
+        $commitId = $notification->commitToOpen();
+
+        $this->openInTab($commitId !== null
+            ? '/commits/'.$commitId
+            : '/users/'.$notification->actor->username);
+    }
+
+    /**
+     * The group's toggle: "5 stars" lists them in place, "Hide stars" folds them away.
+     */
+    public function toggleGroup(string $id): void
+    {
+        if (array_key_exists($id, $this->expanded) || in_array($id, $this->failedGroups, true)) {
+            unset($this->expanded[$id], $this->expandedCursors[$id]);
+            $this->failedGroups = array_values(array_diff($this->failedGroups, [$id]));
 
             return;
         }
+
+        if (($kept = $this->cached($this->groupPath($id), Client::notificationsQuery($this->type))) !== null) {
+            $this->takeGroup($id, $kept);
+            $this->refreshGroup($id);
+
+            return;
+        }
+
+        $this->loadGroup($id);
+    }
+
+    /**
+     * "Show older stars", or Try again after a group couldn't be opened.
+     */
+    public function loadGroup(string $id, bool $older = false): void
+    {
+        $cursor = $older ? ($this->expandedCursors[$id] ?? null) : null;
+
+        if ($older && $cursor === null) {
+            return;
+        }
+
+        $this->failedGroups = array_values(array_diff($this->failedGroups, [$id]));
+
+        try {
+            $page = app(Client::class)->notificationGroup($id, $this->type, $cursor);
+        } catch (Unauthenticated $exception) {
+            $this->signOut($exception);
+
+            return;
+        } catch (ApiException|KeychainUnavailable) {
+            $this->failedGroups[] = $id;
+
+            return;
+        }
+
+        $this->expanded[$id] = $older ? [...($this->expanded[$id] ?? []), ...$page->items] : $page->items;
+        $this->setGroupCursor($id, $page->nextCursor);
+    }
+
+    /**
+     * The web's Follow button on a follow: follows them back, or unfollows, straight away.
+     */
+    public function toggleFollowBack(string $username): void
+    {
+        $actor = null;
+
+        foreach ([...$this->notifications, ...array_merge([], ...array_values($this->expanded))] as $notification) {
+            if ($notification->isFollow() && $notification->actor->username === $username) {
+                $actor = $notification;
+
+                break;
+            }
+        }
+
+        if ($actor === null || $actor->actorIsFollowed === null) {
+            return;
+        }
+
+        $following = ! $actor->actorIsFollowed;
+        $this->setFollowed($username, $following);
+
+        $done = $this->attempt(function ($devnull) use ($username, $following): bool {
+            $following ? $devnull->follow($username) : $devnull->unfollow($username);
+
+            return true;
+        });
+
+        if ($done !== true) {
+            $this->setFollowed($username, ! $following);
+        }
+    }
+
+    private function setFollowed(string $username, bool $following): void
+    {
+        $update = fn (Notification $notification): Notification => $notification->isFollow() && $notification->actor->username === $username
+            ? $notification->withActorFollowed($following)
+            : $notification;
+
+        $this->notifications = array_map($update, $this->notifications);
+        $this->expanded = array_map(fn (array $items): array => array_map($update, $items), $this->expanded);
+    }
+
+    private function refreshGroup(string $id): void
+    {
+        $type = $this->type;
+
+        $this->refresh($this->groupPath($id), Client::notificationsQuery($type), function (array $json) use ($id, $type): void {
+            // Folded away, or another filter, while it was on its way.
+            if ($type === $this->type && array_key_exists($id, $this->expanded)) {
+                $this->takeGroup($id, $json);
+            }
+        }, quiet: true);
+    }
+
+    /**
+     * @param  array<string, mixed>  $json
+     */
+    private function takeGroup(string $id, array $json): void
+    {
+        $page = Page::fromArray($json, Notification::fromArray(...));
+
+        $this->expanded[$id] = $page->items;
+        $this->setGroupCursor($id, $page->nextCursor);
+    }
+
+    private function setGroupCursor(string $id, ?string $cursor): void
+    {
+        if ($cursor === null) {
+            unset($this->expandedCursors[$id]);
+
+            return;
+        }
+
+        $this->expandedCursors[$id] = $cursor;
+    }
+
+    private function groupPath(string $id): string
+    {
+        return 'notifications/'.rawurlencode($id).'/group';
+    }
+
+    private function find(string $id): ?Notification
+    {
+        foreach ([...$this->notifications, ...array_merge([], ...array_values($this->expanded))] as $notification) {
+            if ($notification->id === $id) {
+                return $notification;
+            }
+        }
+
+        return null;
     }
 
     private function showKept(): void
     {
-        if (($json = $this->cached('notifications')) === null) {
+        if (($json = $this->cached('notifications', Client::notificationsQuery($this->type))) === null) {
             return;
         }
 
@@ -122,8 +343,13 @@ class Notifications extends NativeComponent
      *
      * @param  array<string, mixed>  $json
      */
-    private function takeFresh(array $json): void
+    private function takeFresh(string $type, array $json): void
     {
+        // An answer for a filter you've left.
+        if ($type !== $this->type) {
+            return;
+        }
+
         $page = Page::fromArray($json, Notification::fromArray(...));
         $fresh = array_flip(array_map(fn (Notification $group): string => $group->id, $page->items));
 
@@ -142,12 +368,35 @@ class Notifications extends NativeComponent
 
         $this->notifications = [...$page->items, ...$later];
         $this->nextCursor = $later === [] ? $page->nextCursor : $this->nextCursor;
+        $this->readAt ??= is_string($json['read_at'] ?? null) ? $json['read_at'] : null;
         $this->loaded = true;
         $this->refreshUnreadNotifications();
     }
 
     public function render(): View
     {
-        return view('native.notifications');
+        $readAt = $this->readAt === null ? null : CarbonImmutable::parse($this->readAt);
+
+        return view('native.notifications', [
+            'types' => self::Types,
+            'readAt' => $readAt,
+            'lastVisitBefore' => self::firstSeen($this->notifications, $readAt),
+        ]);
+    }
+
+    /**
+     * The first group you'd seen before, under the new ones, for the last-visit marker.
+     *
+     * @param  list<Notification>  $notifications
+     */
+    private static function firstSeen(array $notifications, ?CarbonImmutable $readAt): ?string
+    {
+        foreach ($notifications as $index => $notification) {
+            if ($index > 0 && ! $notification->isNewSince($readAt) && $notifications[$index - 1]->isNewSince($readAt)) {
+                return $notification->id;
+            }
+        }
+
+        return null;
     }
 }

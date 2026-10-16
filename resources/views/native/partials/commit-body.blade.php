@@ -20,7 +20,7 @@
     @else
 <native:text class="w-full {{ $size }} leading-relaxed text-theme-ink whitespace-pre-wrap">@foreach ($block->runs as $run)
 @if ($run->isMention())
-<native:text :text="$run->text" font="semibold" class="text-theme-primary" @press="openProfile('{{ $run->username }}')" />
+<native:text :text="$run->text" font="semibold" class="font-semibold text-theme-primary" @press="openProfile('{{ $run->username }}')" />
 @elseif ($run->isCode)
 <native:text :text="$run->text" font="mono" class="text-[13px] bg-theme-wash" />
 @else

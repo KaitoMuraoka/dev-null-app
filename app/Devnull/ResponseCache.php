@@ -546,13 +546,16 @@ final class ResponseCache
 
     /**
      * devnull marks notifications read as it sends them, and you've seen them
-     * by the time they're shown again, so they're kept as read.
+     * by the time they're shown again, so they're kept as read, and without
+     * the moment they were marked, so nothing kept shows as new.
      *
      * @param  array<string, mixed>  $json
      * @return array<string, mixed>
      */
     private static function read(array $json): array
     {
+        unset($json['read_at']);
+
         if (! is_array($json['data'] ?? null)) {
             return $json;
         }
