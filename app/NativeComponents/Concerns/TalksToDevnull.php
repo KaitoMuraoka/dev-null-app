@@ -37,9 +37,7 @@ trait TalksToDevnull
 
             return $result;
         } catch (Unauthenticated $exception) {
-            app(Account::class)->forget();
-
-            $this->replace('/onboarding', ['message' => $exception->needsApproval() ? Onboarding::NeedsApproval : $exception->getMessage()]);
+            $this->signOut($exception);
         } catch (ApiException $exception) {
             $this->error = $exception->firstError();
         } catch (KeychainUnavailable $exception) {
@@ -49,28 +47,18 @@ trait TalksToDevnull
         return null;
     }
 
+    /**
+     * devnull no longer takes this phone's key: sign out, and say why on onboarding.
+     */
+    protected function signOut(Unauthenticated $exception): void
+    {
+        app(Account::class)->forget();
+
+        $this->replace('/onboarding', ['message' => $exception->needsApproval() ? Onboarding::NeedsApproval : $exception->getMessage()]);
+    }
+
     protected function me(): ?User
     {
         return app(Account::class)->user();
-    }
-
-    /**
-     * Asks devnull how many notifications are unread, for the badge on the
-     * Notifications tab, and picks up any change to you while it's there.
-     * The badge is a nicety, so a failure here is never put on the screen.
-     */
-    protected function refreshUnreadNotifications(): void
-    {
-        try {
-            $current = app(Client::class)->me();
-        } catch (ApiException|KeychainUnavailable) {
-            return;
-        }
-
-        if ($current->user->username !== '') {
-            app(Account::class)->remember($current->user);
-        }
-
-        app(Account::class)->rememberUnreadNotifications($current->unreadNotificationsCount);
     }
 }

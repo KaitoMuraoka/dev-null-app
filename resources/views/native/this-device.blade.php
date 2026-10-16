@@ -4,6 +4,7 @@
 <native:scroll-view class="w-full h-full bg-theme-background">
     <native:column class="w-full pt-6 pb-10">
         @include('native.partials.error')
+        @include('native.partials.refresh-failed')
 
         <native:column class="mx-4 rounded-lg border border-theme-hairline bg-theme-surface">
             <native:row class="w-full px-3 py-3 gap-3">

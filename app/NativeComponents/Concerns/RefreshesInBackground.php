@@ -1,0 +1,201 @@
+<?php
+
+namespace App\NativeComponents\Concerns;
+
+use App\Devnull\Account;
+use App\Devnull\Client;
+use App\Devnull\Data\CurrentUser;
+use App\Devnull\Exceptions\ApiException;
+use App\Devnull\Exceptions\KeychainUnavailable;
+use App\Devnull\Exceptions\Unauthenticated;
+use App\Devnull\FetchInBackground;
+use App\Devnull\ResponseCache;
+use Closure;
+use Throwable;
+
+/**
+ * Stale-while-revalidate for a screen: show what was kept last time at once,
+ * then ask devnull again on a background PHP thread and apply the answer when
+ * it lands, without ever holding up a tap.
+ *
+ * The request is signed here, on the UI thread, where the Keychain is; the
+ * background thread only sends it. The answer is kept here too, so nothing
+ * but the UI thread ever writes the cache. NativePHP drops the answer when the
+ * screen that asked is no longer on top (NativeComponent::handleAsyncCompletion),
+ * so a screen asks again whenever it comes back.
+ *
+ * When a refresh fails over something worth showing, the screen keeps it and
+ * says so quietly, with a retry. Only a screen with nothing to show prints the
+ * error. A 401 signs the phone out, as any request does.
+ */
+trait RefreshesInBackground
+{
+    /**
+     * The last refresh failed, so what's showing may be out of date.
+     */
+    public bool $refreshFailed = false;
+
+    /**
+     * When each refresh still out was sent, by path and query.
+     *
+     * @var array<string, float>
+     */
+    protected array $refreshing = [];
+
+    /**
+     * Asks again for everything the screen shows.
+     */
+    abstract protected function revalidate(): void;
+
+    /**
+     * Whether the screen has something worth keeping on it when a refresh fails.
+     */
+    abstract protected function showsContent(): bool;
+
+    /**
+     * The quiet line's retry.
+     */
+    public function retry(): void
+    {
+        $this->refreshFailed = false;
+        $this->refreshing = [];
+        $this->revalidate();
+    }
+
+    /**
+     * The kept JSON for a GET, or null when there's none to show.
+     *
+     * @param  array<string, string|null>  $query
+     * @return array<string, mixed>|null
+     */
+    protected function cached(string $path, array $query = []): ?array
+    {
+        return app(ResponseCache::class)->get($path, $query);
+    }
+
+    /**
+     * Asks devnull for a GET in the background and hands $apply the JSON when it
+     * lands. A refresh of the same thing already on its way isn't sent twice,
+     * unless $again says it must be. A $quiet one never says it failed.
+     *
+     * @param  array<string, string|null>  $query
+     * @param  Closure(array<string, mixed>): void  $apply
+     */
+    protected function refresh(string $path, array $query, Closure $apply, bool $again = false, bool $quiet = false): void
+    {
+        $key = ResponseCache::key('', $path, $query);
+
+        if (! $again && isset($this->refreshing[$key]) && microtime(true) - $this->refreshing[$key] < 30) {
+            return;
+        }
+
+        try {
+            $request = app(Client::class)->signedGet($path, $query);
+        } catch (KeychainUnavailable $exception) {
+            if (! $quiet) {
+                $this->couldNotRefresh($exception->getMessage());
+            }
+
+            return;
+        }
+
+        $this->refreshing[$key] = microtime(true);
+
+        FetchInBackground::dispatch($request->url, $request->headers)
+            ->timeout(30)
+            ->finished(function (mixed $result) use ($key, $path, $query, $apply, $quiet): void {
+                unset($this->refreshing[$key]);
+                $this->settleRefresh(is_array($result) ? $result : [], $path, $query, $apply, $quiet);
+            })
+            ->failed(function (Throwable $exception) use ($key, $quiet): void {
+                unset($this->refreshing[$key]);
+
+                if (! $quiet) {
+                    $this->couldNotRefresh('fatal: '.$exception->getMessage());
+                }
+            });
+    }
+
+    /**
+     * Asks devnull how many notifications are unread, for the badge on the
+     * Notifications tab, and picks up any change to you while it's there.
+     * The badge is a nicety, so a failure here is never put on the screen.
+     */
+    protected function refreshUnreadNotifications(): void
+    {
+        $this->refresh('me', [], function (array $json): void {
+            $current = CurrentUser::fromArray($json);
+
+            if ($current->user->username !== '') {
+                app(Account::class)->remember($current->user);
+            }
+
+            app(Account::class)->rememberUnreadNotifications($current->unreadNotificationsCount);
+        }, quiet: true);
+    }
+
+    /**
+     * Forgets refreshes that were still out, whose answers NativePHP dropped
+     * when this screen went under another.
+     */
+    protected function forgetRefreshes(): void
+    {
+        $this->refreshing = [];
+    }
+
+    /**
+     * @param  array{status?: int, json?: mixed, retry_after?: string}  $result
+     * @param  array<string, string|null>  $query
+     * @param  Closure(array<string, mixed>): void  $apply
+     */
+    private function settleRefresh(array $result, string $path, array $query, Closure $apply, bool $quiet): void
+    {
+        $status = (int) ($result['status'] ?? 0);
+
+        if ($status >= 200 && $status < 300) {
+            $json = is_array($result['json'] ?? null) ? $result['json'] : [];
+
+            app(ResponseCache::class)->put($path, $query, $json);
+            $this->refreshFailed = false;
+            $this->error = null;
+            $apply($json);
+
+            return;
+        }
+
+        if ($quiet) {
+            return;
+        }
+
+        $exception = $status === 0
+            ? ApiException::couldNotConnect((string) config('devnull.url'))
+            : ApiException::fromParts($status, $result['json'] ?? null, (string) ($result['retry_after'] ?? ''));
+
+        if ($exception instanceof Unauthenticated) {
+            $this->signOut($exception);
+
+            return;
+        }
+
+        // What was kept is gone from devnull, so it's no longer worth showing quietly.
+        if (in_array($status, [403, 404, 410], true)) {
+            app(ResponseCache::class)->forget($path, $query);
+            $this->error = $exception->firstError();
+
+            return;
+        }
+
+        $this->couldNotRefresh($exception->firstError());
+    }
+
+    private function couldNotRefresh(string $message): void
+    {
+        if ($this->showsContent()) {
+            $this->refreshFailed = true;
+
+            return;
+        }
+
+        $this->error = $message;
+    }
+}

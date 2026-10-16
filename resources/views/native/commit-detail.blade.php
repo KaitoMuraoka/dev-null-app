@@ -3,9 +3,16 @@
 
 <native:column class="w-full h-full bg-theme-background">
     @include('native.partials.error')
+    @include('native.partials.refresh-failed')
 
     <native:scroll-view class="w-full flex-1 bg-theme-surface">
         <native:column class="w-full bg-theme-surface">
+            @if (! $commit && $error === null)
+                <native:column ref="loading-commit" class="w-full items-center py-16" a11y-label="Loading commit">
+                    <native:activity-indicator />
+                </native:column>
+            @endif
+
             {{--
                 The ancestors, the commit and the rest of its series on one rail, so someone replying to themselves shows
                 their avatar once. As on the web, a part of a series with more parts after it has its replies right under
@@ -55,9 +62,15 @@
                         @include('native.partials.reply', ['reply' => $nestedReply, 'nested' => true])
                     @endforeach
                 @empty
-                    <native:column class="w-full px-4 py-4">
-                        <native:text class="text-sm text-theme-ink-muted">No replies yet.</native:text>
-                    </native:column>
+                    @if ($repliesLoaded)
+                        <native:column class="w-full px-4 py-4">
+                            <native:text class="text-sm text-theme-ink-muted">No replies yet.</native:text>
+                        </native:column>
+                    @elseif ($error === null)
+                        <native:row ref="loading-replies" class="w-full px-4 py-4 gap-2 items-center" a11y-label="Loading replies">
+                            <native:activity-indicator size="small" />
+                        </native:row>
+                    @endif
                 @endforelse
 
                 @if ($repliesCursor !== null)

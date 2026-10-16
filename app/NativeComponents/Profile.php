@@ -7,12 +7,13 @@ use App\Devnull\Data\Profile as ProfileData;
 use App\Devnull\Timeline;
 use App\Icons\Lucide;
 use App\NativeComponents\Concerns\ExpandsThreads;
+use App\NativeComponents\Concerns\HoldsNewCommits;
 use App\NativeComponents\Concerns\OpensInTab;
+use App\NativeComponents\Concerns\RefreshesInBackground;
 use App\NativeComponents\Concerns\ShowsCommits;
 use App\NativeComponents\Concerns\TalksToDevnull;
 use Closure;
 use Illuminate\View\View;
-use Native\Mobile\Attributes\Lazy;
 use Native\Mobile\Edge\Layouts\Builders\NavAction;
 use Native\Mobile\Edge\Layouts\Builders\NavBarOptions;
 use Native\Mobile\Edge\NativeComponent;
@@ -25,14 +26,19 @@ use Native\Mobile\Facades\Browser;
  * The Profile tab shows your own, with no username in the route. Like the web,
  * your own profile swaps Follow for "Edit on GitHub", and its nav bar leads to
  * this device's key.
+ *
+ * It opens on the profile as it was last time, then asks devnull again behind
+ * it. The header changes in place; newer commits wait in the pill (see
+ * HoldsNewCommits).
  */
-#[Lazy]
 class Profile extends NativeComponent
 {
     use ExpandsThreads;
+    use HoldsNewCommits;
     use OpensInTab {
         isShowing as isShowingPath;
     }
+    use RefreshesInBackground;
     use ShowsCommits;
     use TalksToDevnull;
 
@@ -44,10 +50,10 @@ class Profile extends NativeComponent
 
     public string $tab = 'commits';
 
-    /** @var list<Commit> */
-    public array $commits = [];
-
-    public ?string $nextCursor = null;
+    /**
+     * Whether the tab has had commits to show, kept or fresh. Until then it shows skeleton rows.
+     */
+    public bool $commitsLoaded = false;
 
     public function mount(): void
     {
@@ -55,12 +61,18 @@ class Profile extends NativeComponent
             $this->username = $this->me()?->username ?? '';
         }
 
-        $this->load();
+        $this->showKept();
+        $this->revalidate();
     }
 
+    /**
+     * Back from a commit or another profile: take any change made there from the cache at once, then ask devnull.
+     */
     public function onResume(): void
     {
-        $this->load();
+        $this->forgetRefreshes();
+        $this->showKept();
+        $this->revalidate();
     }
 
     public function navTitle(): string
@@ -83,28 +95,11 @@ class Profile extends NativeComponent
     }
 
     /**
-     * Loads the profile, and on your own picks up name and avatar changes and the
-     * unread count, which the Me tab used to fetch.
+     * Pull to refresh. You're at the top, so new commits go straight in.
      */
     public function load(): void
     {
-        if ($this->username === '') {
-            return;
-        }
-
-        $profile = $this->attempt(fn ($devnull) => $devnull->profile($this->username));
-
-        if ($profile === null) {
-            return;
-        }
-
-        $this->profile = $profile;
-        $this->loadCommits();
-        $this->reloadThreads();
-
-        if ($this->isMe()) {
-            $this->refreshUnreadNotifications();
-        }
+        $this->refreshProfile(showNewer: true);
     }
 
     public function showTab(string $tab): void
@@ -117,7 +112,14 @@ class Profile extends NativeComponent
         $this->commits = [];
         $this->threads = [];
         $this->nextCursor = null;
-        $this->loadCommits();
+        $this->commitsLoaded = false;
+        $this->forgetNewCommits();
+
+        if (($kept = $this->cached($this->commitsPath(), $this->commitsQuery())) !== null) {
+            $this->takeCommits($tab, $kept);
+        }
+
+        $this->refreshCommits();
     }
 
     public function loadMore(): void
@@ -204,16 +206,6 @@ class Profile extends NativeComponent
         }
     }
 
-    public function openCommit(string $id): void
-    {
-        $this->openInTab('/commits/'.$id);
-    }
-
-    public function openProfile(string $username): void
-    {
-        $this->openInTab('/users/'.$username);
-    }
-
     /**
      * The web leaves the pinned commit out of the replies tab.
      */
@@ -240,14 +232,89 @@ class Profile extends NativeComponent
         }
     }
 
-    private function loadCommits(): void
+    /**
+     * Asks again for the profile and the tab, and on your own the unread count,
+     * which picks up name and avatar changes too.
+     */
+    protected function revalidate(): void
     {
-        $page = $this->attempt(fn ($devnull) => $devnull->userCommits($this->username, $this->tab));
+        $this->refreshProfile();
+    }
 
-        if ($page !== null) {
-            $this->commits = $page->items;
-            $this->nextCursor = $page->nextCursor;
+    protected function showsContent(): bool
+    {
+        return $this->profile !== null;
+    }
+
+    private function refreshProfile(bool $showNewer = false): void
+    {
+        if ($this->username === '') {
+            return;
         }
+
+        $this->refresh('users/'.rawurlencode($this->username), [], function (array $json): void {
+            $this->profile = ProfileData::fromArray($json);
+        }, again: $showNewer);
+        $this->refreshCommits($showNewer);
+        $this->refreshThreads();
+
+        if ($this->isMe()) {
+            $this->refreshUnreadNotifications();
+        }
+    }
+
+    private function refreshCommits(bool $showNewer = false): void
+    {
+        $tab = $this->tab;
+
+        $this->refresh($this->commitsPath(), $this->commitsQuery(), fn (array $json) => $this->takeCommits($tab, $json, $showNewer), again: $showNewer);
+    }
+
+    /**
+     * The profile and the tab as they were kept last time.
+     */
+    private function showKept(): void
+    {
+        if ($this->username === '') {
+            return;
+        }
+
+        $profile = $this->cached('users/'.rawurlencode($this->username));
+
+        if ($profile !== null) {
+            $this->profile = ProfileData::fromArray($profile);
+        }
+
+        if (($commits = $this->cached($this->commitsPath(), $this->commitsQuery())) !== null) {
+            $this->takeCommits($this->tab, $commits);
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $json
+     */
+    private function takeCommits(string $tab, array $json, bool $showNewer = false): void
+    {
+        // An answer for the other tab, which you've left.
+        if ($tab !== $this->tab) {
+            return;
+        }
+
+        $this->layFreshCommits($json, $showNewer || ! $this->commitsLoaded);
+        $this->commitsLoaded = true;
+    }
+
+    private function commitsPath(): string
+    {
+        return 'users/'.rawurlencode($this->username).'/commits';
+    }
+
+    /**
+     * @return array<string, string|null>
+     */
+    private function commitsQuery(): array
+    {
+        return ['replies' => $this->tab === 'replies' ? '1' : null];
     }
 
     public function render(): View
@@ -256,6 +323,7 @@ class Profile extends NativeComponent
 
         return view('native.profile', [
             'isMe' => $this->isMe(),
+            'newCommitsLabel' => $this->newCommitsLabel(),
             'viewer' => $this->me(),
             'pinnedCommit' => $pinnedCommit,
             'rows' => Timeline::feed($this->commits, firstLane: $pinnedCommit?->lane()),

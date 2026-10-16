@@ -33,6 +33,7 @@ enum Lucide
     case ChevronRight;
     case ChevronDown;
     case ArrowUpRight;
+    case ArrowUp;
     case Pin;
     case ListOrdered;
     case Building2;
@@ -56,6 +57,7 @@ enum Lucide
             self::Star => $filled ? 'star-filled' : 'star',
             self::Bookmark => $filled ? 'bookmark-filled' : 'bookmark',
             self::Trash2 => 'trash-2',
+            self::ArrowUp => 'arrow-up',
             default => null,
         };
 

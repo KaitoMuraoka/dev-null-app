@@ -5,12 +5,13 @@ namespace App\NativeComponents;
 use App\Devnull\Account;
 use App\Devnull\AppleSignIn;
 use App\Devnull\Client;
+use App\Devnull\Data\CurrentUser;
 use App\Devnull\DeviceKey;
 use App\Devnull\Exceptions\KeychainUnavailable;
+use App\NativeComponents\Concerns\RefreshesInBackground;
 use App\NativeComponents\Concerns\SignsInWithApple;
 use App\NativeComponents\Concerns\TalksToDevnull;
 use Illuminate\View\View;
-use Native\Mobile\Attributes\Lazy;
 use Native\Mobile\Attributes\On;
 use Native\Mobile\Edge\NativeComponent;
 use Native\Mobile\Events\Alert\ButtonPressed;
@@ -24,10 +25,11 @@ use SensitiveParameter;
  *
  * On iOS it also links an Apple ID to your account, as a second way in on a
  * new phone. The account stays the GitHub one: Apple only signs you into it.
+ * Whether one is linked shows as devnull last said, and is asked again behind it.
  */
-#[Lazy]
 class ThisDevice extends NativeComponent
 {
+    use RefreshesInBackground;
     use SignsInWithApple;
     use TalksToDevnull;
 
@@ -56,9 +58,25 @@ class ThisDevice extends NativeComponent
             return;
         }
 
-        if (AppleSignIn::isAvailable()) {
-            $this->appleLinked = $this->attempt(fn (Client $devnull): bool => $devnull->me()->appleLinked);
+        if (($kept = $this->cached('me')) !== null) {
+            $this->appleLinked = CurrentUser::fromArray($kept)->appleLinked;
         }
+
+        $this->revalidate();
+    }
+
+    protected function revalidate(): void
+    {
+        if (AppleSignIn::isAvailable()) {
+            $this->refresh('me', [], function (array $json): void {
+                $this->appleLinked = CurrentUser::fromArray($json)->appleLinked;
+            });
+        }
+    }
+
+    protected function showsContent(): bool
+    {
+        return $this->appleLinked !== null;
     }
 
     public function navTitle(): string

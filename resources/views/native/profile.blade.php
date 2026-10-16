@@ -1,7 +1,16 @@
 <native:column class="w-full h-full bg-theme-background">
     @include('native.partials.error')
+    @include('native.partials.refresh-failed')
 
-    <native:list class="w-full flex-1 bg-theme-surface" on-refresh="load" on-end-reached="loadMore" :end-reached-buffer="5">
+    <native:column class="w-full flex-1">
+    {{-- Keyed so a new key puts the profile back at the top, as the new commits pill does. --}}
+    <native:list native:key="profile-{{ $listKey }}" class="w-full flex-1 bg-theme-surface" on-refresh="load" on-end-reached="loadMore" :end-reached-buffer="5">
+        @if (! $profile && $error === null)
+            <native:column ref="loading-profile" class="w-full items-center py-16 bg-theme-surface" a11y-label="Loading profile">
+                <native:activity-indicator />
+            </native:column>
+        @endif
+
         @if ($profile)
             @php($user = $profile->user)
             <native:column class="w-full bg-theme-surface">
@@ -80,7 +89,13 @@
                 ['key' => 'replies', 'label' => 'Replies', 'active' => $tab === 'replies', 'press' => "showTab('replies')"],
             ]])
 
-            @if ($commits === [] && $pinnedCommit === null && $error === null)
+            @if (! $commitsLoaded && $error === null)
+                @foreach (range(1, 3) as $skeleton)
+                    @include('native.partials.rail-loading', ['ref' => 'loading-'.$skeleton, 'label' => 'Loading commits'])
+                @endforeach
+            @endif
+
+            @if ($commitsLoaded && $commits === [] && $pinnedCommit === null && $error === null)
                 @if ($tab === 'replies')
                     @include('native.partials.empty', ['command' => 'fatal: no replies yet', 'message' => $isMe ? 'Your replies show up here. Join a conversation from your log.' : "{$user->handle()} hasn't replied to anything yet."])
                 @elseif ($isMe)
@@ -115,4 +130,9 @@
             @endif
         @endif
     </native:list>
+
+    @if ($newCommits !== [])
+        @include('native.partials.new-commits-pill', ['label' => $newCommitsLabel, 'press' => 'showNewCommits'])
+    @endif
+    </native:column>
 </native:column>

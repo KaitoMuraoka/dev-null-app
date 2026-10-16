@@ -3,15 +3,17 @@
 namespace App\NativeComponents;
 
 use App\Devnull\Data\Commit;
+use App\Devnull\Data\CommitThread;
+use App\Devnull\Data\Page;
 use App\Devnull\Display;
 use App\Devnull\Timeline;
 use App\Icons\Lucide;
 use App\NativeComponents\Concerns\OpensInTab;
+use App\NativeComponents\Concerns\RefreshesInBackground;
 use App\NativeComponents\Concerns\ShowsCommits;
 use App\NativeComponents\Concerns\TalksToDevnull;
 use Closure;
 use Illuminate\View\View;
-use Native\Mobile\Attributes\Lazy;
 use Native\Mobile\Attributes\On;
 use Native\Mobile\Edge\Layouts\Builders\NavAction;
 use Native\Mobile\Edge\Layouts\Builders\NavBarOptions;
@@ -24,11 +26,13 @@ use Native\Mobile\Facades\Dialog;
  * A part of a series has the earlier parts above it instead, and the later
  * parts below, with its replies between, as on the web. Deleted ancestors,
  * parts and replies show as tombstones.
+ *
+ * It opens on the commit as it was last time, then asks devnull again behind it.
  */
-#[Lazy]
 class CommitDetail extends NativeComponent
 {
     use OpensInTab;
+    use RefreshesInBackground;
     use ShowsCommits;
     use TalksToDevnull;
 
@@ -54,6 +58,11 @@ class CommitDetail extends NativeComponent
     public ?string $repliesCursor = null;
 
     /**
+     * Whether the replies have been kept or fetched. Until then they show as loading.
+     */
+    public bool $repliesLoaded = false;
+
+    /**
      * The replies of deleted replies that were opened in place, by the deleted reply's id.
      *
      * @var array<string, list<Commit>>
@@ -70,7 +79,8 @@ class CommitDetail extends NativeComponent
     public function mount(): void
     {
         $this->focusReply = $this->data('reply', false) === true;
-        $this->load();
+        $this->showKept();
+        $this->revalidate();
     }
 
     /**
@@ -78,7 +88,9 @@ class CommitDetail extends NativeComponent
      */
     public function onResume(): void
     {
-        $this->load();
+        $this->forgetRefreshes();
+        $this->showKept();
+        $this->revalidate();
     }
 
     public function navTitle(): string
@@ -103,28 +115,33 @@ class CommitDetail extends NativeComponent
         return $options;
     }
 
+    /**
+     * Asks again for the commit, its replies and any deleted reply opened in place.
+     */
     public function load(): void
     {
-        $thread = $this->attempt(fn ($devnull) => $devnull->commit($this->id));
+        $this->revalidate();
+    }
 
-        if ($thread === null) {
-            return;
-        }
-
-        $this->commit = $thread->commit;
-        $this->ancestors = $thread->ancestors;
-        $this->series = $thread->series;
-
-        $replies = $this->attempt(fn ($devnull) => $devnull->replies($this->id));
-
-        if ($replies !== null) {
-            $this->replies = $replies->items;
-            $this->repliesCursor = $replies->nextCursor;
-        }
+    protected function revalidate(): void
+    {
+        $this->refresh($this->threadPath(), [], fn (array $json) => $this->takeThread($json));
+        $this->refresh($this->threadPath().'/replies', [], fn (array $json) => $this->takeReplies($json));
 
         foreach (array_keys($this->tombstoneReplies) as $id) {
-            $this->loadTombstoneReplies((string) $id);
+            $id = (string) $id;
+
+            $this->refresh('commits/'.rawurlencode($id).'/replies', [], function (array $json) use ($id): void {
+                if (array_key_exists($id, $this->tombstoneReplies)) {
+                    $this->tombstoneReplies[$id] = Page::fromArray($json, Commit::fromArray(...))->items;
+                }
+            });
         }
+    }
+
+    protected function showsContent(): bool
+    {
+        return $this->commit !== null;
     }
 
     /**
@@ -207,16 +224,6 @@ class CommitDetail extends NativeComponent
         }
     }
 
-    public function openCommit(string $id): void
-    {
-        $this->openInTab('/commits/'.$id);
-    }
-
-    public function openProfile(string $username): void
-    {
-        $this->openInTab('/users/'.$username);
-    }
-
     protected function updateShownCommits(Closure $update): void
     {
         $this->commit = $this->commit === null ? null : $update($this->commit);
@@ -232,6 +239,56 @@ class CommitDetail extends NativeComponent
     protected function shownCommits(): iterable
     {
         return [...($this->commit === null ? [] : [$this->commit]), ...$this->ancestors, ...$this->series, ...$this->replies, ...array_merge([], ...array_values($this->tombstoneReplies))];
+    }
+
+    /**
+     * The commit and its replies as they were kept last time.
+     */
+    private function showKept(): void
+    {
+        if (($thread = $this->cached($this->threadPath())) !== null) {
+            $this->takeThread($thread);
+        }
+
+        if (($replies = $this->cached($this->threadPath().'/replies')) !== null) {
+            $this->takeReplies($replies);
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $json
+     */
+    private function takeThread(array $json): void
+    {
+        $thread = CommitThread::fromArray($json);
+
+        $this->commit = $thread->commit;
+        $this->ancestors = $thread->ancestors;
+        $this->series = $thread->series;
+    }
+
+    /**
+     * A fresh first page of replies. Pages loaded after it stay, past what it holds.
+     *
+     * @param  array<string, mixed>  $json
+     */
+    private function takeReplies(array $json): void
+    {
+        $page = Page::fromArray($json, Commit::fromArray(...));
+        $fresh = array_flip(array_map(fn (Commit $reply): string => $reply->id, $page->items));
+
+        $later = $this->repliesCursor !== null
+            ? array_values(array_filter(array_slice($this->replies, count($page->items)), fn (Commit $reply): bool => ! isset($fresh[$reply->id])))
+            : [];
+
+        $this->replies = [...$page->items, ...$later];
+        $this->repliesCursor = $later === [] ? $page->nextCursor : $this->repliesCursor;
+        $this->repliesLoaded = true;
+    }
+
+    private function threadPath(): string
+    {
+        return 'commits/'.rawurlencode($this->id);
     }
 
     private function loadTombstoneReplies(string $id): void

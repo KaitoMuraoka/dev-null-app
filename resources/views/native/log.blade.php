@@ -5,11 +5,19 @@
     ]])
 
     @include('native.partials.error')
+    @include('native.partials.refresh-failed')
 
-    {{-- Keyed so a new key puts the log back at the top, as the nav bar's compose button does. --}}
+    <native:column class="w-full flex-1">
+    {{-- Keyed so a new key puts the log back at the top, as the nav bar's compose button and the pill do. --}}
     <native:list native:key="log-{{ $listKey }}" ref="log" class="w-full flex-1 bg-theme-surface" on-refresh="load" on-end-reached="loadMore" :end-reached-buffer="5">
         @if ($viewer)
             @include('native.partials.composer', ['me' => $viewer])
+        @endif
+
+        @if (! $loaded && $error === null)
+            @foreach (range(1, 3) as $skeleton)
+                @include('native.partials.rail-loading', ['ref' => 'loading-'.$skeleton, 'label' => 'Loading commits'])
+            @endforeach
         @endif
 
         @if ($loaded && $commits === [] && $error === null)
@@ -36,4 +44,9 @@
             @endif
         @endif
     </native:list>
+
+    @if ($newCommits !== [])
+        @include('native.partials.new-commits-pill', ['label' => $newCommitsLabel, 'press' => 'showNewCommits'])
+    @endif
+    </native:column>
 </native:column>

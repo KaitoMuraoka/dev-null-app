@@ -4,8 +4,15 @@
 
 <native:column class="w-full h-full bg-theme-background">
     @include('native.partials.error')
+    @include('native.partials.refresh-failed')
 
     <native:list class="w-full flex-1 bg-theme-surface" on-refresh="load" on-end-reached="loadMore" :end-reached-buffer="5">
+        @if (! $loaded && $error === null)
+            <native:column ref="loading-notifications" class="w-full items-center py-16 bg-theme-surface" a11y-label="Loading notifications">
+                <native:activity-indicator />
+            </native:column>
+        @endif
+
         @if ($loaded && $notifications === [] && $error === null)
             @include('native.partials.empty', ['command' => '$ cat /dev/notifications', 'message' => 'Nothing here yet. Follows, stars, replies, mentions, and moderation updates for your commits will show up here.'])
         @endif

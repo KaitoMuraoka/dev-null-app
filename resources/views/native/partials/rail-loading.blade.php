@@ -1,5 +1,10 @@
-{{-- While the next page loads, a skeleton row keeps the rail running in Rail Gray, as the web's CommitSkeleton does. --}}
-<native:row ref="loading-more" class="w-full bg-theme-surface" a11y-label="Loading more commits">
+{{--
+    While the next page loads, a skeleton row keeps the rail running in Rail Gray, as the web's CommitSkeleton does.
+    A list with nothing kept to show yet shows a few of them, the first time only.
+--}}
+@php($ref ??= 'loading-more')
+@php($label ??= 'Loading more commits')
+<native:row ref="{{ $ref }}" class="w-full bg-theme-surface" a11y-label="{{ $label }}">
     <native:column :width="64" />
     <native:column class="flex-1">
         <native:column class="w-full min-h-[64] py-3 pr-4 gap-[10] opacity-[0.5]" animate-duration="900" :animate-loop="true">

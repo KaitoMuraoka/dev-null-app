@@ -9,12 +9,14 @@ use App\Devnull\Timeline;
 use App\Icons\Android;
 use App\Icons\Ios;
 use App\NativeComponents\Concerns\ExpandsThreads;
+use App\NativeComponents\Concerns\HoldsNewCommits;
 use App\NativeComponents\Concerns\OpensInTab;
+use App\NativeComponents\Concerns\RefreshesInBackground;
 use App\NativeComponents\Concerns\ShowsCommits;
 use App\NativeComponents\Concerns\TalksToDevnull;
 use Closure;
 use Illuminate\View\View;
-use Native\Mobile\Attributes\Lazy;
+use Native\Mobile\Attributes\Poll;
 use Native\Mobile\Edge\Layouts\Builders\NavAction;
 use Native\Mobile\Edge\Layouts\Builders\NavBarOptions;
 use Native\Mobile\Edge\NativeComponent;
@@ -27,12 +29,18 @@ use Native\Mobile\Edge\NativeComponent;
  * or scroll a list. So a touch on the field is taken as being in it, a fresh
  * field (a new key) with autofocus is how focus is given, and a new key on the
  * list is how it gets back to the top.
+ *
+ * It opens on the log as it was last time, then asks devnull again in the
+ * background, and every 30 seconds while it's showing, as the web polls.
+ * Commits newer than anything showing wait under the tabs in the new commits
+ * pill (see HoldsNewCommits).
  */
-#[Lazy]
 class Log extends NativeComponent
 {
     use ExpandsThreads;
+    use HoldsNewCommits;
     use OpensInTab;
+    use RefreshesInBackground;
     use ShowsCommits;
     use TalksToDevnull;
 
@@ -40,11 +48,9 @@ class Log extends NativeComponent
 
     public string $log = 'following';
 
-    /** @var list<Commit> */
-    public array $commits = [];
-
-    public ?string $nextCursor = null;
-
+    /**
+     * Whether the log has had commits to show, kept or fresh. Until then it shows skeleton rows.
+     */
     public bool $loaded = false;
 
     /**
@@ -74,20 +80,31 @@ class Log extends NativeComponent
      */
     public bool $focusComposer = false;
 
-    /**
-     * Mounts a fresh list when it changes, which puts the log back at the top.
-     */
-    public int $listKey = 0;
-
     public function mount(): void
     {
         $this->lastVisitAt = $this->lastVisitSeenAt();
-        $this->load();
+        $this->showKept();
+        $this->revalidate();
     }
 
+    /**
+     * Back from a commit or a profile: take any change made there from the cache at once, then ask devnull.
+     */
     public function onResume(): void
     {
-        $this->load();
+        $this->forgetRefreshes();
+        $this->closeEmptyComposer();
+        $this->showKept();
+        $this->revalidate();
+    }
+
+    /**
+     * The web's poll for new commits.
+     */
+    #[Poll(30000)]
+    public function checkForNewCommits(): void
+    {
+        $this->revalidate();
     }
 
     /**
@@ -118,33 +135,52 @@ class Log extends NativeComponent
         $this->commits = [];
         $this->threads = [];
         $this->nextCursor = null;
+        $this->loaded = false;
+        $this->error = null;
+        $this->forgetNewCommits();
         $this->lastVisitAt = $this->lastVisitSeenAt();
-        $this->load();
+        $this->showKept();
+        $this->revalidate();
     }
 
     /**
-     * Loads the log, remembers its newest commit as seen, then fetches the unread
-     * count for the Notifications badge.
+     * Pull to refresh. You're at the top, so anything new goes straight in.
      */
     public function load(): void
     {
         $this->closeEmptyComposer();
 
-        $page = $this->attempt(fn ($devnull) => $devnull->log($this->log));
+        $log = $this->log;
+        $this->refresh('log/'.$log, [], fn (array $json) => $this->takeFresh($log, $json, showNewer: true), again: true);
+        $this->refreshThreads();
+        $this->refreshUnreadNotifications();
+    }
 
-        if ($page !== null) {
-            $this->commits = $page->items;
-            $this->nextCursor = $page->nextCursor;
-
-            if (($viewer = $this->me()) !== null) {
-                app(LastVisit::class)->remember($viewer->id, $this->log, $this->commits);
-            }
-
-            $this->reloadThreads();
-            $this->refreshUnreadNotifications();
+    /**
+     * The pill: the new commits go on top, and they're the newest you've seen now.
+     */
+    public function showNewCommits(): void
+    {
+        if ($this->newCommits === []) {
+            return;
         }
 
-        $this->loaded = true;
+        $this->putNewCommitsOnTop();
+        $this->listKey++;
+        $this->rememberLastVisit();
+    }
+
+    protected function revalidate(): void
+    {
+        $log = $this->log;
+        $this->refresh('log/'.$log, [], fn (array $json) => $this->takeFresh($log, $json));
+        $this->refreshThreads();
+        $this->refreshUnreadNotifications();
+    }
+
+    protected function showsContent(): bool
+    {
+        return $this->loaded;
     }
 
     public function loadMore(): void
@@ -218,16 +254,8 @@ class Log extends NativeComponent
         $this->focusComposer = false;
         $this->composerKey++;
         $this->commits = [$commit, ...$this->commits];
-    }
-
-    public function openCommit(string $id): void
-    {
-        $this->openInTab('/commits/'.$id);
-    }
-
-    public function openProfile(string $username): void
-    {
-        $this->openInTab('/users/'.$username);
+        $this->madeHere[] = $commit->id;
+        $this->loaded = true;
     }
 
     /**
@@ -259,6 +287,50 @@ class Log extends NativeComponent
         $this->composerKey++;
     }
 
+    /**
+     * The log as it was kept last time, if there is one. Coming back to it, it's
+     * laid over what's showing like any fresh page, so a change made elsewhere
+     * shows at once.
+     */
+    private function showKept(): void
+    {
+        $json = $this->cached('log/'.$this->log);
+
+        if ($json !== null) {
+            $this->takeFresh($this->log, $json);
+        }
+    }
+
+    /**
+     * Lays a first page of the log over what's showing. Rows already there change
+     * in place; newer ones wait for the pill, unless the log had nothing to show
+     * or you pulled to refresh.
+     *
+     * @param  array<string, mixed>  $json
+     */
+    private function takeFresh(string $log, array $json, bool $showNewer = false): void
+    {
+        // An answer for the other log, which you've left.
+        if ($log !== $this->log) {
+            return;
+        }
+
+        $this->layFreshCommits($json, showNewer: $showNewer || ! $this->loaded);
+        $this->loaded = true;
+        $this->rememberLastVisit();
+    }
+
+    /**
+     * The newest commit showing is the newest you've seen, as the web keeps it on
+     * every load and after the pill. Commits waiting in the pill aren't seen yet.
+     */
+    private function rememberLastVisit(): void
+    {
+        if (($viewer = $this->me()) !== null) {
+            app(LastVisit::class)->remember($viewer->id, $this->log, $this->commits);
+        }
+    }
+
     private function lastVisitSeenAt(): ?string
     {
         $viewer = $this->me();
@@ -275,6 +347,7 @@ class Log extends NativeComponent
             'composerOpen' => $this->composing || $this->body !== '',
             'remaining' => $this->remaining(),
             'canCommit' => $this->canCommit(),
+            'newCommitsLabel' => $this->newCommitsLabel(),
             'rows' => Timeline::feed(
                 $this->commits,
                 firstLane: Lane::Rail,

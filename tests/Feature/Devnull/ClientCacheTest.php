@@ -2,6 +2,10 @@
 
 use App\Devnull\Client;
 use App\Devnull\Exceptions\ApiException;
+use App\Devnull\FetchInBackground;
+use App\Devnull\RequestSigner;
+use Illuminate\Http\Client\Request;
+use Illuminate\Support\Facades\Http;
 
 beforeEach(function () {
     config(['devnull.url' => 'http://devnull.test']);
@@ -23,6 +27,36 @@ it('keeps the first page of what it fetches, and never a later one', function ()
         ->and(kept('log/following', ['cursor' => 'page2']))->toBeNull()
         ->and(kept('users/ada/commits', ['replies' => '1'])['data'][0]['id'])->toBe('a1')
         ->and(kept('users/ada/commits'))->toBeNull();
+});
+
+it('signs a GET for the background to send, and the background sends it as signed', function () {
+    $this->travelTo(now()->setTimestamp(1760000000));
+    serveApi(['GET /api/v1/log/everyone' => [pageJson([commitJson()])]]);
+
+    $request = $this->devnull->signedGet('log/everyone', ['cursor' => null]);
+
+    expect($request->url)->toBe('http://devnull.test/api/v1/log/everyone')
+        ->and($request->headers['X-Devnull-Timestamp'])->toBe('1760000000')
+        ->and($request->headers['X-SSH-Signature'])->toBe(testKey()->sign(RequestSigner::message('1760000000', $request->headers['X-Devnull-Nonce'], 'GET', '/api/v1/log/everyone', ''), 'devnull-api'));
+
+    Http::assertNothingSent();
+
+    $result = (new FetchInBackground)->handle($request->url, $request->headers);
+
+    expect($result['status'])->toBe(200)
+        ->and($result['json']['data'][0]['id'])->toBe('0199e5c4-1111-7000-8000-00000000c0de');
+
+    Http::assertSent(fn (Request $sent): bool => $sent->url() === $request->url
+        && $sent->header('X-SSH-Signature') === [$request->headers['X-SSH-Signature']]
+        && ! $sent->hasHeader('Content-Type'));
+});
+
+it('answers status 0 from the background when devnull cannot be reached', function () {
+    fakeOffline();
+
+    $request = $this->devnull->signedGet('me');
+
+    expect((new FetchInBackground)->handle($request->url, $request->headers))->toBe(['status' => 0, 'json' => null, 'retry_after' => '']);
 });
 
 it('keeps stars and bookmarks on every kept copy', function () {

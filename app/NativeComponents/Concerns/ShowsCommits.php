@@ -34,6 +34,16 @@ trait ShowsCommits
      */
     abstract protected function openInTab(string $path, array $data = []): void;
 
+    public function openCommit(string $id): void
+    {
+        $this->openInTab('/commits/'.$id);
+    }
+
+    public function openProfile(string $username): void
+    {
+        $this->openInTab('/users/'.$username);
+    }
+
     /**
      * Opens the commit with its reply composer focused.
      */
