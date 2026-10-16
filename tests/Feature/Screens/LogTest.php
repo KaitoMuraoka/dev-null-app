@@ -359,7 +359,7 @@ it('opens a thread in place, as the web does, and closes it again', function () 
             commitJson(['id' => 'c1']),
         ])],
         'GET /api/v1/commits/c2/replies' => [pageJson([
-            commitJson(['id' => 'r1', 'parent_id' => 'c2', 'body' => 'First reply in place', 'author' => userJson(['id' => 'u2', 'username' => 'ada', 'name' => 'Ada'])]),
+            replyJson(['id' => 'r1', 'parent_id' => 'c2', 'body' => 'First reply in place', 'author' => userJson(['id' => 'u2', 'username' => 'ada', 'name' => 'Ada'])]),
             tombstoneJson(['id' => 'r2', 'parent_id' => 'c2', 'replies_count' => 0]),
         ])],
         'POST /api/v1/commits/r1/star' => [['data' => commitJson(['id' => 'r1', 'stars_count' => 1, 'starred' => true])]],
@@ -390,7 +390,7 @@ it('closes a thread whose replies have all gone', function () {
     Http::fake(function (Request $request) use (&$repliesGone) {
         return match (parse_url($request->url(), PHP_URL_PATH)) {
             '/api/v1/log/following' => Http::response(pageJson([commitJson(['id' => 'c1', 'replies_count' => $repliesGone ? 0 : 1])])),
-            '/api/v1/commits/c1/replies' => Http::response(pageJson($repliesGone ? [] : [commitJson(['id' => 'r1', 'parent_id' => 'c1'])])),
+            '/api/v1/commits/c1/replies' => Http::response(pageJson($repliesGone ? [] : [replyJson(['id' => 'r1', 'parent_id' => 'c1'])])),
             default => Http::response(['message' => 'No fake.'], 404),
         };
     });

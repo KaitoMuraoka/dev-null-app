@@ -219,6 +219,18 @@ function commitPageJson(array $commit, array $ancestors = [], array $series = []
 }
 
 /**
+ * A reply as `GET /commits/{id}/replies` sends it: like any commit, but without
+ * stars_count or starred, which that list doesn't load.
+ *
+ * @param  array<string, mixed>  $overrides
+ * @return array<string, mixed>
+ */
+function replyJson(array $overrides = []): array
+{
+    return array_diff_key(commitJson($overrides), array_flip(['stars_count', 'starred']));
+}
+
+/**
  * A notification's commit, as the API sends it: without its counts, preview,
  * images or your star and bookmark, and with the commit it replies to when you
  * may see it. That parent comes without a parent of its own.

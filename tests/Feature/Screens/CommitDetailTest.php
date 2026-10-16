@@ -29,7 +29,7 @@ function fakeThread(array $commit = [], array $replies = [], array $extra = []):
 }
 
 it('shows the ancestors above the commit and the replies below', function () {
-    fakeThread(replies: [commitJson(['id' => 'r1', 'parent_id' => 'c2', 'body' => 'First reply', 'author' => userJson(['username' => 'grace', 'name' => 'Grace'])])]);
+    fakeThread(replies: [replyJson(['id' => 'r1', 'parent_id' => 'c2', 'body' => 'First reply', 'author' => userJson(['username' => 'grace', 'name' => 'Grace'])])]);
 
     Native::visit('/log/commits/c2')
         ->assertNavTitle('Commit')
@@ -125,7 +125,7 @@ it('offers delete only on your own commits', function () {
 });
 
 it('opens ancestors, replies and profiles', function () {
-    fakeThread(replies: [commitJson(['id' => 'r1'])]);
+    fakeThread(replies: [replyJson(['id' => 'r1'])]);
 
     Native::visit('/log/commits/c2')->tap('commit-c1')->assertNavigatedTo('/log/commits/c1');
     Native::visit('/log/commits/c2')->tap('reply-r1')->assertNavigatedTo('/log/commits/r1');
@@ -165,9 +165,9 @@ it('keeps deleted ancestors on the rail as tombstones', function () {
 it('keeps deleted replies as tombstones and opens their replies in place', function () {
     fakeThread(replies: [
         tombstoneJson(['id' => 'r1', 'parent_id' => 'c2', 'replies_count' => 1]),
-        commitJson(['id' => 'r2', 'parent_id' => 'c2', 'body' => 'Still here']),
+        replyJson(['id' => 'r2', 'parent_id' => 'c2', 'body' => 'Still here']),
     ], extra: [
-        'GET /api/v1/commits/r1/replies' => [pageJson([commitJson(['id' => 'r3', 'parent_id' => 'r1', 'body' => 'Answering the deleted one'])])],
+        'GET /api/v1/commits/r1/replies' => [pageJson([replyJson(['id' => 'r3', 'parent_id' => 'r1', 'body' => 'Answering the deleted one'])])],
     ]);
 
     $screen = Native::visit('/log/commits/c2')
@@ -247,7 +247,7 @@ it('reloads when you come back from a reply you deleted', function () {
             $request->method() === 'DELETE' => tap(Http::response(null, 204), function () use (&$replyDeleted): void {
                 $replyDeleted = true;
             }),
-            $path === '/api/v1/commits/c2/replies' => Http::response(pageJson($replyDeleted ? [] : [commitJson(['id' => 'r1', 'parent_id' => 'c2', 'body' => 'Soon gone'])])),
+            $path === '/api/v1/commits/c2/replies' => Http::response(pageJson($replyDeleted ? [] : [replyJson(['id' => 'r1', 'parent_id' => 'c2', 'body' => 'Soon gone'])])),
             $path === '/api/v1/commits/c2' => Http::response(commitPageJson(commitJson(['id' => 'c2', 'body' => 'Parent']))),
             $path === '/api/v1/commits/r1' => Http::response(commitPageJson(commitJson(['id' => 'r1', 'parent_id' => 'c2', 'body' => 'Soon gone']), [commitJson(['id' => 'c2', 'body' => 'Parent'])])),
             default => Http::response(pageJson([])),
@@ -297,7 +297,7 @@ it('focuses the reply composer when opened from a Reply action', function () {
 });
 
 it('stars the focused commit and its replies in place', function () {
-    fakeThread(replies: [commitJson(['id' => 'r1', 'parent_id' => 'c2'])], extra: [
+    fakeThread(replies: [replyJson(['id' => 'r1', 'parent_id' => 'c2'])], extra: [
         'POST /api/v1/commits/c2/star' => [['data' => commitJson(['id' => 'c2', 'stars_count' => 1, 'starred' => true])]],
         'PUT /api/v1/commits/r1/bookmark' => [['data' => commitJson(['id' => 'r1', 'is_saved' => true])]],
     ]);
