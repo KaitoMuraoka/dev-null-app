@@ -6,17 +6,43 @@
 
     <native:scroll-view class="w-full flex-1 bg-theme-surface">
         <native:column class="w-full bg-theme-surface">
-            {{-- The ancestors and the commit on one rail, so someone replying to themselves shows their avatar once. --}}
+            {{--
+                The ancestors, the commit and the rest of its series on one rail, so someone replying to themselves shows
+                their avatar once. As on the web, a part of a series with more parts after it has its replies right under
+                it, opened in place beside the rail, and the later parts follow.
+            --}}
+            @php($repliesInThread = $series !== [] && $replies !== [])
             @foreach ($rows as $row)
+                @php($isFocused = $row->commit->id === $commit?->id)
                 @include('native.partials.commit-row', [
                     'commit' => $row->commit,
                     'previousLane' => $row->previousLane,
                     'continuesRun' => $row->continuesRun,
-                    'focused' => $row->commit->id === $commit?->id,
+                    'focused' => $isFocused,
+                    'seriesExpanded' => true,
+                    'withTail' => ! $loop->last,
+                    'hairline' => ! ($isFocused && $repliesInThread),
                 ])
+                @if ($isFocused && $repliesInThread)
+                    @foreach ($replies as $threadReply)
+                        @include('native.partials.thread-reply', ['reply' => $threadReply, 'lane' => $commit->lane(), 'last' => $loop->last && $repliesCursor === null])
+                    @endforeach
+                    @if ($repliesCursor !== null)
+                        <native:row class="w-full bg-theme-surface">
+                            <native:column :width="64" />
+                            <native:column class="flex-1">
+                                <native:column class="w-full pr-4 pb-3">
+                                    <native:button ref="more-replies" variant="ghost" size="sm" @press="loadMoreReplies">Show more replies</native:button>
+                                </native:column>
+                                <native:column class="w-full h-[1] bg-theme-hairline" />
+                            </native:column>
+                            @include('native.partials.rail', ['previous' => $commit->lane()])
+                        </native:row>
+                    @endif
+                @endif
             @endforeach
 
-            @if ($commit)
+            @if ($commit && $series === [])
                 @if ($replies !== [])
                     <native:column class="w-full px-4 pt-3 pb-1">
                         <native:text font="mono" class="text-[13px] text-theme-ink-muted">{{ \App\Devnull\Display::count(max($commit->repliesCount, count($replies)), 'reply', 'replies') }}</native:text>
@@ -39,7 +65,9 @@
                         <native:button ref="more-replies" variant="ghost" size="sm" @press="loadMoreReplies">Show more replies</native:button>
                     </native:column>
                 @endif
+            @endif
 
+            @if ($commit)
                 <native:column class="w-full h-[24]" />
             @endif
         </native:column>

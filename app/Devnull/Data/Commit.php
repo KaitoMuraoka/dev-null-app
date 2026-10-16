@@ -8,9 +8,10 @@ use Carbon\CarbonImmutable;
 use Throwable;
 
 /**
- * A commit as the web shows it, with its author. A deleted commit that still
- * has replies comes back as a tombstone: an id, its parent, when it went and
- * its replies count, with no body or author.
+ * A commit as the web shows it, with its author and, for a part of a series,
+ * its place in it. A deleted commit that still has replies comes back as a
+ * tombstone: an id, its parent, when it went, its replies count and its place
+ * in a series, with no body or author.
  */
 final readonly class Commit
 {
@@ -43,6 +44,9 @@ final readonly class Commit
         public array $content = [],
         public ?Commit $parent = null,
         public string $shortHash = '',
+        public ?string $seriesId = null,
+        public ?int $seriesPosition = null,
+        public ?int $seriesSize = null,
     ) {}
 
     /**
@@ -64,6 +68,8 @@ final readonly class Commit
                 repliesCount: $repliesCount,
                 deletedAt: self::date($data['deleted_at']) ?? CarbonImmutable::now(),
                 shortHash: Display::shortHash($id),
+                seriesPosition: self::positiveInt($data['series_position'] ?? null),
+                seriesSize: self::positiveInt($data['series_size'] ?? null),
             );
         }
 
@@ -90,6 +96,9 @@ final readonly class Commit
             content: CommitBody::blocks($body, $segments, $mentions),
             parent: is_array($data['parent'] ?? null) ? self::fromArray($data['parent']) : null,
             shortHash: is_string($data['short_hash'] ?? null) && $data['short_hash'] !== '' ? $data['short_hash'] : Display::shortHash($id),
+            seriesId: is_string($data['series_id'] ?? null) ? $data['series_id'] : null,
+            seriesPosition: self::positiveInt($data['series_position'] ?? null),
+            seriesSize: self::positiveInt($data['series_size'] ?? null),
         );
     }
 
@@ -127,6 +136,24 @@ final readonly class Commit
         return $this->deletedAt !== null;
     }
 
+    /**
+     * One of a series of commits posted together, each a reply to the part before.
+     * A deleted part keeps its place, so it knows its position without a series id.
+     */
+    public function isSeriesPart(): bool
+    {
+        return $this->seriesPosition !== null && $this->seriesSize !== null;
+    }
+
+    /**
+     * How many parts of its series come after this one, for the web's
+     * "2 more commits in this series" under a part shown on its own.
+     */
+    public function laterSeriesParts(): int
+    {
+        return $this->isSeriesPart() ? max(0, $this->seriesSize - $this->seriesPosition) : 0;
+    }
+
     public function isPending(): bool
     {
         return $this->status === 'pending';
@@ -156,6 +183,11 @@ final readonly class Commit
         } catch (Throwable) {
             return null;
         }
+    }
+
+    private static function positiveInt(mixed $value): ?int
+    {
+        return is_int($value) && $value > 0 ? $value : null;
     }
 
     /**

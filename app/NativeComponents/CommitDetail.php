@@ -22,7 +22,9 @@ use Native\Mobile\Facades\Dialog;
 
 /**
  * One commit: its ancestors above, its replies below, and a reply composer.
- * Deleted ancestors and replies show as tombstones.
+ * A part of a series has the earlier parts above it instead, and the later
+ * parts below, with its replies between, as on the web. Deleted ancestors,
+ * parts and replies show as tombstones.
  */
 #[Lazy]
 class CommitDetail extends NativeComponent
@@ -39,6 +41,13 @@ class CommitDetail extends NativeComponent
 
     /** @var list<Commit> */
     public array $ancestors = [];
+
+    /**
+     * The parts of its series after the commit, in order.
+     *
+     * @var list<Commit>
+     */
+    public array $series = [];
 
     /** @var list<Commit> */
     public array $replies = [];
@@ -105,6 +114,7 @@ class CommitDetail extends NativeComponent
 
         $this->commit = $thread->commit;
         $this->ancestors = $thread->ancestors;
+        $this->series = $thread->series;
 
         $replies = $this->attempt(fn ($devnull) => $devnull->replies($this->id));
 
@@ -212,6 +222,7 @@ class CommitDetail extends NativeComponent
     {
         $this->commit = $this->commit === null ? null : $update($this->commit);
         $this->ancestors = array_map($update, $this->ancestors);
+        $this->series = array_map($update, $this->series);
         $this->replies = array_map($update, $this->replies);
         $this->tombstoneReplies = array_map(fn (array $replies): array => array_map($update, $replies), $this->tombstoneReplies);
     }
@@ -221,7 +232,7 @@ class CommitDetail extends NativeComponent
      */
     protected function shownCommits(): iterable
     {
-        return [...($this->commit === null ? [] : [$this->commit]), ...$this->ancestors, ...$this->replies, ...array_merge([], ...array_values($this->tombstoneReplies))];
+        return [...($this->commit === null ? [] : [$this->commit]), ...$this->ancestors, ...$this->series, ...$this->replies, ...array_merge([], ...array_values($this->tombstoneReplies))];
     }
 
     private function loadTombstoneReplies(string $id): void
@@ -242,7 +253,7 @@ class CommitDetail extends NativeComponent
     {
         return view('native.commit-detail', [
             'viewer' => $this->me(),
-            'rows' => $this->commit === null ? [] : Timeline::thread([...$this->ancestors, $this->commit]),
+            'rows' => $this->commit === null ? [] : Timeline::thread([...$this->ancestors, $this->commit, ...$this->series]),
         ]);
     }
 }

@@ -37,6 +37,7 @@ enum Lucide
     case ArrowUpRight;
     case Pin;
     case Trash2;
+    case ListOrdered;
 
     public function ios(bool $filled = false): Ios|string
     {
@@ -55,6 +56,7 @@ enum Lucide
             self::ArrowUpRight => Ios::ArrowUpRight,
             self::Pin => Ios::Pin,
             self::Trash2 => Ios::Trash,
+            self::ListOrdered => Ios::ListNumber,
         };
     }
 
@@ -75,6 +77,7 @@ enum Lucide
             self::ArrowUpRight => AndroidOutlined::ArrowOutward,
             self::Pin => AndroidOutlined::PushPin,
             self::Trash2 => AndroidOutlined::Delete,
+            self::ListOrdered => AndroidOutlined::FormatListNumbered,
         };
     }
 }
