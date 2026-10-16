@@ -71,9 +71,7 @@ it('clears the badge after the notifications are opened', function () {
 
     Http::fake(function (Request $request) use (&$opened) {
         return match (parse_url($request->url(), PHP_URL_PATH)) {
-            '/api/v1/notifications' => tap(Http::response(pageJson([
-                ['id' => 'n1', 'type' => 'followed', 'read_at' => null, 'created_at' => now()->toIso8601ZuluString(), 'actor' => userJson(['username' => 'ada']), 'commit' => null],
-            ])), function () use (&$opened): void {
+            '/api/v1/notifications' => tap(Http::response(pageJson([notificationJson('followed')])), function () use (&$opened): void {
                 $opened = true;
             }),
             // devnull marks the page read as it sends it.
@@ -89,6 +87,22 @@ it('clears the badge after the notifications are opened', function () {
 
     $requests = Http::recorded()->map(fn (array $pair): string => parse_url($pair[0]->url(), PHP_URL_PATH))->values()->all();
     expect($requests)->toBe(['/api/v1/notifications', '/api/v1/me']);
+});
+
+it('counts unread groups on the badge, as devnull does, not the notifications in them', function () {
+    fakeApi([
+        'GET /api/v1/notifications' => [pageJson([
+            notificationJson('starred', ['actors_count' => 4, 'unread_count' => 4]),
+            notificationJson('replied', ['actors_count' => 2, 'unread_count' => 2]),
+        ], 'more', 'http://devnull.test/api/v1/notifications')],
+        // This page is read now. One more group is unread further down.
+        'GET /api/v1/me' => [meJson(1)],
+    ]);
+
+    $screen = Native::visit('/notifications');
+
+    expect(notificationsBadge($screen))->toBe('1')
+        ->and(app(Account::class)->unreadNotifications())->toBe(1);
 });
 
 it('keeps counting what is still unread further down', function () {

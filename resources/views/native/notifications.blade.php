@@ -6,13 +6,14 @@
 
     <native:list class="w-full flex-1 bg-theme-surface" on-refresh="load" on-end-reached="loadMore" :end-reached-buffer="5">
         @if ($loaded && $notifications === [] && $error === null)
-            @include('native.partials.empty', ['command' => '$ cat /dev/notifications', 'message' => 'Nothing here yet. Follows, replies, mentions, and moderation updates for your commits will show up here.'])
+            @include('native.partials.empty', ['command' => '$ cat /dev/notifications', 'message' => 'Nothing here yet. Follows, stars, replies, mentions, and moderation updates for your commits will show up here.'])
         @endif
 
         @foreach ($notifications as $notification)
             @php($icon = match ($notification->type) {
                 'followed' => [Ios::PersonBadgePlus, Android::PersonAdd],
                 'mentioned' => [Ios::At, Android::AlternateEmail],
+                'starred' => [Ios::StarFill, Android::Star],
                 'approved' => [Ios::Checkmark, Android::Check],
                 'rejected' => [Ios::Xmark, Android::Close],
                 default => [Ios::ArrowshapeTurnUpLeft, Android::Reply],
@@ -29,7 +30,7 @@
                             @if ($notification->isModeration())
                                 <native:text font="semibold" class="text-sm text-theme-ink">Moderation update</native:text>
                             @else
-                                @include('native.partials.avatar', ['user' => $notification->actor, 'size' => 32])
+                                @include('native.partials.stacked-avatars', ['id' => $notification->id, 'actors' => $notification->actors])
                             @endif
                             <native:spacer />
                             @if ($notification->isUnread)
@@ -41,8 +42,9 @@
                             @if ($notification->isModeration())
                                 <native:text>{{ $notification->sentence() }}</native:text>
                             @else
+                                {{-- "Ada and 2 others starred your commit", as on the web: the newest person's name, then the rest in plain text. --}}
                                 <native:text font="semibold">{{ $notification->actor->name }}</native:text>
-                                {{ $notification->sentence() }}
+                                <native:text :text="$notification->others().' '.$notification->sentence()" />
                             @endif
                             <native:text class="text-theme-ink-muted"> · </native:text>
                             <native:text font="mono" class="text-[13px] text-theme-ink-muted">{{ \App\Devnull\Display::relativeTime($notification->createdAt) }}</native:text>

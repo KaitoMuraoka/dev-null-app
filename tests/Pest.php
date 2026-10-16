@@ -219,6 +219,64 @@ function commitPageJson(array $commit, array $ancestors = [], array $series = []
 }
 
 /**
+ * A notification's commit, as the API sends it: without its counts, preview,
+ * images or your star and bookmark, and with the commit it replies to when you
+ * may see it. That parent comes without a parent of its own.
+ *
+ * @param  array<string, mixed>  $overrides
+ * @return array<string, mixed>
+ */
+function notificationCommitJson(array $overrides = [], bool $withParent = true): array
+{
+    $commit = array_diff_key(commitJson($overrides), array_flip(['stars_count', 'replies_count', 'link_preview', 'images', 'starred', 'is_saved', 'parent']));
+
+    return $withParent ? [...$commit, 'parent' => $overrides['parent'] ?? null] : $commit;
+}
+
+/**
+ * A group of notifications as the API sends it: the newest one, the first few
+ * people in the group, how many there are and how many are unread. Stars and
+ * replies group on your commit (subject_id); everything else stands alone.
+ * A moderation update names you as its actor, as devnull stores it.
+ *
+ * @param  array<string, mixed>  $overrides
+ * @return array<string, mixed>
+ */
+function notificationJson(string $type, array $overrides = []): array
+{
+    $isModeration = in_array($type, ['approved', 'rejected'], true);
+    $actor = $overrides['actor'] ?? ($isModeration ? userJson() : userJson(['id' => 'u2', 'username' => 'ada', 'name' => 'Ada', 'lane' => 2]));
+    $yours = notificationCommitJson(['id' => 'c-yours', 'body' => 'Shipped the app.'], withParent: false);
+
+    $commit = match ($type) {
+        'followed' => null,
+        'replied' => notificationCommitJson(['id' => 'c-replied', 'parent_id' => 'c-yours', 'body' => 'About replied', 'author' => $actor, 'parent' => $yours]),
+        'starred' => notificationCommitJson(['id' => 'c-starred', 'body' => 'About starred']),
+        'mentioned' => notificationCommitJson(['id' => 'c-mentioned', 'body' => 'About mentioned', 'author' => $actor]),
+        default => notificationCommitJson(['id' => 'c-'.$type, 'body' => 'About '.$type, 'status' => $type]),
+    };
+
+    return [
+        'id' => 'n-'.$type,
+        'type' => $type,
+        'subject_id' => match ($type) {
+            'replied' => 'c-yours',
+            'starred' => 'c-starred',
+            default => null,
+        },
+        'reason' => null,
+        'read_at' => null,
+        'created_at' => now()->subHours(3)->toIso8601ZuluString(),
+        'actor' => $actor,
+        'actors' => [$actor],
+        'actors_count' => 1,
+        'unread_count' => 1,
+        'commit' => $commit,
+        ...$overrides,
+    ];
+}
+
+/**
  * A deleted commit that still has replies, as the API sends it: no body, no author.
  *
  * @param  array<string, mixed>  $overrides

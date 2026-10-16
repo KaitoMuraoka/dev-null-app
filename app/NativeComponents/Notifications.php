@@ -10,7 +10,8 @@ use Native\Mobile\Attributes\Lazy;
 use Native\Mobile\Edge\NativeComponent;
 
 /**
- * Follows, replies, mentions, and moderation updates for your commits.
+ * Follows, stars, replies, mentions, and moderation updates for your commits,
+ * grouped as the web groups them.
  */
 #[Lazy]
 class Notifications extends NativeComponent
@@ -79,8 +80,10 @@ class Notifications extends NativeComponent
                 continue;
             }
 
-            $this->openInTab($notification->opensCommit()
-                ? '/commits/'.$notification->commitId
+            $commitId = $notification->commitToOpen();
+
+            $this->openInTab($commitId !== null
+                ? '/commits/'.$commitId
                 : '/users/'.$notification->actor->username);
 
             return;

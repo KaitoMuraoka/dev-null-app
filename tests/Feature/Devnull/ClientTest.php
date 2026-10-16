@@ -216,9 +216,9 @@ it('reads commits, threads, profiles and notifications into data objects', funct
             'pinned_commit' => commitJson(['id' => 'p1', 'is_pinned' => true]),
         ]),
         'devnull.test/api/v1/notifications' => Http::response(pageJson([
-            ['id' => 'n1', 'type' => 'replied', 'read_at' => null, 'created_at' => now()->toIso8601String(), 'actor' => userJson(), 'commit' => ['id' => 'c2', 'body' => 'Nice.', 'parent' => ['body' => 'Shipped.']]],
-            ['id' => 'n2', 'type' => 'followed', 'read_at' => now()->toIso8601String(), 'actor' => userJson(), 'commit' => null],
-        ])),
+            notificationJson('replied', ['commit' => notificationCommitJson(['id' => 'c2', 'parent_id' => 'c-yours', 'body' => 'Nice.', 'parent' => notificationCommitJson(['id' => 'c-yours', 'body' => 'Shipped.'], withParent: false)])]),
+            notificationJson('followed', ['read_at' => now()->toIso8601ZuluString(), 'unread_count' => 0]),
+        ], path: 'http://devnull.test/api/v1/notifications')),
     ]);
 
     $thread = app(Client::class)->commit('c1');
