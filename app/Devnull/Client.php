@@ -7,6 +7,7 @@ use App\Devnull\Data\CommitThread;
 use App\Devnull\Data\CurrentUser;
 use App\Devnull\Data\Notification;
 use App\Devnull\Data\Page;
+use App\Devnull\Data\PairingCode;
 use App\Devnull\Data\Profile;
 use App\Devnull\Data\User;
 use App\Devnull\Exceptions\ApiException;
@@ -15,6 +16,7 @@ use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use Psr\Http\Message\RequestInterface;
+use SensitiveParameter;
 
 /**
  * The devnull API, signed with this device's SSH key.
@@ -24,11 +26,31 @@ final readonly class Client
     public function __construct(private DeviceKey $deviceKey, private string $baseUrl) {}
 
     /**
-     * Asks the server to re-read the user's GitHub keys and find this one among them.
+     * Asks the server to re-read the user's GitHub keys, find this one among
+     * them, and say whether this phone is approved. A GitHub token for their
+     * account approves it on the spot. Without one, a phone that isn't approved
+     * yet gets a code to enter on the web, and asking again finds out when it was.
      */
-    public function syncKey(string $username): User
+    public function syncKey(string $username, #[SensitiveParameter] ?string $githubToken = null, ?string $deviceName = null): User|PairingCode
     {
-        return User::fromArray($this->data($this->send('POST', 'key-syncs', payload: ['username' => $username])));
+        $payload = ['username' => $username];
+
+        if ($githubToken !== null && $githubToken !== '') {
+            $payload['github_token'] = $githubToken;
+        }
+
+        if ($deviceName !== null && $deviceName !== '') {
+            $payload['device_name'] = $deviceName;
+        }
+
+        $response = $this->send('POST', 'key-syncs', payload: $payload);
+
+        if ($response->status() === 202) {
+            return PairingCode::fromArray($this->json($response))
+                ?? throw new ApiException('fatal: devnull sent a pairing code this app could not read.', 202);
+        }
+
+        return User::fromArray($this->data($response));
     }
 
     public function me(): CurrentUser

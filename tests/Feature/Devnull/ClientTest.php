@@ -2,6 +2,7 @@
 
 use App\Devnull\Client;
 use App\Devnull\Data\Commit;
+use App\Devnull\Data\PairingCode;
 use App\Devnull\Data\User;
 use App\Devnull\DeviceKey;
 use App\Devnull\Exceptions\ApiException;
@@ -156,6 +157,77 @@ it('keeps the server message for other errors', function () {
             ->and($exception->getMessage())->toBe('No GitHub user called ghost.');
     }
 });
+
+it('sends the GitHub token and the device name with a key sync, signed', function () {
+    Http::fake(['devnull.test/*' => Http::response(['data' => userWithCountsJson()])]);
+
+    $user = app(Client::class)->syncKey('local_dev', 'ghu_not-a-real-token', 'devnull on iPhone');
+
+    expect($user)->toBeInstanceOf(User::class)
+        ->and($user->username)->toBe('local_dev');
+
+    Http::assertSent(function (Request $request): bool {
+        $body = '{"username":"local_dev","github_token":"ghu_not-a-real-token","device_name":"devnull on iPhone"}';
+
+        expect($request->url())->toBe('http://devnull.test/api/v1/key-syncs')
+            ->and($request->body())->toBe($body)
+            ->and($request->hasHeader('Authorization'))->toBeFalse()
+            ->and(receivedMessage($request))->toEndWith("\nPOST\n/api/v1/key-syncs\n".$body)
+            ->and($request->header('X-SSH-Signature')[0])->toBe(testKey()->sign(receivedMessage($request), 'devnull-api'));
+
+        return true;
+    });
+});
+
+it('leaves an empty token and device name out of a key sync', function () {
+    Http::fake(['devnull.test/*' => Http::response(['data' => userWithCountsJson()])]);
+
+    app(Client::class)->syncKey('local_dev', '', '');
+    app(Client::class)->syncKey('local_dev');
+
+    expect(Http::recorded()->map(fn (array $pair): string => $pair[0]->body())->all())
+        ->toBe(['{"username":"local_dev"}', '{"username":"local_dev"}']);
+});
+
+it('reads the pairing code devnull answers with until the phone is approved', function () {
+    Http::fake(['devnull.test/*' => Http::response([
+        'message' => 'Enter ABCD-2345 on http://devnull.test/settings/devices to approve this device.',
+        'pairing_code' => 'ABCD-2345',
+        'approval_url' => 'http://devnull.test/settings/devices',
+        'expires_at' => '2025-10-09T09:08:20Z',
+    ], 202)]);
+
+    $code = app(Client::class)->syncKey('local_dev', deviceName: 'devnull on iPhone');
+
+    expect($code)->toBeInstanceOf(PairingCode::class)
+        ->and($code->code)->toBe('ABCD-2345')
+        ->and($code->approvalUrl)->toBe('http://devnull.test/settings/devices')
+        ->and($code->message)->toBe('Enter ABCD-2345 on http://devnull.test/settings/devices to approve this device.')
+        ->and($code->expiresAt->getTimestamp())->toBe(1760000900);
+});
+
+it('says so when a pairing code makes no sense', function () {
+    Http::fake(['devnull.test/*' => Http::response(['message' => 'Accepted.'], 202)]);
+
+    expect(fn () => app(Client::class)->syncKey('local_dev'))->toThrow(ApiException::class, 'fatal: devnull sent a pairing code this app could not read.');
+});
+
+it('reads how long a 429 asks to wait', function (string $retryAfter, ?int $seconds) {
+    Http::fake(['devnull.test/*' => Http::response(['message' => 'Too Many Attempts.'], 429, $retryAfter === '' ? [] : ['Retry-After' => $retryAfter])]);
+
+    try {
+        app(Client::class)->syncKey('local_dev');
+        $this->fail('Expected an ApiException.');
+    } catch (ApiException $exception) {
+        expect($exception->status)->toBe(429)
+            ->and($exception->getMessage())->toBe('Too Many Attempts.')
+            ->and($exception->retryAfter)->toBe($seconds);
+    }
+})->with([
+    'in seconds' => ['42', 42],
+    'as a date' => ['Thu, 09 Oct 2025 09:00:20 GMT', 420],
+    'not at all' => ['', null],
+]);
 
 it('carries validation messages from a 422', function () {
     Http::fake(['devnull.test/*' => Http::response(['message' => 'The body field must be at least 3 characters.', 'errors' => ['body' => ['The body field must be at least 3 characters.']]], 422)]);

@@ -2,6 +2,7 @@
 
 namespace App\Devnull\Exceptions;
 
+use Carbon\CarbonImmutable;
 use Illuminate\Http\Client\Response;
 use RuntimeException;
 
@@ -12,8 +13,9 @@ class ApiException extends RuntimeException
 {
     /**
      * @param  array<string, list<string>>  $errors
+     * @param  int|null  $retryAfter  How many seconds the server asked to wait before trying again.
      */
-    public function __construct(string $message, public readonly int $status = 0, public readonly array $errors = [])
+    public function __construct(string $message, public readonly int $status = 0, public readonly array $errors = [], public readonly ?int $retryAfter = null)
     {
         parent::__construct($message, $status);
     }
@@ -32,8 +34,28 @@ class ApiException extends RuntimeException
         return match ($response->status()) {
             401 => new Unauthenticated($message, 401),
             422 => new ApiException($message, 422, $errors),
-            default => new ApiException($message, $response->status()),
+            default => new ApiException($message, $response->status(), retryAfter: self::retryAfter($response)),
         };
+    }
+
+    /**
+     * The Retry-After header, which may be a number of seconds or a date.
+     */
+    private static function retryAfter(Response $response): ?int
+    {
+        $header = trim($response->header('Retry-After'));
+
+        if ($header === '') {
+            return null;
+        }
+
+        if (ctype_digit($header)) {
+            return (int) $header;
+        }
+
+        $at = strtotime($header);
+
+        return $at === false ? null : max(0, $at - CarbonImmutable::now()->getTimestamp());
     }
 
     /**
