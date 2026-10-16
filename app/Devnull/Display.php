@@ -30,6 +30,14 @@ final class Display
      */
     public const int HomeIndicatorHeight = 34;
 
+    /**
+     * How far below the top of a reply's row its elbow comes level with the
+     * middle of the reply's avatar, and the radius of the elbow's corner.
+     */
+    public const int ElbowLevel = 22;
+
+    public const int ElbowRadius = 12;
+
     public static function relativeTime(?CarbonInterface $date, ?CarbonInterface $now = null): string
     {
         if ($date === null) {
@@ -125,6 +133,47 @@ final class Display
             + ($commit->linkPreview === null ? 0 : 80);
 
         return min(250, (int) ceil($height / 7));
+    }
+
+    /**
+     * The dashes of a thread's elbow, as the web's from #121: down the line at
+     * $from, round a 12pt corner, and across to the reply's avatar at $to,
+     * level with its middle. They keep the 4pt dash and 3pt gap all the way
+     * round, with one on the middle of the bend so the corner reads the same
+     * from either side, and the ones on the bend turned to follow it. The last
+     * one may run past 1pt short of the avatar, where the elbow is cut off, as
+     * a dashed border would be.
+     *
+     * @return list<array{x: float, y: float, rotate: float}> each dash's middle, and how far it's turned from upright, in degrees
+     */
+    public static function elbowDashes(float $from, float $to): array
+    {
+        $line = $from + 0.5;
+        $down = self::ElbowLevel - self::ElbowRadius;
+        $bend = M_PI * self::ElbowRadius / 2;
+        $length = $down + $bend + ($to - 1) - ($line + self::ElbowRadius);
+
+        $dashes = [];
+
+        for ($middle = fmod($down + $bend / 2, 7); $middle - 2 < $length; $middle += 7) {
+            if ($middle < 2) {
+                continue;
+            }
+
+            $turn = min(M_PI / 2, max(0, ($middle - $down) / self::ElbowRadius));
+
+            $dashes[] = match (true) {
+                $middle <= $down => ['x' => $line, 'y' => round($middle, 2), 'rotate' => 0.0],
+                $middle >= $down + $bend => ['x' => round($line + self::ElbowRadius + $middle - $down - $bend, 2), 'y' => (float) self::ElbowLevel, 'rotate' => -90.0],
+                default => [
+                    'x' => round($line + self::ElbowRadius - self::ElbowRadius * cos($turn), 2),
+                    'y' => round($down + self::ElbowRadius * sin($turn), 2),
+                    'rotate' => round(-rad2deg($turn), 2),
+                ],
+            };
+        }
+
+        return $dashes;
     }
 
     /**
