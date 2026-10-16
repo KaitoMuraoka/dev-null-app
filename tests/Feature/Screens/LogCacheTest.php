@@ -318,3 +318,26 @@ it('drops a commit deleted on its page as soon as you come back to the log', fun
 
     $commit->goBack()->assertDontSee('Delete me')->assertSee('Keep me');
 });
+
+it('keeps the pill in its slot beside the list, so showing it never adds a node next to the list', function () {
+    holdRefreshes();
+    keep('log/following', pageJson([commitJson(['id' => 'c1'])]));
+    fakeFreshLog([commitJson(['id' => 'c2', 'body' => 'Newer']), commitJson(['id' => 'c1'])]);
+
+    $screen = Native::visit('/log', platform: 'ios');
+    $besideTheList = function () use ($screen): array {
+        $parent = findNode($screen->tree(), fn (array $node): bool => in_array('log', array_column($node['children'] ?? [], 'ref'), true));
+
+        return array_map(fn (array $node): string => $node['ref'] ?? $node['type'], $parent['children']);
+    };
+
+    // Hidden and empty until there are new commits.
+    expect($besideTheList())->toBe(['log', 'new-commits-slot'])
+        ->and(nodeByRef($screen, 'new-commits-slot')['layout']['display'] ?? null)->toBe(1)
+        ->and(nodeByRef($screen, 'new-commits-slot')['children'] ?? [])->toBe([]);
+
+    finishRefreshes($screen)->assertSee('1 new commit');
+
+    expect($besideTheList())->toBe(['log', 'new-commits-slot'])
+        ->and(nodeByRef($screen, 'new-commits-slot')['layout']['display'] ?? null)->toBeNull();
+});

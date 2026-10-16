@@ -44,8 +44,6 @@
         @endif
     </native:list>
 
-    @if ($newCommits !== [])
-        @include('native.partials.new-commits-pill', ['label' => $newCommitsLabel, 'press' => 'showNewCommits'])
-    @endif
+    @include('native.partials.new-commits-pill', ['label' => $newCommitsLabel, 'press' => 'showNewCommits', 'shown' => $newCommits !== []])
     </native:column>
 </native:column>
