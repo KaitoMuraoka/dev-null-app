@@ -16,6 +16,7 @@ use App\Devnull\Exceptions\KeychainUnavailable;
 use App\Devnull\GitHub;
 use App\Devnull\GitHubStep;
 use App\Devnull\GitHubToken;
+use App\NativeComponents\Layouts\TabsLayout;
 use Illuminate\Support\Facades\Log;
 use Illuminate\View\View;
 use Native\Mobile\Attributes\Poll;
@@ -260,7 +261,10 @@ class Onboarding extends NativeComponent
 
     public function render(): View
     {
-        return view('native.onboarding', ['canUseGitHub' => app(GitHub::class)->enabled()]);
+        return view('native.onboarding', [
+            'canUseGitHub' => app(GitHub::class)->enabled(),
+            'logo' => TabsLayout::logo(),
+        ]);
     }
 
     /**

@@ -27,11 +27,20 @@ class TabsLayout extends NativeLayout
     /**
      * The icon and "/dev/null" wordmark as the web's MobileHeader draws them, 105 x 28pt.
      * EDGE images load neither SVG nor a per-appearance variant, so there is a PNG for
-     * each appearance, rendered at @3x and drawn at its 1x size.
+     * each appearance. It's rendered at @3x of the largest size it's drawn at, 40pt high
+     * as onboarding's title, so the bar's 28pt scales it down rather than up.
      */
     public const string LightLogo = 'images/logo-light@3x.png';
 
     public const string DarkLogo = 'images/logo-dark@3x.png';
+
+    /**
+     * The logo for the system appearance.
+     */
+    public static function logo(): string
+    {
+        return isDark() ? self::DarkLogo : self::LightLogo;
+    }
 
     protected ?string $font = 'semibold';
 
@@ -50,7 +59,7 @@ class TabsLayout extends NativeLayout
             ->displayMode('inline');
 
         if ($screen instanceof Log) {
-            $navBar->titleView(Image::make(isDark() ? self::DarkLogo : self::LightLogo)->height(28)->alt('devnull'));
+            $navBar->titleView(Image::make(self::logo())->height(28)->alt('devnull'));
         }
 
         return $navBar;

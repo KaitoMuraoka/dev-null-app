@@ -3,9 +3,11 @@
 use App\Devnull\Account;
 use App\Devnull\DeviceKey;
 use App\Devnull\Display;
+use App\NativeComponents\Layouts\TabsLayout;
 use App\NativeComponents\Onboarding;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
+use Native\Mobile\System;
 use Native\Mobile\Testing\Native;
 
 beforeEach(fn () => config(['devnull.url' => 'http://devnull.test']));
@@ -26,6 +28,33 @@ it('makes a key on first launch and shows the public half', function () {
 
     expect($publicKey)->toStartWith('ssh-ed25519 ')->toEndWith(' devnull-mobile');
     $bridge->assertCalledTimes('SecureStorage.Set', 1);
+});
+
+it("wears the Log header's logo as its title, in the system appearance", function () {
+    fakeKeychain(testSeed());
+
+    $screen = Native::visit('/onboarding');
+    $logo = nodeByRef($screen, 'logo');
+
+    expect($logo['type'])->toBe('image')
+        ->and($logo['props'])->toMatchArray(['src' => TabsLayout::LightLogo, 'alt' => 'devnull'])
+        ->and($logo['layout'])->toEqual(['width' => 150, 'height' => 40])
+        ->and(findNode($screen->tree(), fn (array $node): bool => ($node['type'] ?? null) === 'text' && ($node['props']['text'] ?? null) === 'devnull'))->toBeNull();
+
+    $screen->assertSee('$ ssh-keygen -t ed25519 -C devnull-mobile');
+
+    // Both PNGs hold @3x of the 40pt title, so neither appearance is blown up.
+    foreach ([TabsLayout::LightLogo, TabsLayout::DarkLogo] as $png) {
+        expect(array_slice(getimagesize(public_path($png)) ?: [], 0, 2))->toBe([450, 120]);
+    }
+
+    System::rememberAppearance('dark');
+
+    try {
+        expect(nodeByRef(Native::visit('/onboarding'), 'logo')['props']['src'])->toBe(TabsLayout::DarkLogo);
+    } finally {
+        System::rememberAppearance('light');
+    }
 });
 
 it('keeps the same key across launches', function () {

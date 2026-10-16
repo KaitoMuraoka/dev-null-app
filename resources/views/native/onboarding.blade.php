@@ -6,7 +6,8 @@
 <native:scroll-view fill class="safe-area bg-theme-background">
     <native:column class="w-full px-6 pt-10 pb-12 gap-6">
         <native:column class="gap-2">
-            <native:text font="semibold" class="text-4xl tracking-tight text-theme-ink">devnull</native:text>
+            {{-- The Log header's lockup, 40pt high as a title. Width and height are both set so it sits left, not centred. --}}
+            <native:image ref="logo" :src="$logo" :width="150" :height="40" alt="devnull" />
             <native:text font="mono" class="text-[13px] text-theme-ink-muted">$ ssh-keygen -t ed25519 -C devnull-mobile</native:text>
         </native:column>
 
