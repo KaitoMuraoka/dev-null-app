@@ -8,6 +8,10 @@
 
     Quote is drawn as the web draws it but dimmed, and does nothing: devnull has no way to quote from the app yet.
 
+    Each action is at least 44pt wide and 36pt tall to tap, as Apple asks, with the row pulled in by the extra height so
+    the commit keeps its rhythm. EDGE makes a pressable's whole box tappable, so the box is the target. Off the log,
+    "› N replies" sits beside Reply, and both won't fit on a phone with their labels, so Reply is just its icon there.
+
     A commit page opens its replies under its commit in place: it passes what the toggle presses ($repliesToggle),
     whether they're open ($repliesOpen) and how many there are ($repliesCount). $compact draws the row smaller, for
     the commits around the one a page is about.
@@ -26,19 +30,20 @@
 @php($isOwn = $commit->author->id === $viewer?->id)
 @php($canReact = $commit->isApproved() || $isOwn)
 @php($hasThread = $expandable && $commit->replyPreview !== null)
+@php($showsReplies = $withReplies && ! $hasThread && $repliesCount > 0)
 @php($starLabel = ($commit->starred ? 'Unstar commit' : 'Star commit').($commit->starsCount > 0 ? ', '.\App\Devnull\Display::count($commit->starsCount, 'star', 'stars') : ''))
-<native:row ref="actions-{{ $commit->id }}" class="w-full -ml-2 items-center">
+<native:row ref="actions-{{ $commit->id }}" class="w-full -ml-2 -my-[6] items-center">
     @if ($canReact && $isOwn)
         {{-- Your own commit: how many stars others gave, not a button. --}}
-        <native:row ref="star-count-{{ $commit->id }}" class="px-2 py-1 gap-1 items-center" a11y-label="{{ $commit->starsCount === 0 ? 'No stars yet' : \App\Devnull\Display::count($commit->starsCount, 'star', 'stars') }}">
+        <native:row ref="star-count-{{ $commit->id }}" class="min-w-[44] h-[36] px-2 gap-1 items-center" a11y-label="{{ $commit->starsCount === 0 ? 'No stars yet' : \App\Devnull\Display::count($commit->starsCount, 'star', 'stars') }}">
             <native:icon :ios="\App\Icons\Lucide::Star->ios()" :android="\App\Icons\Lucide::Star->android()" :size="$iconSize" class="text-theme-ink-muted {{ $commit->starsCount === 0 ? 'opacity-50' : '' }}" />
             @if ($commit->starsCount > 0)
                 <native:text font="mono" class="{{ $labelSize }} text-theme-ink-muted">{{ $commit->starsCount }}</native:text>
             @endif
         </native:row>
     @elseif ($canReact)
-        <native:pressable ref="star-{{ $commit->id }}" @press="toggleStar('{{ $commit->id }}')" class="px-2 py-1" a11y-label="{{ $starLabel }}">
-            <native:row class="gap-1 items-center">
+        <native:pressable ref="star-{{ $commit->id }}" @press="toggleStar('{{ $commit->id }}')" a11y-label="{{ $starLabel }}">
+            <native:row class="min-w-[44] h-[36] px-2 gap-1 items-center">
                 <native:icon :ios="\App\Icons\Lucide::Star->ios($commit->starred)" :android="\App\Icons\Lucide::Star->android($commit->starred)" :size="$iconSize" class="{{ $commit->starred ? 'text-theme-primary' : 'text-theme-ink-muted' }}" />
                 @if ($commit->starsCount > 0)
                     <native:text font="mono" class="{{ $labelSize }} {{ $commit->starred ? 'text-theme-primary' : 'text-theme-ink-muted' }}">{{ $commit->starsCount }}</native:text>
@@ -48,23 +53,25 @@
     @endif
 
     @if ($withQuote && $canReact)
-        <native:column ref="quote-{{ $commit->id }}" class="px-2 py-1 opacity-40" a11y-label="Quote, not in the app yet">
+        <native:column ref="quote-{{ $commit->id }}" class="min-w-[44] h-[36] px-2 items-center justify-center opacity-40" a11y-label="Quote, not in the app yet">
             <native:icon :ios="\App\Icons\Lucide::Quote->ios()" :android="\App\Icons\Lucide::Quote->android()" :size="$iconSize" class="text-theme-ink-muted" />
         </native:column>
     @endif
 
     @if ($withReply)
-        <native:pressable ref="reply-to-{{ $commit->id }}" @press="replyTo('{{ $commit->id }}')" class="px-2 py-1">
-            <native:row class="gap-[6] items-center">
+        <native:pressable ref="reply-to-{{ $commit->id }}" @press="replyTo('{{ $commit->id }}')" a11y-label="Reply">
+            <native:row class="min-w-[44] h-[36] px-2 gap-[6] items-center {{ $showsReplies ? 'justify-center' : '' }}">
                 <native:icon :ios="\App\Icons\Lucide::MessageSquareReply->ios()" :android="\App\Icons\Lucide::MessageSquareReply->android()" :size="$iconSize" class="text-theme-ink-muted" />
-                <native:text class="{{ $labelSize }} text-theme-ink-muted">Reply</native:text>
+                @unless ($showsReplies)
+                    <native:text class="{{ $labelSize }} text-theme-ink-muted">Reply</native:text>
+                @endunless
             </native:row>
         </native:pressable>
     @endif
 
-    @if ($withReplies && ! $hasThread && $repliesCount > 0)
-        <native:pressable ref="replies-{{ $commit->id }}" @press="{{ $repliesPress }}" class="px-2 py-1" a11y-label="{{ $isOpen ? 'Hide replies' : \App\Devnull\Display::count($repliesCount, 'reply', 'replies') }}">
-            <native:row class="gap-1 items-center">
+    @if ($showsReplies)
+        <native:pressable ref="replies-{{ $commit->id }}" @press="{{ $repliesPress }}" a11y-label="{{ $isOpen ? 'Hide replies' : \App\Devnull\Display::count($repliesCount, 'reply', 'replies') }}">
+            <native:row class="h-[36] px-2 gap-1 items-center">
                 @if ($isOpen)
                     <native:icon :ios="\App\Icons\Lucide::ChevronDown->ios()" :android="\App\Icons\Lucide::ChevronDown->android()" :size="14" class="text-theme-primary" />
                     <native:text class="{{ $labelSize }} text-theme-primary">Hide replies</native:text>
@@ -79,12 +86,16 @@
     <native:spacer />
 
     @if ($canReact && $commit->isSaved !== null)
-        <native:pressable ref="bookmark-{{ $commit->id }}" @press="toggleBookmark('{{ $commit->id }}')" class="px-2 py-1" a11y-label="{{ $commit->isSaved ? 'Unsave commit' : 'Save commit' }}">
-            <native:icon :ios="\App\Icons\Lucide::Bookmark->ios($commit->isSaved)" :android="\App\Icons\Lucide::Bookmark->android($commit->isSaved)" :size="$iconSize" class="{{ $commit->isSaved ? 'text-theme-primary' : 'text-theme-ink-muted' }}" />
+        <native:pressable ref="bookmark-{{ $commit->id }}" @press="toggleBookmark('{{ $commit->id }}')" a11y-label="{{ $commit->isSaved ? 'Unsave commit' : 'Save commit' }}">
+            <native:column class="min-w-[44] h-[36] items-center justify-center">
+                <native:icon :ios="\App\Icons\Lucide::Bookmark->ios($commit->isSaved)" :android="\App\Icons\Lucide::Bookmark->android($commit->isSaved)" :size="$iconSize" class="{{ $commit->isSaved ? 'text-theme-primary' : 'text-theme-ink-muted' }}" />
+            </native:column>
         </native:pressable>
     @endif
 
-    <native:pressable ref="copy-link-{{ $commit->id }}" @press="shareCommit('{{ $commit->id }}')" class="px-2 py-1" a11y-label="Copy link">
-        <native:icon :ios="\App\Icons\Lucide::Link->ios()" :android="\App\Icons\Lucide::Link->android()" :size="$iconSize" class="text-theme-ink-muted" />
+    <native:pressable ref="copy-link-{{ $commit->id }}" @press="shareCommit('{{ $commit->id }}')" a11y-label="Copy link">
+        <native:column class="min-w-[44] h-[36] items-center justify-center">
+            <native:icon :ios="\App\Icons\Lucide::Link->ios()" :android="\App\Icons\Lucide::Link->android()" :size="$iconSize" class="text-theme-ink-muted" />
+        </native:column>
     </native:pressable>
 </native:row>

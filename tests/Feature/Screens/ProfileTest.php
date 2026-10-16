@@ -57,6 +57,23 @@ it('shows who they are, their counts and their commits', function () {
         ->assertSee("That's @ada's root commit.");
 });
 
+it("shows Reply as just its icon beside a commit's replies, so the row still fits a phone", function () {
+    fakeApi([
+        'GET /api/v1/users/ada' => [profileJson()],
+        'GET /api/v1/users/ada/commits' => [pageJson([
+            adaCommitJson(['id' => 'c1', 'replies_count' => 3]),
+            adaCommitJson(['id' => 'c2', 'replies_count' => 0]),
+        ])],
+    ]);
+
+    $screen = Native::visit('/log/users/ada')->assertSee('3 replies');
+    $labels = fn (string $ref): array => findNodes(nodeByRef($screen, $ref), fn (array $node): bool => ($node['type'] ?? null) === 'text');
+
+    expect(nodeByRef($screen, 'reply-to-c1')['props']['a11y_label'])->toBe('Reply')
+        ->and($labels('reply-to-c1'))->toBe([])
+        ->and($labels('reply-to-c2'))->toHaveCount(1);
+});
+
 it('lists what GitHub says about them under the bio, as the web does', function () {
     fakeApi([
         'GET /api/v1/users/ada' => [profileJson(user: [

@@ -89,6 +89,20 @@ it('fills the whole option at 100%, with no spacer for EDGE to grow', function (
         ->and($bar[0]['layout']['flex_grow'] ?? $bar[0]['layout']['flexGrow'] ?? null)->toEqual(100);
 });
 
+it('gives every action under a commit a target big enough to tap, without growing the row', function () {
+    $screen = logOf([['id' => 'c1', 'stars_count' => 6, 'replies_count' => 3, 'is_saved' => false]]);
+    $target = fn (string $ref): array => ($node = nodeByRef($screen, $ref))['type'] === 'pressable' ? $node['children'][0]['layout'] : $node['layout'];
+
+    foreach (['star-c1', 'quote-c1', 'bookmark-c1', 'copy-link-c1'] as $ref) {
+        expect($target($ref))->toMatchArray(['min_width' => 44.0, 'height' => 36.0]);
+    }
+
+    expect($target('reply-to-c1')['height'])->toBe(36.0)
+        ->and($target('replies-c1')['height'])->toBe(36.0)
+        // 6pt more above and below than the 24pt the row used to be, so it's pulled in by that much.
+        ->and(array_slice(nodeByRef($screen, 'actions-c1')['layout']['margin'], 0, 3))->toBe([-6.0, 0.0, -6.0]);
+});
+
 it("draws a poll you haven't voted on as plain options, with nothing to tap, since the app can't vote yet", function () {
     $screen = logOf([commitJson(['id' => 'c1', 'poll' => votedPollJson([
         'has_voted' => false,
