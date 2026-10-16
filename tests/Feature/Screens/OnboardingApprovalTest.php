@@ -285,3 +285,55 @@ it('explains the approval step once', function () {
 
     expect(substr_count($tree, "isn't enough to act as you"))->toBe(1);
 });
+
+it('takes a phone that is not approved yet from any screen to the approval step', function () {
+    signIn()->respondTo('Device.GetInfo', ['info' => json_encode(['model' => 'iPhone'])]);
+
+    $keySyncs = 0;
+    Http::fake(function (Request $request) use (&$keySyncs) {
+        if ($request->url() !== 'http://devnull.test/api/v1/key-syncs') {
+            return Http::response(['message' => "This key isn't approved for the devnull app yet. Approve it on http://devnull.test/settings/devices."], 401);
+        }
+
+        return $keySyncs++ === 0 ? Http::response(pairingJson(), 202) : Http::response(['data' => userWithCountsJson()]);
+    });
+
+    $log = Native::visit('/log')->assertReplacedWith('/onboarding');
+
+    expect($log->navigationIntent()->data)->toBe(['approve' => 'local_dev'])
+        ->and(app(Account::class)->user())->toBeNull();
+
+    $screen = $log->followNavigation()
+        ->assertSet('step', GitHubStep::Approving)
+        ->assertSet('username', 'local_dev')
+        ->assertSee('Asking devnull for a code…')
+        ->assertDontSee('Add the key yourself');
+
+    $screen->firePoll('tick')
+        ->assertSee('ABCD-2345')
+        ->assertSee("A key on GitHub alone isn't enough to act as you");
+
+    Http::assertSent(fn (Request $request): bool => $request->url() === 'http://devnull.test/api/v1/key-syncs'
+        && $request->body() === '{"username":"local_dev","device_name":"devnull on iPhone"}');
+
+    $this->travel(6)->seconds();
+    $screen->firePoll('tick')->assertReplacedWith('/log');
+
+    expect(app(Account::class)->user()?->username)->toBe('local_dev');
+});
+
+it('keeps sending other 401s to the start of onboarding with the message', function () {
+    signIn();
+    Http::fake(['devnull.test/*' => Http::response(['message' => 'This SSH key (SHA256:abc) is not on the GitHub account of a devnull user.'], 401)]);
+
+    $log = Native::visit('/log')->assertReplacedWith('/onboarding');
+
+    expect($log->navigationIntent()->data)->toBe(['message' => 'This SSH key (SHA256:abc) is not on the GitHub account of a devnull user.']);
+
+    $log->followNavigation()
+        ->assertSet('step', GitHubStep::Start)
+        ->assertSee('This SSH key (SHA256:abc) is not on the GitHub account of a devnull user.')
+        ->assertSee('Add the public half to GitHub once');
+
+    Http::assertNotSent(fn (Request $request): bool => str_contains($request->url(), 'key-syncs'));
+});

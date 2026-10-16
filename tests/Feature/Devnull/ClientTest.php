@@ -145,6 +145,21 @@ it('maps a 401 to Unauthenticated with the server message', function () {
     expect(fn () => app(Client::class)->me())->toThrow(Unauthenticated::class, 'This key is not on any devnull account.');
 });
 
+it('tells a phone that only needs approving from a key devnull does not know', function (string $message, bool $needsApproval) {
+    Http::fake(['devnull.test/*' => Http::response(['message' => $message], 401)]);
+
+    try {
+        app(Client::class)->me();
+        $this->fail('Expected Unauthenticated.');
+    } catch (Unauthenticated $exception) {
+        expect($exception->needsApproval())->toBe($needsApproval);
+    }
+})->with([
+    'not approved' => ["This key isn't approved for the devnull app yet. Approve it on http://devnull.test/settings/devices.", true],
+    'not on GitHub' => ['This SSH key (SHA256:abc) is not on the GitHub account of a devnull user.', false],
+    'a bad signature' => ['Invalid signature.', false],
+]);
+
 it('keeps the server message for other errors', function () {
     Http::fake(['devnull.test/*' => Http::response(['message' => 'No GitHub user called ghost.'], 404)]);
 

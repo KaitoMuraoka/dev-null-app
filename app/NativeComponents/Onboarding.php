@@ -127,6 +127,8 @@ class Onboarding extends NativeComponent
         if (config('app.debug')) {
             Log::info('devnull device key', ['public_key' => $this->publicKey, 'fingerprint' => $this->fingerprint]);
         }
+
+        $this->approveFromAnotherScreen();
     }
 
     public function shareKey(): void
@@ -259,6 +261,20 @@ class Onboarding extends NativeComponent
     public function render(): View
     {
         return view('native.onboarding', ['canUseGitHub' => app(GitHub::class)->enabled()]);
+    }
+
+    /**
+     * Another screen got a 401 because this phone isn't approved yet, and
+     * sent the username along. The first tick asks devnull for a code.
+     */
+    private function approveFromAnotherScreen(): void
+    {
+        $username = $this->data('approve');
+
+        if (is_string($username) && $username !== '') {
+            $this->username = $username;
+            $this->step = GitHubStep::Approving;
+        }
     }
 
     private function checkAuthorization(): void
