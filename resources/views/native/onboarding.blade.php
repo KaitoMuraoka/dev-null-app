@@ -113,40 +113,71 @@
                 <native:text font="semibold" class="text-lg tracking-tight text-theme-ink">Add the key yourself</native:text>
             @endif
 
-            <native:column class="w-full gap-3">
-                <native:column ref="public-key" class="w-full p-3 gap-2 rounded-lg border border-theme-hairline bg-theme-surface">
-                    <native:text font="mono" class="text-[13px] leading-snug text-theme-ink">{{ \App\Devnull\Display::maskedKey($publicKey) }}</native:text>
-                    <native:text font="mono" class="text-xs text-theme-ink-muted select-text">{{ $fingerprint }}</native:text>
-                </native:column>
-                <native:text class="text-xs text-theme-ink-muted">Share the key to copy it or send it to wherever you'll paste it.</native:text>
-                <native:row class="w-full gap-3">
-                    <native:column class="flex-1">
-                        <native:button ref="share-key" variant="secondary" :ios-icon="Ios::SquareAndArrowUp" :android-icon="Android::Share" @press="shareKey" class="w-full">Share key</native:button>
+            {{--
+                Adding the key by hand, in three numbered steps. Each step's content lines up with its title, and the
+                hairlines between steps start there too. The runs of the GitHub instruction sit flush on one line, as
+                under whitespace-pre-wrap any whitespace between them would print. Its bold runs carry font-semibold as
+                well as the font: iOS applies a run's weight on top of its font, and with no weight it draws Regular.
+            --}}
+            <native:column ref="steps" class="w-full gap-5">
+                <native:column ref="step-1" class="w-full gap-3">
+                    @include('native.partials.step-heading', ['number' => 1, 'title' => 'Copy the key'])
+                    <native:column class="w-full pl-[36] gap-3">
+                        <native:column ref="public-key" class="w-full p-3 gap-2 rounded-lg border border-theme-hairline bg-theme-surface">
+                            <native:text font="mono" class="text-[13px] leading-snug text-theme-ink">{{ Display::maskedKey($publicKey) }}</native:text>
+                            <native:text font="mono" class="text-xs text-theme-ink-muted select-text">{{ $fingerprint }}</native:text>
+                        </native:column>
+                        <native:row class="w-full gap-3">
+                            <native:column class="flex-1">
+                                <native:button ref="copy-key" variant="secondary" :ios-icon="$keyCopied ? Ios::Checkmark : Ios::DocOnDoc" :android-icon="$keyCopied ? Android::Check : Android::ContentCopy" :disabled="$publicKey === ''" @press="copyKey" class="w-full">{{ $keyCopied ? 'Copied' : 'Copy key' }}</native:button>
+                            </native:column>
+                            <native:column class="flex-1">
+                                <native:button ref="share-key" variant="secondary" :ios-icon="Ios::SquareAndArrowUp" :android-icon="Android::Share" :disabled="$publicKey === ''" @press="shareKey" class="w-full">Share</native:button>
+                            </native:column>
+                        </native:row>
+                        @if ($copyError)
+                            <native:text ref="copy-error" font="mono" class="text-[13px] text-theme-destructive">{{ $copyError }}</native:text>
+                        @endif
                     </native:column>
-                    <native:column class="flex-1">
+                </native:column>
+
+                <native:column class="w-full pl-[36]">
+                    <native:column class="w-full h-[1] bg-theme-hairline" />
+                </native:column>
+
+                <native:column ref="step-2" class="w-full gap-3">
+                    @include('native.partials.step-heading', ['number' => 2, 'title' => 'Add a signing key on GitHub'])
+                    <native:column class="w-full pl-[36] gap-3">
+<native:text ref="github-instructions" class="w-full text-[15px] leading-relaxed text-theme-ink whitespace-pre-wrap"><native:text text="On GitHub, choose " /><native:text text="New SSH key" font="semibold" class="font-semibold" /><native:text text=", set " /><native:text text="Key type" font="semibold" class="font-semibold" /><native:text text=" to " /><native:text text="Signing Key" font="semibold" class="font-semibold" /><native:text text=", paste and save." /></native:text>
                         <native:button ref="open-github" variant="secondary" :ios-icon="Ios::ArrowUpRightSquare" :android-icon="Android::OpenInNew" @press="openGitHub" class="w-full">Open GitHub</native:button>
                     </native:column>
-                </native:row>
-                <native:text class="text-xs leading-relaxed text-theme-ink-muted">On GitHub, choose New SSH key, set the key type to Signing Key, and paste.</native:text>
-            </native:column>
+                </native:column>
 
-            <native:column class="w-full gap-3">
-                <native:outlined-text-input
-                    ref="username"
-                    label="GitHub username"
-                    placeholder="octocat"
-                    native:model.debounce.150ms="username"
-                    keyboard="url"
-                    autocapitalize="none"
-                    font="mono"
-                    @submit="connect"
-                />
+                <native:column class="w-full pl-[36]">
+                    <native:column class="w-full h-[1] bg-theme-hairline" />
+                </native:column>
 
-                @if ($error)
-                    <native:text ref="error" class="text-sm text-theme-destructive">{{ $error }}</native:text>
-                @endif
+                <native:column ref="step-3" class="w-full gap-3">
+                    @include('native.partials.step-heading', ['number' => 3, 'title' => 'Enter your GitHub username'])
+                    <native:column class="w-full pl-[36] gap-3">
+                        <native:outlined-text-input
+                            ref="username"
+                            label="GitHub username"
+                            placeholder="octocat"
+                            native:model.debounce.150ms="username"
+                            keyboard="url"
+                            autocapitalize="none"
+                            font="mono"
+                            @submit="connect"
+                        />
 
-                <native:button ref="connect" :variant="$canUseGitHub ? 'secondary' : 'primary'" :disabled="trim($username) === '' || $publicKey === ''" @press="connect" class="w-full">Connect</native:button>
+                        @if ($error)
+                            <native:text ref="error" class="text-sm text-theme-destructive">{{ $error }}</native:text>
+                        @endif
+
+                        <native:button ref="connect" :variant="$canUseGitHub ? 'secondary' : 'primary'" :disabled="trim($username) === '' || $publicKey === ''" @press="connect" class="w-full">Connect</native:button>
+                    </native:column>
+                </native:column>
             </native:column>
         @endif
     </native:column>

@@ -24,14 +24,16 @@ use Native\Mobile\Edge\NativeComponent;
 use Native\Mobile\Facades\Browser;
 use Native\Mobile\Facades\Device;
 use Native\Mobile\Facades\Share;
+use NativePHP\Clipboard\Facades\Clipboard;
 use SensitiveParameter;
 
 /**
  * This phone has its own SSH key. Add it to GitHub once and devnull knows who you are.
  *
  * With a GitHub App configured, the app adds the key itself through GitHub's
- * device flow. Adding it by hand stays available either way, and ends with a
- * code to enter on the web, since devnull also wants this phone approved.
+ * device flow. Adding it by hand stays available either way, in three steps:
+ * copy the key, add it on GitHub, then connect with your username. That ends
+ * with a code to enter on the web, since devnull also wants this phone approved.
  */
 class Onboarding extends NativeComponent
 {
@@ -61,6 +63,11 @@ class Onboarding extends NativeComponent
      */
     public const int RateLimitedSeconds = 60;
 
+    /**
+     * How long Copy key reads "Copied", as the web's copy buttons show a check for 2 seconds.
+     */
+    public const int CopiedSeconds = 2;
+
     public string $publicKey = '';
 
     public string $fingerprint = '';
@@ -70,6 +77,10 @@ class Onboarding extends NativeComponent
     public ?string $error = null;
 
     public ?string $notice = null;
+
+    public bool $keyCopied = false;
+
+    public ?string $copyError = null;
 
     public GitHubStep $step = GitHubStep::Start;
 
@@ -109,6 +120,8 @@ class Onboarding extends NativeComponent
 
     private string $deviceName = '';
 
+    private int $copiedUntil = 0;
+
     public function mount(DeviceKey $deviceKey): void
     {
         $this->notice = $this->data('message');
@@ -130,6 +143,27 @@ class Onboarding extends NativeComponent
         }
 
         $this->approveFromAnotherScreen();
+    }
+
+    /**
+     * Copies the whole public key, not the masked one on screen, ready to paste on GitHub.
+     */
+    public function copyKey(): void
+    {
+        if ($this->publicKey === '') {
+            return;
+        }
+
+        if (! Clipboard::writeText($this->publicKey)) {
+            $this->keyCopied = false;
+            $this->copyError = 'fatal: could not copy the key. Share it instead.';
+
+            return;
+        }
+
+        $this->keyCopied = true;
+        $this->copyError = null;
+        $this->copiedUntil = $this->now() + self::CopiedSeconds * 1000;
     }
 
     public function shareKey(): void
@@ -243,10 +277,15 @@ class Onboarding extends NativeComponent
      * GitHub sets the pace of the device flow and devnull the pace of key
      * syncs, so both wait between requests. Ticking every second to see if
      * either is due keeps the screen responsive, where sleeping would freeze it.
+     * The same tick turns Copy key's "Copied" back once its moment is up.
      */
     #[Poll(1000)]
     public function tick(): void
     {
+        if ($this->keyCopied && $this->now() >= $this->copiedUntil) {
+            $this->keyCopied = false;
+        }
+
         if ($this->now() < $this->nextAttemptAt) {
             return;
         }

@@ -63,6 +63,98 @@ it('keeps the same key across launches', function () {
     Native::visit('/onboarding')->assertSet('publicKey', testKey()->openSsh());
 });
 
+it('adds the key by hand in three numbered steps', function (?string $clientId) {
+    fakeKeychain(testSeed());
+    config(['devnull.github_client_id' => $clientId]);
+
+    $screen = Native::visit('/onboarding');
+
+    $steps = findNodes($screen->tree(), fn (array $node): bool => preg_match('/^step-\d$/', (string) ($node['ref'] ?? '')) === 1);
+    $texts = fn (array $step): array => array_map(
+        fn (array $node): string => $node['props']['text'],
+        findNodes($step, fn (array $node): bool => ($node['type'] ?? null) === 'text' && isset($node['props']['text'])),
+    );
+    $refs = fn (array $step): array => array_column(findNodes($step, fn (array $node): bool => isset($node['ref'])), 'ref');
+
+    expect(array_column($steps, 'ref'))->toBe(['step-1', 'step-2', 'step-3'])
+        ->and(array_slice($texts($steps[0]), 0, 2))->toBe(['1', 'Copy the key'])
+        ->and(array_slice($texts($steps[1]), 0, 2))->toBe(['2', 'Add a signing key on GitHub'])
+        ->and(array_slice($texts($steps[2]), 0, 2))->toBe(['3', 'Enter your GitHub username'])
+        ->and($refs($steps[0]))->toBe(['step-1', 'public-key', 'copy-key', 'share-key'])
+        ->and($refs($steps[1]))->toBe(['step-2', 'github-instructions', 'open-github'])
+        ->and($refs($steps[2]))->toBe(['step-3', 'username', 'connect']);
+
+    // GitHub's own labels stand out in the instruction. A run needs the weight as well as the font to draw semibold on iOS.
+    $runs = array_map(
+        fn (array $run): array => [$run['props']['text'], ($run['props']['font_name'] ?? null) === 'semibold' && ($run['props']['font_weight'] ?? null) === 5],
+        nodeByRef($screen, 'github-instructions')['children'],
+    );
+
+    expect($runs)->toBe([
+        ['On GitHub, choose ', false],
+        ['New SSH key', true],
+        [', set ', false],
+        ['Key type', true],
+        [' to ', false],
+        ['Signing Key', true],
+        [', paste and save.', false],
+    ]);
+
+    $screen->assertElement('button', fn (array $node): bool => ($node['ref'] ?? null) === 'copy-key' && $node['props']['label'] === 'Copy key')
+        ->assertElement('button', fn (array $node): bool => ($node['ref'] ?? null) === 'share-key' && $node['props']['label'] === 'Share')
+        ->assertElement('button', fn (array $node): bool => ($node['ref'] ?? null) === 'open-github' && $node['props']['label'] === 'Open GitHub')
+        ->assertElement('button', fn (array $node): bool => ($node['ref'] ?? null) === 'connect' && $node['props']['label'] === 'Connect');
+})->with([
+    'below Connect GitHub' => ['Ov23liDevnullTest'],
+    'on their own without a GitHub client id' => [null],
+]);
+
+it('copies the whole key, not the masked one on screen, and says Copied for a moment', function () {
+    $this->freezeTime();
+    $bridge = fakeKeychain(testSeed())->withClipboard();
+    $publicKey = testKey()->openSsh();
+
+    $label = fn ($screen): string => nodeByRef($screen, 'copy-key')['props']['label'];
+
+    $screen = Native::visit('/onboarding')
+        ->assertSee(Display::maskedKey($publicKey))
+        ->assertDontSee($publicKey)
+        ->tap('copy-key')
+        ->assertSet('keyCopied', true)
+        ->assertSee(Display::maskedKey($publicKey))
+        ->assertDontSee($publicKey)
+        ->assertDontSee('fatal:');
+
+    $bridge->assertCopied($publicKey)->assertCalledTimes('Clipboard.WriteText', 1);
+    expect($label($screen))->toBe('Copied');
+
+    $this->travel(Onboarding::CopiedSeconds - 1)->seconds();
+    expect($label($screen->firePoll('tick')))->toBe('Copied');
+
+    $this->travel(1)->seconds();
+    expect($label($screen->firePoll('tick')))->toBe('Copy key');
+});
+
+it('says so when the key could not be copied', function () {
+    $bridge = fakeKeychain(testSeed())->respondTo('Clipboard.WriteText', ['success' => false]);
+
+    Native::visit('/onboarding')
+        ->tap('copy-key')
+        ->assertSet('keyCopied', false)
+        ->assertSee('fatal: could not copy the key. Share it instead.')
+        ->assertElement('button', fn (array $node): bool => ($node['ref'] ?? null) === 'copy-key' && $node['props']['label'] === 'Copy key');
+
+    $bridge->assertCalledTimes('Clipboard.WriteText', 1);
+});
+
+it('copies nothing without a key', function () {
+    $bridge = Native::fakeBridge()->withClipboard()->respondTo('SecureStorage.Get', ['status' => 'unavailable', 'message' => 'Device is locked.']);
+
+    Native::visit('/onboarding')->call('copyKey')->assertSet('keyCopied', false);
+
+    $bridge->assertNothingCopied();
+});
+
 it('shares the public key and opens GitHub in the in-app browser', function () {
     fakeKeychain(testSeed());
 
