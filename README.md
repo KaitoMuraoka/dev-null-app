@@ -22,6 +22,8 @@ php artisan key:generate
 
 `nativephp/mobile-secure-storage` is a paid plugin from `plugins.nativephp.com`, so `composer install` needs your NativePHP plugin licence.
 
+For now the app tracks the `feat/custom-icons` branches of `nativephp/mobile` and `nativephp/mobile-ui`, which add custom SVG icons. Composer pulls them straight from GitHub. That lasts until [NativePHP/mobile-air#544](https://github.com/NativePHP/mobile-air/pull/544) and [NativePHP/mobile-ui#132](https://github.com/NativePHP/mobile-ui/pull/132) are released.
+
 ### Without a plugin licence
 
 ```sh

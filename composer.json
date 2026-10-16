@@ -12,6 +12,14 @@
     "license": "MIT",
     "repositories": [
         {
+            "type": "vcs",
+            "url": "https://github.com/NativePHP/mobile-air"
+        },
+        {
+            "type": "vcs",
+            "url": "https://github.com/NativePHP/mobile-ui"
+        },
+        {
             "name": "nativephp-plugins",
             "type": "composer",
             "url": "https://plugins.nativephp.com"
@@ -22,11 +30,11 @@
         "laravel/boost": "^2.0",
         "laravel/framework": "^13.0",
         "laravel/tinker": "^3.0",
-        "nativephp/mobile": "^4.6",
+        "nativephp/mobile": "dev-feat/custom-icons as 4.6.0",
         "nativephp/mobile-browser": "^1.0",
         "nativephp/mobile-secure-storage": "^1.1",
         "nativephp/mobile-share": "^1.1",
-        "nativephp/mobile-ui": "^0.8",
+        "nativephp/mobile-ui": "dev-feat/custom-icons as 0.8.0",
         "s2br/nativephp-mobile-splashscreen": "^1.4"
     },
     "require-dev": {

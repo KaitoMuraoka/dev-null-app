@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "3cefc95f95d09a054a2a06904410c4e1",
+    "content-hash": "6bfac282636a8c91d5d16c02880cb1ff",
     "packages": [
         {
             "name": "bacon/bacon-qr-code",
@@ -2648,16 +2648,16 @@
         },
         {
             "name": "nativephp/mobile",
-            "version": "4.6.0",
+            "version": "dev-feat/custom-icons",
             "source": {
                 "type": "git",
                 "url": "https://github.com/NativePHP/mobile-air.git",
-                "reference": "ee03682ee7fd9939c229e8414123a795771c70e7"
+                "reference": "ebfb62b73c62a94c48bdbd8d8de53005f855cb77"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/NativePHP/mobile-air/zipball/ee03682ee7fd9939c229e8414123a795771c70e7",
-                "reference": "ee03682ee7fd9939c229e8414123a795771c70e7",
+                "url": "https://api.github.com/repos/NativePHP/mobile-air/zipball/ebfb62b73c62a94c48bdbd8d8de53005f855cb77",
+                "reference": "ebfb62b73c62a94c48bdbd8d8de53005f855cb77",
                 "shasum": ""
             },
             "require": {
@@ -2706,14 +2706,40 @@
                 }
             },
             "autoload": {
-                "files": [
-                    "src/helpers.php"
-                ],
                 "psr-4": {
                     "Native\\Mobile\\": "src/"
+                },
+                "files": [
+                    "src/helpers.php"
+                ]
+            },
+            "autoload-dev": {
+                "psr-4": {
+                    "Tests\\": "tests/"
                 }
             },
-            "notification-url": "https://packagist.org/downloads/",
+            "scripts": {
+                "qa": [
+                    "@composer format",
+                    "@composer analyse",
+                    "@composer test"
+                ],
+                "post-autoload-dump": [
+                    "@php ./vendor/bin/testbench package:discover --ansi"
+                ],
+                "analyse": [
+                    "vendor/bin/phpstan analyse"
+                ],
+                "test": [
+                    "vendor/bin/pest"
+                ],
+                "test-coverage": [
+                    "vendor/bin/pest --coverage"
+                ],
+                "format": [
+                    "vendor/bin/pint"
+                ]
+            },
             "license": [
                 "MIT"
             ],
@@ -2738,10 +2764,10 @@
                 "nativephp"
             ],
             "support": {
-                "issues": "https://github.com/NativePHP/mobile-air/issues",
-                "source": "https://github.com/NativePHP/mobile-air/tree/4.6.0"
+                "source": "https://github.com/NativePHP/mobile-air/tree/feat/custom-icons",
+                "issues": "https://github.com/NativePHP/mobile-air/issues"
             },
-            "time": "2026-10-02T23:19:44+00:00"
+            "time": "2026-10-16T13:13:23+00:00"
         },
         {
             "name": "nativephp/mobile-browser",
@@ -2910,16 +2936,16 @@
         },
         {
             "name": "nativephp/mobile-ui",
-            "version": "0.8.0",
+            "version": "dev-feat/custom-icons",
             "source": {
                 "type": "git",
                 "url": "https://github.com/NativePHP/mobile-ui.git",
-                "reference": "3db3c9f0cb2cec0c51506aee29ee549198623c30"
+                "reference": "aa112b3f943e4eca935dc6ba85254414f2a3d665"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/NativePHP/mobile-ui/zipball/3db3c9f0cb2cec0c51506aee29ee549198623c30",
-                "reference": "3db3c9f0cb2cec0c51506aee29ee549198623c30",
+                "url": "https://api.github.com/repos/NativePHP/mobile-ui/zipball/aa112b3f943e4eca935dc6ba85254414f2a3d665",
+                "reference": "aa112b3f943e4eca935dc6ba85254414f2a3d665",
                 "shasum": ""
             },
             "require": {
@@ -2947,7 +2973,17 @@
                     "Native\\Mobile\\UI\\": "src/"
                 }
             },
-            "notification-url": "https://packagist.org/downloads/",
+            "scripts": {
+                "test": [
+                    "pest"
+                ],
+                "lint": [
+                    "pint"
+                ],
+                "lint:test": [
+                    "pint --test"
+                ]
+            },
             "license": [
                 "MIT"
             ],
@@ -2959,16 +2995,16 @@
             ],
             "description": "Native SwiftUI and Jetpack Composer components for NativePHP",
             "support": {
-                "issues": "https://github.com/NativePHP/mobile-ui/issues",
-                "source": "https://github.com/NativePHP/mobile-ui/tree/0.8.0"
+                "source": "https://github.com/NativePHP/mobile-ui/tree/feat/custom-icons",
+                "issues": "https://github.com/NativePHP/mobile-ui/issues"
             },
             "funding": [
                 {
-                    "url": "https://nativephp.com/sponsor",
-                    "type": "other"
+                    "type": "other",
+                    "url": "https://nativephp.com/sponsor"
                 }
             ],
-            "time": "2026-10-02T23:33:47+00:00"
+            "time": "2026-10-16T13:13:23+00:00"
         },
         {
             "name": "nesbot/carbon",
@@ -10967,9 +11003,25 @@
             "time": "2026-10-05T23:14:19+00:00"
         }
     ],
-    "aliases": [],
+    "aliases": [
+        {
+            "package": "nativephp/mobile",
+            "version": "dev-feat/custom-icons",
+            "alias": "4.6.0",
+            "alias_normalized": "4.6.0.0"
+        },
+        {
+            "package": "nativephp/mobile-ui",
+            "version": "dev-feat/custom-icons",
+            "alias": "0.8.0",
+            "alias_normalized": "0.8.0.0"
+        }
+    ],
     "minimum-stability": "stable",
-    "stability-flags": {},
+    "stability-flags": {
+        "nativephp/mobile": 20,
+        "nativephp/mobile-ui": 20
+    },
     "prefer-stable": true,
     "prefer-lowest": false,
     "platform": {
