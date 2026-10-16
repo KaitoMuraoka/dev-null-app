@@ -24,9 +24,17 @@ jobs:
           extensions: dom, curl, libxml, mbstring, zip, pcntl, pdo, sqlite, pdo_sqlite, sodium
           coverage: none
 
-      # Some plugins come from plugins.nativephp.com, which needs your plugin licence credentials.
+      # The secure storage plugin comes from plugins.nativephp.com, which needs plugin licence
+      # credentials. GitHub doesn't pass secrets to pull requests from forks, so those install
+      # everything else and run the tests without the plugin.
       - name: Install Composer dependencies
-        run: composer install --prefer-dist --no-interaction --no-progress
+        run: |
+          if [ -n "$COMPOSER_AUTH" ]; then
+            composer install --prefer-dist --no-interaction --no-progress
+          else
+            echo "No COMPOSER_AUTH secret, so installing without the paid plugin."
+            composer setup:free --no-interaction
+          fi
         env:
           COMPOSER_AUTH: ${{ secrets.COMPOSER_AUTH }}
 
