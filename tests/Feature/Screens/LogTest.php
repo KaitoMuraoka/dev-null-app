@@ -277,7 +277,7 @@ it('lays out several images in the web grid', function () {
         ->assertNativeCalled('Browser.OpenInApp', fn (array $params): bool => $params['url'] === 'https://img.test/3');
 });
 
-it('puts the web action row under each commit: the star, Quote, Reply and replies, then the bookmark and copy link', function () {
+it('puts the web action row under each commit: the star, Quote, Reply and replies, then the bookmark and More', function () {
     $ada = userJson(['id' => 'u2', 'username' => 'ada']);
 
     Http::fake(['devnull.test/*' => Http::response(pageJson([
@@ -298,10 +298,10 @@ it('puts the web action row under each commit: the star, Quote, Reply and replie
         ->assertElement('pressable', $pressable('bookmark-c1', 'Save commit'))
         // Someone else's pending commit can't be starred, quoted or saved, so the web leaves them off.
         ->assertMissingElement('pressable', fn (array $node): bool => in_array($node['ref'] ?? null, ['star-c0', 'bookmark-c0'], true))
-        ->assertMissingElement('column', fn (array $node): bool => ($node['ref'] ?? null) === 'quote-c0');
+        ->assertMissingElement('pressable', fn (array $node): bool => ($node['ref'] ?? null) === 'quote-c0');
 
-    // The web's order: star, Quote, Reply and replies on the left, then the bookmark and copy link on the right.
-    expect(array_values(array_filter(childRefs($screen, 'actions-c2'))))->toBe(['star-c2', 'quote-c2', 'reply-to-c2', 'replies-c2', 'bookmark-c2', 'copy-link-c2']);
+    // The web's order: star, Quote, Reply and replies on the left, then the bookmark and More, standing in for copy link, on the right.
+    expect(array_values(array_filter(childRefs($screen, 'actions-c2'))))->toBe(['star-c2', 'quote-c2', 'reply-to-c2', 'replies-c2', 'bookmark-c2', 'more-c2']);
 
     $icon = fn (string $ref): ?array => findNode(nodeByRef($screen, $ref), fn (array $node): bool => ($node['type'] ?? null) === 'icon');
     $text = fn (string $ref, string $text): ?array => findNode(nodeByRef($screen, $ref), fn (array $node): bool => ($node['props']['text'] ?? null) === $text);
@@ -317,7 +317,7 @@ it('puts the web action row under each commit: the star, Quote, Reply and replie
         ->and($icon('reply-to-c1')['props']['name'] ?? null)->toBe('custom:message-square-reply')
         ->and($icon('replies-c2')['props']['name'] ?? null)->toBe('chevron.right')
         ->and($text('replies-c2', '1 reply')['props']['color'] ?? null)->toBe($primary)
-        ->and($icon('copy-link-c1')['props']['name'] ?? null)->toBe('custom:link');
+        ->and($icon('more-c1')['props']['name'] ?? null)->toBe('custom:ellipsis');
 
     // Reply opens the commit with its reply composer focused.
     $screen->tap('reply-to-c1')->assertNavigatedTo('/log/commits/c1');
@@ -325,17 +325,18 @@ it('puts the web action row under each commit: the star, Quote, Reply and replie
         ->and($screen->navigationIntent()->data['commit']->id)->toBe('c1');
 });
 
-it('shows Quote dimmed and does nothing with it, since devnull has no way to quote from the app yet', function () {
+it('makes Quote a button, which opens the quote sheet', function () {
     Http::fake(['devnull.test/*' => Http::response(pageJson([commitJson(['id' => 'c1', 'author' => userJson(['id' => 'u2', 'username' => 'ada'])])]))]);
 
     $screen = Native::visit('/log', platform: 'ios');
     $quote = nodeByRef($screen, 'quote-c1');
 
-    expect($quote['type'])->toBe('column')
-        ->and($quote['on_press'] ?? null)->toBeNull()
-        ->and($quote['style']['opacity'] ?? $quote['props']['opacity'] ?? null)->toEqual(0.4)
-        ->and($quote['props']['a11y_label'] ?? null)->toBe('Quote, not in the app yet')
+    expect($quote['type'])->toBe('pressable')
+        ->and($quote['style']['opacity'] ?? $quote['props']['opacity'] ?? null)->toBeNull()
+        ->and($quote['props']['a11y_label'] ?? null)->toBe('Quote')
         ->and(findNode($quote, fn (array $node): bool => ($node['type'] ?? null) === 'icon')['props']['name'] ?? null)->toBe('custom:quote');
+
+    $screen->tap('quote-c1')->assertSee('Quote @ada');
 });
 
 it("shows only the count on your own commit's star, which devnull won't let you press", function () {

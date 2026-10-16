@@ -8,6 +8,7 @@
 
     @include('native.partials.error')
     @include('native.partials.refresh-failed')
+    @include('native.partials.commit-sheet')
 
     {{--
         The logs as pages you swipe between. The pager keeps where it is across renders, and only moves for a tab tap,

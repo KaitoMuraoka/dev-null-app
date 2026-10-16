@@ -2,11 +2,16 @@
     The action row under a commit, in the web's order. On the left: the star and its count, Quote, Reply, and in Commit
     Blue "› N replies" when the row has no thread under it already. On the right: the bookmark and copy link.
 
+    The web puts Report last on the right, but a fifth icon there doesn't fit a phone: a profile row with "› 3 replies"
+    would need about 356pt of the 330pt it has. So on a commit you can report, someone else's published one, copy link
+    becomes More, which opens a sheet with Share link and Report commit (see commit-sheet). Your own commits, and ones
+    you can't react to, keep copy link.
+
     Reply opens the commit with its reply composer focused. In a feed ($expandable) the replies link opens the thread in
     place, as on the web; elsewhere it opens the commit. Like the web, someone else's commit that isn't approved gets no
     star, Quote or bookmark, and your own commit's star is just its count, since you can't star it.
 
-    Quote is drawn as the web draws it but dimmed, and does nothing: devnull has no way to quote from the app yet.
+    Quote opens a sheet to write the quote in, over the commit being quoted (see commit-sheet).
 
     Each action is at least 44pt wide and 36pt tall to tap, as Apple asks, with the row pulled in by the extra height so
     the commit keeps its rhythm. EDGE makes a pressable's whole box tappable, so the box is the target. Off the log,
@@ -29,6 +34,7 @@
 @php($viewer ??= app(\App\Devnull\Account::class)->user())
 @php($isOwn = $commit->author->id === $viewer?->id)
 @php($canReact = $commit->isApproved() || $isOwn)
+@php($canReport = $viewer !== null && ! $isOwn && $commit->isApproved() && ! $commit->isDeleted())
 @php($hasThread = $expandable && $commit->replyPreview !== null)
 @php($showsReplies = $withReplies && ! $hasThread && $repliesCount > 0)
 @php($starLabel = ($commit->starred ? 'Unstar commit' : 'Star commit').($commit->starsCount > 0 ? ', '.\App\Devnull\Display::count($commit->starsCount, 'star', 'stars') : ''))
@@ -53,9 +59,11 @@
     @endif
 
     @if ($withQuote && $canReact)
-        <native:column ref="quote-{{ $commit->id }}" class="min-w-[44] h-[36] px-2 items-center justify-center opacity-40" a11y-label="Quote, not in the app yet">
-            <native:icon :ios="\App\Icons\Lucide::Quote->ios()" :android="\App\Icons\Lucide::Quote->android()" :size="$iconSize" class="text-theme-ink-muted" />
-        </native:column>
+        <native:pressable ref="quote-{{ $commit->id }}" @press="quoteCommit('{{ $commit->id }}')" a11y-label="Quote">
+            <native:column class="min-w-[44] h-[36] px-2 items-center justify-center">
+                <native:icon :ios="\App\Icons\Lucide::Quote->ios()" :android="\App\Icons\Lucide::Quote->android()" :size="$iconSize" class="text-theme-ink-muted" />
+            </native:column>
+        </native:pressable>
     @endif
 
     @if ($withReply)
@@ -93,9 +101,17 @@
         </native:pressable>
     @endif
 
-    <native:pressable ref="copy-link-{{ $commit->id }}" @press="shareCommit('{{ $commit->id }}')" a11y-label="Copy link">
-        <native:column class="min-w-[44] h-[36] items-center justify-center">
-            <native:icon :ios="\App\Icons\Lucide::Link->ios()" :android="\App\Icons\Lucide::Link->android()" :size="$iconSize" class="text-theme-ink-muted" />
-        </native:column>
-    </native:pressable>
+    @if ($canReport)
+        <native:pressable ref="more-{{ $commit->id }}" @press="openCommitSheet('{{ $commit->id }}')" a11y-label="More">
+            <native:column class="min-w-[44] h-[36] items-center justify-center">
+                <native:icon :ios="\App\Icons\Lucide::Ellipsis->ios()" :android="\App\Icons\Lucide::Ellipsis->android()" :size="$iconSize" class="text-theme-ink-muted" />
+            </native:column>
+        </native:pressable>
+    @else
+        <native:pressable ref="copy-link-{{ $commit->id }}" @press="shareCommit('{{ $commit->id }}')" a11y-label="Copy link">
+            <native:column class="min-w-[44] h-[36] items-center justify-center">
+                <native:icon :ios="\App\Icons\Lucide::Link->ios()" :android="\App\Icons\Lucide::Link->android()" :size="$iconSize" class="text-theme-ink-muted" />
+            </native:column>
+        </native:pressable>
+    @endif
 </native:row>

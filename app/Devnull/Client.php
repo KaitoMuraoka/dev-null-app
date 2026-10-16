@@ -126,9 +126,13 @@ final readonly class Client
         return Page::fromArray($this->get('commits/'.rawurlencode($id).'/replies', ['cursor' => $cursor]), Commit::fromArray(...));
     }
 
-    public function createCommit(string $body, ?string $parentId = null): Commit
+    /**
+     * Commits, as a reply to $parentId or quoting $quotedCommitId, as the web's
+     * composer, reply box and Quote do. devnull takes one or the other, not both.
+     */
+    public function createCommit(string $body, ?string $parentId = null, ?string $quotedCommitId = null): Commit
     {
-        $payload = $parentId === null ? ['body' => $body] : ['body' => $body, 'parent_id' => $parentId];
+        $payload = array_filter(['body' => $body, 'parent_id' => $parentId, 'quoted_commit_id' => $quotedCommitId], fn (?string $value): bool => $value !== null);
 
         $commit = $this->data($this->send('POST', 'commits', payload: $payload));
         $this->cache->commitAdded($commit);
@@ -163,6 +167,18 @@ final readonly class Client
     public function unbookmark(string $id): Commit
     {
         return $this->react('DELETE', 'commits/'.rawurlencode($id).'/bookmark');
+    }
+
+    /**
+     * Reports a commit to devnull's moderators, privately, as the web's Report
+     * button does. Nothing on the commit changes, so nothing kept changes
+     * either. Reporting one again keeps the first report.
+     */
+    public function reportCommit(string $id, ReportReason $reason, string $details = ''): void
+    {
+        $payload = $details === '' ? ['reason' => $reason->value] : ['reason' => $reason->value, 'details' => $details];
+
+        $this->send('POST', 'commits/'.rawurlencode($id).'/reports', payload: $payload);
     }
 
     public function profile(string $username): Profile

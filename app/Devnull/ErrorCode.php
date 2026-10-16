@@ -19,10 +19,13 @@ enum ErrorCode: string
     case InvalidAppleToken = 'invalid_apple_token';
     case AppleNotLinked = 'apple_not_linked';
     case AppleLinkedElsewhere = 'apple_linked_elsewhere';
+    case OwnCommit = 'own_commit';
+    case CommitUnavailable = 'commit_unavailable';
 
     /**
      * What the app says for it, or null where devnull's own message says it
-     * better, as for a rate limit, whose message names the limit hit.
+     * better, as for a rate limit, whose message names the limit hit, or for
+     * your own commit, whose message names what you can't do to it.
      * A blocked or unavailable profile has a screen of its own (see Profile).
      */
     public function message(): ?string
@@ -36,7 +39,8 @@ enum ErrorCode: string
             self::AppleLinkedElsewhere => 'That Apple ID is linked to another devnull account. Unlink it there first.',
             self::UserBlocked => 'fatal: you blocked this profile.',
             self::UserUnavailable => "fatal: this profile isn't available.",
-            self::RateLimited => null,
+            self::CommitUnavailable => "fatal: this commit isn't available.",
+            self::RateLimited, self::OwnCommit => null,
         };
     }
 }

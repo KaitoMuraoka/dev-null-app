@@ -93,7 +93,7 @@ it('gives every action under a commit a target big enough to tap, without growin
     $screen = logOf([['id' => 'c1', 'stars_count' => 6, 'replies_count' => 3, 'is_saved' => false]]);
     $target = fn (string $ref): array => ($node = nodeByRef($screen, $ref))['type'] === 'pressable' ? $node['children'][0]['layout'] : $node['layout'];
 
-    foreach (['star-c1', 'quote-c1', 'bookmark-c1', 'copy-link-c1'] as $ref) {
+    foreach (['star-c1', 'quote-c1', 'bookmark-c1', 'more-c1'] as $ref) {
         expect($target($ref))->toMatchArray(['min_width' => 44.0, 'height' => 36.0]);
     }
 

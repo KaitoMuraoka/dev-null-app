@@ -452,6 +452,14 @@ class Log extends NativeComponent
         $this->composing = false;
         $this->focusComposer = false;
         $this->composerKey++;
+        $this->showCommitted($commit);
+    }
+
+    /**
+     * Puts a commit you just made at the top of the log, from the composer or a quote's sheet.
+     */
+    protected function showCommitted(Commit $commit): void
+    {
         $this->madeHere[] = $commit->id;
         $this->loaded = true;
 

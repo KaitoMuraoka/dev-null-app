@@ -3,8 +3,11 @@
     20pt avatar, the name, mono handle and time on one line, then the body clamped to six lines, and its poll, static.
     The whole box opens the quoted commit. One you may no longer see, or one that was deleted, is a dashed box in git's
     voice instead, with no author and nothing to open. Quotes embed one level only.
+
+    $static draws the card under the quote you're writing, for $quoted, the commit you're quoting. It opens nothing.
 --}}
-@php($quoted = $commit->quotedCommit)
+@php($static ??= false)
+@php($quoted = $static ? $quoted : $commit->quotedCommit)
 @if ($quoted === null || $quoted->isDeleted())
     <native:column ref="quoted-{{ $commit->id }}" class="w-full mt-2">
         <native:text class="w-full px-3 py-2 text-sm text-theme-ink-muted"><native:text font="mono" class="text-xs">{{ $quoted === null ? '[unavailable]' : '[deleted]' }}</native:text> {{ $quoted === null ? "This commit isn't available." : 'This commit was deleted.' }}</native:text>
@@ -12,7 +15,11 @@
     </native:column>
 @else
     @php($quotedAuthor = $quoted->author)
-    <native:pressable ref="quoted-{{ $commit->id }}" @press="openCommit('{{ $quoted->id }}')" class="w-full mt-2" a11y-label="Quoting {{ $quotedAuthor->name }}">
+    @if ($static)
+        <native:column ref="quote-card" class="w-full mt-2" a11y-label="Quoting {{ $quotedAuthor->name }}">
+    @else
+        <native:pressable ref="quoted-{{ $commit->id }}" @press="openCommit('{{ $quoted->id }}')" class="w-full mt-2" a11y-label="Quoting {{ $quotedAuthor->name }}">
+    @endif
         <native:column class="w-full px-3 py-2 gap-1 rounded-lg border border-theme-hairline">
             <native:row class="w-full gap-[6] items-center">
                 @include('native.partials.avatar', ['user' => $quotedAuthor, 'size' => 20])
@@ -29,5 +36,9 @@
                 @include('native.partials.commit-poll', ['commit' => $quoted, 'static' => true])
             @endif
         </native:column>
-    </native:pressable>
+    @if ($static)
+        </native:column>
+    @else
+        </native:pressable>
+    @endif
 @endif
