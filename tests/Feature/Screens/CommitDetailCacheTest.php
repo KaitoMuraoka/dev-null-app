@@ -50,6 +50,28 @@ it('opens on the commit and replies kept last time, with no request and no spinn
     expect(count(Http::recorded()))->toBe(2);
 });
 
+it('opens from a row on what the row knew, then fills in the replies and what it replies to', function () {
+    holdRefreshes();
+    keep('log/following', pageJson([graceRepliedTo(['parent_id' => 'c0'])]));
+    serveThread();
+
+    $commit = Native::visit('/log')->tap('commit-c1')->follow()
+        ->assertSee('What should I build next?')
+        ->assertSee('Ada Lovelace')
+        ->assertSee('3')
+        ->assertElement('row', fn (array $node): bool => ($node['ref'] ?? null) === 'loading-replies')
+        ->assertElement('bare_text_input', fn (array $node): bool => ($node['ref'] ?? null) === 'reply-input')
+        ->assertDontSee('No replies yet.')
+        ->assertMissingElement('column', fn (array $node): bool => ($node['ref'] ?? null) === 'loading-commit');
+
+    expect(count(Http::recorded()))->toBe(0);
+
+    finishRefreshes($commit)
+        ->assertSee('The commit it replies to')
+        ->assertSee('A compiler')
+        ->assertMissingElement('row', fn (array $node): bool => ($node['ref'] ?? null) === 'loading-replies');
+});
+
 it('shows a spinner only the first time, when nothing is known of the commit', function () {
     holdRefreshes();
     serveThread();

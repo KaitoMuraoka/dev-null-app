@@ -305,7 +305,8 @@ it('puts the web action row under each commit: Reply, the star, replies, copy li
 
     // Reply opens the commit with its reply composer focused.
     $screen->tap('reply-to-c1')->assertNavigatedTo('/log/commits/c1');
-    expect($screen->navigationIntent()->data)->toBe(['reply' => true]);
+    expect($screen->navigationIntent()->data['reply'])->toBeTrue()
+        ->and($screen->navigationIntent()->data['commit']->id)->toBe('c1');
 });
 
 it('stars and unstars from the row, taking the count devnull sends back', function () {

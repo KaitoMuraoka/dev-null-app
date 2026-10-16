@@ -4,6 +4,7 @@ namespace App\NativeComponents\Concerns;
 
 use App\Devnull\Client;
 use App\Devnull\Data\Commit;
+use App\Devnull\Data\User;
 use Closure;
 use Native\Mobile\Facades\Browser;
 use Native\Mobile\Facades\Share;
@@ -34,14 +35,25 @@ trait ShowsCommits
      */
     abstract protected function openInTab(string $path, array $data = []): void;
 
+    /**
+     * Opens a commit with what its row already knows, so its page shows that at
+     * once and fills in its replies and the rest when devnull answers.
+     */
     public function openCommit(string $id): void
     {
-        $this->openInTab('/commits/'.$id);
+        $commit = $this->shownCommit($id);
+
+        $this->openInTab('/commits/'.$id, $commit === null ? [] : ['commit' => $commit]);
     }
 
+    /**
+     * Opens a profile with what a row already knows of its author.
+     */
     public function openProfile(string $username): void
     {
-        $this->openInTab('/users/'.$username);
+        $author = $this->shownAuthor($username);
+
+        $this->openInTab('/users/'.$username, $author === null ? [] : ['user' => $author]);
     }
 
     /**
@@ -49,7 +61,9 @@ trait ShowsCommits
      */
     public function replyTo(string $id): void
     {
-        $this->openInTab('/commits/'.$id, ['reply' => true]);
+        $commit = $this->shownCommit($id);
+
+        $this->openInTab('/commits/'.$id, ['reply' => true, ...($commit === null ? [] : ['commit' => $commit])]);
     }
 
     /**
@@ -130,6 +144,17 @@ trait ShowsCommits
     private function replaceShownCommit(Commit $replacement): void
     {
         $this->updateShownCommits(fn (Commit $commit): Commit => $commit->id === $replacement->id ? $replacement : $commit);
+    }
+
+    private function shownAuthor(string $username): ?User
+    {
+        foreach ($this->shownCommits() as $commit) {
+            if (! $commit->isDeleted() && $commit->author->username === $username) {
+                return $commit->author;
+            }
+        }
+
+        return null;
     }
 
     private function shownCommit(string $id): ?Commit

@@ -4,6 +4,7 @@ namespace App\NativeComponents;
 
 use App\Devnull\Data\Commit;
 use App\Devnull\Data\Profile as ProfileData;
+use App\Devnull\Data\User;
 use App\Devnull\Timeline;
 use App\Icons\Lucide;
 use App\NativeComponents\Concerns\ExpandsThreads;
@@ -27,9 +28,9 @@ use Native\Mobile\Facades\Browser;
  * your own profile swaps Follow for "Edit on GitHub", and its nav bar leads to
  * this device's key.
  *
- * It opens on the profile as it was last time, then asks devnull again behind
- * it. The header changes in place; newer commits wait in the pill (see
- * HoldsNewCommits).
+ * It opens on the profile as it was last time, or opened from a commit, on
+ * what the commit knew of its author, then asks devnull again behind it. The
+ * header changes in place; newer commits wait in the pill (see HoldsNewCommits).
  */
 class Profile extends NativeComponent
 {
@@ -47,6 +48,12 @@ class Profile extends NativeComponent
     public const array Tabs = ['commits', 'replies'];
 
     public ?ProfileData $profile = null;
+
+    /**
+     * The header only has what a commit row knew of them: no counts, no Follow,
+     * no activity, until devnull answers.
+     */
+    public bool $sketched = false;
 
     public string $tab = 'commits';
 
@@ -254,6 +261,7 @@ class Profile extends NativeComponent
 
         $this->refresh('users/'.rawurlencode($this->username), [], function (array $json): void {
             $this->profile = ProfileData::fromArray($json);
+            $this->sketched = false;
         }, again: $showNewer);
         $this->refreshCommits($showNewer);
         $this->refreshThreads();
@@ -271,7 +279,8 @@ class Profile extends NativeComponent
     }
 
     /**
-     * The profile and the tab as they were kept last time.
+     * The profile and the tab as they were kept last time. Opened from a commit
+     * with nothing kept, the header starts from what the commit knew of its author.
      */
     private function showKept(): void
     {
@@ -283,6 +292,10 @@ class Profile extends NativeComponent
 
         if ($profile !== null) {
             $this->profile = ProfileData::fromArray($profile);
+            $this->sketched = false;
+        } elseif ($this->profile === null && ($author = $this->data('user')) instanceof User && $author->username === $this->username) {
+            $this->profile = new ProfileData($author);
+            $this->sketched = true;
         }
 
         if (($commits = $this->cached($this->commitsPath(), $this->commitsQuery())) !== null) {

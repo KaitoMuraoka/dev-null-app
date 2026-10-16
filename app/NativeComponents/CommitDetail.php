@@ -27,7 +27,8 @@ use Native\Mobile\Facades\Dialog;
  * parts below, with its replies between, as on the web. Deleted ancestors,
  * parts and replies show as tombstones.
  *
- * It opens on the commit as it was last time, then asks devnull again behind it.
+ * It opens on the commit as it was last time, or opened from a row, on what
+ * the row knew of it, then asks devnull for the rest behind it and fills it in.
  */
 class CommitDetail extends NativeComponent
 {
@@ -242,12 +243,17 @@ class CommitDetail extends NativeComponent
     }
 
     /**
-     * The commit and its replies as they were kept last time.
+     * The commit and its replies as they were kept last time. Opened from a row
+     * with nothing kept, it starts from what the row knew: the commit, and the
+     * commit it replies to when the row had that too.
      */
     private function showKept(): void
     {
         if (($thread = $this->cached($this->threadPath())) !== null) {
             $this->takeThread($thread);
+        } elseif ($this->commit === null && ($commit = $this->data('commit')) instanceof Commit && $commit->id === $this->id) {
+            $this->commit = $commit;
+            $this->ancestors = $commit->parent === null ? [] : [$commit->parent];
         }
 
         if (($replies = $this->cached($this->threadPath().'/replies')) !== null) {

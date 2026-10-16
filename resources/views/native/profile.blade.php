@@ -23,7 +23,9 @@
                             </native:stack>
                         </native:stack>
 
-                        @if ($isMe)
+                        @if ($sketched)
+                            {{-- Follow waits for devnull to say whether you already do. --}}
+                        @elseif ($isMe)
                             <native:button ref="edit-on-github" variant="secondary" size="sm" :ios-icon-trailing="\App\Icons\Lucide::ArrowUpRight->ios()" :android-icon-trailing="\App\Icons\Lucide::ArrowUpRight->android()" @press="editOnGitHub">Edit on GitHub</native:button>
                         @elseif ($profile->isFollowing)
                             <native:button ref="follow" variant="secondary" size="sm" @press="toggleFollow" a11y-hint="Unfollows {{ $user->handle() }}">Unfollow</native:button>
@@ -37,7 +39,7 @@
                         <native:row class="gap-2 items-center">
                             <native:column :width="8" :height="8" class="rounded-full bg-theme-lane-{{ $user->lane() }}" />
                             <native:text font="mono" class="text-[13px] text-theme-ink-muted">{{ $user->handle() }}</native:text>
-                            @if ($profile->followsYou)
+                            @if ($profile->followsYou && ! $sketched)
                                 <native:column class="px-2 py-[2] rounded-full bg-theme-wash">
                                     <native:text class="text-xs text-theme-ink-muted">Follows you</native:text>
                                 </native:column>
@@ -69,6 +71,7 @@
                         @endif
                     </native:column>
 
+                    @if (! $sketched)
                     <native:row ref="counts" class="w-full gap-4">
                         @foreach ([[$profile->commitsCount, 'commit', 'commits'], [$profile->followingCount, 'following', 'following'], [$profile->followersCount, 'follower', 'followers']] as [$count, $singular, $plural])
                             <native:row class="gap-1 items-center">
@@ -77,11 +80,14 @@
                             </native:row>
                         @endforeach
                     </native:row>
+                    @endif
                 </native:column>
                 <native:column class="w-full h-[1] bg-theme-hairline" />
 
-                @include('native.partials.activity', ['activity' => $profile->activity, 'lane' => $user->lane()])
-                @include('native.partials.streaks', ['streaks' => $profile->streaks, 'lane' => $user->lane()])
+                @if (! $sketched)
+                    @include('native.partials.activity', ['activity' => $profile->activity, 'lane' => $user->lane()])
+                    @include('native.partials.streaks', ['streaks' => $profile->streaks, 'lane' => $user->lane()])
+                @endif
             </native:column>
 
             @include('native.partials.page-tabs', ['tabs' => [
@@ -95,7 +101,7 @@
                 @endforeach
             @endif
 
-            @if ($commitsLoaded && $commits === [] && $pinnedCommit === null && $error === null)
+            @if ($commitsLoaded && ! $sketched && $commits === [] && $pinnedCommit === null && $error === null)
                 @if ($tab === 'replies')
                     @include('native.partials.empty', ['command' => 'fatal: no replies yet', 'message' => $isMe ? 'Your replies show up here. Join a conversation from your log.' : "{$user->handle()} hasn't replied to anything yet."])
                 @elseif ($isMe)

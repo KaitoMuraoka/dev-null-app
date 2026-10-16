@@ -66,6 +66,29 @@ it('opens on the profile kept last time, with no request and no spinner, then up
         ->and(count(Http::recorded()))->toBe(2);
 });
 
+it('opens on what a commit row knew of its author, then fills in the rest', function () {
+    holdRefreshes();
+    keep('log/following', pageJson([adaCommit(['id' => 'a1', 'body' => 'Analytical engine notes'])]));
+    serveAda([adaCommit(['id' => 'a1', 'body' => 'Analytical engine notes'])]);
+
+    $profile = Native::visit('/log')->call('openProfile', 'ada')->follow()
+        ->assertSee('Ada Lovelace')
+        ->assertSee('@ada')
+        ->assertSee('Wrote the first program.')
+        ->assertMissingElement('row', fn (array $node): bool => ($node['ref'] ?? null) === 'counts')
+        ->assertMissingElement('button', fn (array $node): bool => ($node['ref'] ?? null) === 'follow')
+        ->assertElement('row', fn (array $node): bool => ($node['ref'] ?? null) === 'loading-1')
+        ->assertMissingElement('column', fn (array $node): bool => ($node['ref'] ?? null) === 'loading-profile');
+
+    expect(count(Http::recorded()))->toBe(0);
+
+    finishRefreshes($profile)
+        ->assertElement('row', fn (array $node): bool => ($node['ref'] ?? null) === 'counts')
+        ->assertElement('button', fn (array $node): bool => ($node['ref'] ?? null) === 'follow')
+        ->assertSee('Analytical engine notes')
+        ->assertMissingElement('row', fn (array $node): bool => ($node['ref'] ?? null) === 'loading-1');
+});
+
 it('shows a spinner only the first time, when nothing is known of them', function () {
     holdRefreshes();
     serveAda([]);
