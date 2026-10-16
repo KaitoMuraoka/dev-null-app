@@ -46,13 +46,13 @@ it('prints the date the way git log does', function () {
     Native::visit('/log/commits/c2')->assertSee('Wed Oct 14 20:13:05 2026 +0000 · c2');
 });
 
-it('counts down the reply budget and posts the reply', function () {
+it('posts a reply, with no countdown while there is room', function () {
     fakeThread(extra: ['POST /api/v1/commits' => [['data' => commitJson(['id' => 'r9', 'parent_id' => 'c2', 'body' => 'A fresh reply'])], 201]]);
 
     Native::visit('/log/commits/c2')
         ->assertSee('No replies yet.')
         ->input('reply-input', 'A fresh reply')
-        ->assertSee('267')
+        ->assertMissingElement('text', fn (array $node): bool => ($node['ref'] ?? null) === 'reply-budget')
         ->tap('send-reply')
         ->assertSet('reply', '')
         ->assertSee('A fresh reply')
@@ -88,7 +88,7 @@ it('turns the budget red at zero and holds back a short reply', function () {
     Native::visit('/log/commits/c2')
         ->input('reply-input', 'hi')
         ->tap('send-reply')
-        ->input('reply-input', str_repeat('a', 280))
+        ->input('reply-input', str_repeat('a', 4000))
         ->assertElement('text', fn (array $node): bool => ($node['ref'] ?? null) === 'reply-budget'
             && ($node['text'] ?? $node['props']['text'] ?? null) === '0'
             && ($node['props']['color'] ?? null) === config('native-ui.theme.light.destructive'));

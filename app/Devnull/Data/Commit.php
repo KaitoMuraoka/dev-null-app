@@ -22,7 +22,12 @@ final readonly class Commit
 {
     public const int MinLength = 3;
 
-    public const int MaxLength = 280;
+    public const int MaxLength = 4000;
+
+    /**
+     * The web's composer only counts down once this few characters are left.
+     */
+    public const int CountFrom = 200;
 
     /**
      * A list shows a body longer than this, or longer than PreviewLines lines, as its start and "Show more".
@@ -153,6 +158,18 @@ final readonly class Commit
             'starsCount' => $fresh->starsCount,
             'isSaved' => $fresh->isSaved ?? $this->isSaved,
         ]);
+    }
+
+    /**
+     * Whether a list would show only the start of a body, as the web's composer
+     * works it out: more than PreviewLength characters or PreviewLines lines,
+     * once blank lines in a run are counted as one.
+     */
+    public static function isFoldedInLists(string $body): bool
+    {
+        $normalized = trim((string) preg_replace('/(?:[ \t]*\n){3,}/', "\n\n", str_replace("\r\n", "\n", $body)));
+
+        return mb_strlen($normalized) > self::PreviewLength || count(explode("\n", $normalized)) > self::PreviewLines;
     }
 
     /**

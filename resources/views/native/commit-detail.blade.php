@@ -106,9 +106,9 @@
                         :autofocus="$focusReply"
                         multiline
                         :max-lines="5"
-                        :max-length="280"
+                        :max-length="\App\Devnull\Data\Commit::MaxLength"
                     />
-                    <native:text ref="reply-budget" font="mono" class="text-[13px] {{ $remaining <= 0 ? 'text-theme-destructive' : 'text-theme-ink-muted' }}">{{ $remaining }}</native:text>
+                    @include('native.partials.body-counter', ['body' => $reply, 'ref' => 'reply-budget'])
                     <native:button ref="send-reply" size="sm" :disabled="$replyLength < 3 || $remaining < 0" @press="sendReply">Reply</native:button>
                 </native:row>
             </native:column>

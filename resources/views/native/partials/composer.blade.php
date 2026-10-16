@@ -1,7 +1,7 @@
 {{--
     The top of the log, like the web's composer: your avatar staged on the rail beside "What did you ship?", which you
-    type into where it is. Once you're in it, or it holds a draft, the 280 budget and Commit sit under it. The ring is
-    dashed until the commit is long enough to make, then solid.
+    type into where it is. Once you're in it, or it holds a draft, Commit sits under it, with the web's counter once
+    few of the 4,000 characters are left. The ring is dashed until the commit is long enough to make, then solid.
 
     The field is keyed, so a new $composerKey (or a new list key) mounts a fresh one: clean after a commit, and
     focused when $focusComposer asks. A touch on it is how the screen learns you're in it, since a field reports
@@ -22,7 +22,7 @@
                     :autofocus="$focusComposer"
                     multiline
                     :max-lines="8"
-                    :max-length="280"
+                    :max-length="\App\Devnull\Data\Commit::MaxLength"
                     size="lg"
                     a11y-label="Commit message"
                 />
@@ -30,7 +30,7 @@
 
             @if ($composerOpen)
                 <native:row class="w-full gap-3 items-center justify-end">
-                    <native:text ref="budget" font="mono" class="text-[13px] {{ $remaining <= 0 ? 'text-theme-destructive' : 'text-theme-ink-muted' }}" a11y-label="{{ $remaining }} characters left">{{ $remaining }}</native:text>
+                    @include('native.partials.body-counter', ['body' => $body, 'ref' => 'budget'])
                     <native:button ref="commit" variant="primary" :disabled="! $canCommit" @press="commit">Commit</native:button>
                 </native:row>
             @endif

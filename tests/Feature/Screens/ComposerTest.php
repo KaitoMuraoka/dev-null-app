@@ -38,22 +38,21 @@ it('is a field at the top of the log, with no budget or Commit until you are in 
     Native::visit('/log')
         ->assertElement('bare_text_input', fn (array $node): bool => ($node['ref'] ?? null) === 'body'
             && ($node['props']['placeholder'] ?? null) === 'What did you ship?'
-            && ($node['props']['max_length'] ?? null) === 280
+            && ($node['props']['max_length'] ?? null) === 4000
             && ($node['props']['multiline'] ?? false)
             && ! isset($node['props']['autofocus']))
         ->assertMissingElement('text', fn (array $node): bool => ($node['ref'] ?? null) === 'budget')
         ->assertMissingElement('button', fn (array $node): bool => ($node['ref'] ?? null) === 'commit');
 });
 
-it('opens where it is when you tap into it: the 280 budget and a disabled Commit, and no navigation', function () {
+it('opens where it is when you tap into it, with a disabled Commit, no countdown yet, and no navigation', function () {
     Http::fake(['devnull.test/*' => Http::response(pageJson([commitJson()]))]);
 
     Native::visit('/log')
         ->pressUp('composer-field')
         ->assertNoNavigation()
         ->assertSet('composing', true)
-        ->assertElement('text', composerBudget()('280', 'ink-muted'))
-        ->assertElement('text', fn (array $node): bool => ($node['ref'] ?? null) === 'budget' && ($node['props']['font_name'] ?? $node['props']['font'] ?? null) !== null)
+        ->assertMissingElement('text', fn (array $node): bool => ($node['ref'] ?? null) === 'budget')
         ->assertElement('button', commitButton(disabled: true));
 });
 
@@ -62,19 +61,39 @@ it('stays open once it has a draft', function () {
 
     Native::visit('/log')
         ->input('body', 'Shipped it')
-        ->assertElement('text', composerBudget()('270', 'ink-muted'))
         ->assertElement('button', commitButton(disabled: false));
 });
 
-it('counts down in mono and turns red at zero', function () {
+it('counts down like the web only once 200 characters are left, amber from 20 and red at none', function () {
     Http::fake(['devnull.test/*' => Http::response(pageJson([commitJson()]))]);
 
     Native::visit('/log')
         ->pressUp('composer-field')
-        ->input('body', 'Shipped it')
-        ->assertElement('text', composerBudget()('270', 'ink-muted'))
+        ->input('body', str_repeat('x', 3799))
+        ->assertMissingElement('text', fn (array $node): bool => ($node['ref'] ?? null) === 'budget')
+        ->input('body', str_repeat('x', 3800))
+        ->assertElement('text', composerBudget()('200', 'ink-muted'))
+        ->assertElement('text', fn (array $node): bool => ($node['ref'] ?? null) === 'budget' && ($node['props']['font_name'] ?? $node['props']['font'] ?? null) !== null)
+        ->input('body', str_repeat('x', 3980))
+        ->assertElement('text', composerBudget()('20', 'pending'))
+        ->input('body', str_repeat('x', 4000))
+        ->assertElement('text', composerBudget()('0', 'destructive'))
+        ->assertElement('button', commitButton(disabled: false));
+});
+
+it('shows the fold icon once a commit is long enough for lists to show only its start', function () {
+    Http::fake(['devnull.test/*' => Http::response(pageJson([commitJson()]))]);
+
+    $fold = fn (array $node): bool => ($node['ref'] ?? null) === 'budget-fold' && ($node['props']['name'] ?? null) === 'custom:fold-vertical';
+
+    Native::visit('/log', platform: 'ios')
+        ->pressUp('composer-field')
         ->input('body', str_repeat('x', 280))
-        ->assertElement('text', composerBudget()('0', 'destructive'));
+        ->assertMissingElement('icon', $fold)
+        ->input('body', str_repeat('x', 281))
+        ->assertElement('icon', $fold)
+        ->input('body', implode("\n", range(1, 9)))
+        ->assertElement('icon', $fold);
 });
 
 it('enables Commit once the commit is long enough', function () {
@@ -193,7 +212,7 @@ it('goes back to the top of the log and into the composer from the nav bar', fun
 
     $screen->call('compose')
         ->assertNoNavigation()
-        ->assertElement('text', composerBudget()('280', 'ink-muted'));
+        ->assertElement('button', commitButton(disabled: true));
 
     // A new list starts at the top, and a new field with autofocus takes the focus as it appears.
     expect(nodeByRef($screen, 'log')['id'])->not->toBe($list)
