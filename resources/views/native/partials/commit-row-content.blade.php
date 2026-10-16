@@ -6,8 +6,13 @@
     In a feed, $continuesNext says whether the author's run goes on in the next row. The rail then runs on, or for a
     commit alone in its run ends in a dot of its own, and with replies under the row ($threadBelow) a dashed line in
     the lane carries on down to them, as the web draws it.
+
+    On a commit page the commit it's about ($focused) is the main thing: a larger name and body in full ink, its git
+    date and hash, and its replies behind a toggle in its action row. The commits around it ($muted) step back:
+    smaller and in muted ink, with a smaller avatar and action row. They still open their own pages.
 --}}
 @php($author = $commit->author)
+@php($muted ??= false)
 @php($hairline ??= true)
 @php($seriesExpanded ??= false)
 @php($withTail ??= ! $focused)
@@ -19,12 +24,14 @@
 <native:column :width="64" />
 
 <native:column class="flex-1">
-    <native:column class="w-full min-h-[64] {{ $threadBelow ? 'pt-3' : 'py-3' }} pr-4 gap-1">
+    @php($padding = $focused ? ($threadBelow ? 'pt-4' : 'py-4') : ($threadBelow ? 'pt-3' : 'py-3'))
+    @php($metaSize = $muted ? 'text-xs' : 'text-[13px]')
+    <native:column class="w-full {{ $muted ? 'min-h-[56]' : 'min-h-[64]' }} {{ $padding }} pr-4 gap-1">
         <native:row class="w-full gap-[6] items-center">
-            <native:text font="semibold" class="text-[15px] text-theme-ink flex-shrink" :max-lines="1">{{ $author->name }}</native:text>
-            <native:text font="mono" class="text-[13px] text-theme-ink-muted flex-shrink" :max-lines="1">{{ $author->handle() }}</native:text>
-            <native:text class="text-[13px] text-theme-ink-muted">·</native:text>
-            <native:text font="mono" class="text-[13px] text-theme-ink-muted flex-shrink-0">{{ \App\Devnull\Display::relativeTime($commit->createdAt) }}</native:text>
+            <native:text font="semibold" class="{{ $focused ? 'text-base' : ($muted ? 'text-sm' : 'text-[15px]') }} {{ $muted ? 'text-theme-ink-muted' : 'text-theme-ink' }} flex-shrink" :max-lines="1">{{ $author->name }}</native:text>
+            <native:text font="mono" class="{{ $metaSize }} text-theme-ink-muted flex-shrink" :max-lines="1">{{ $author->handle() }}</native:text>
+            <native:text class="{{ $metaSize }} text-theme-ink-muted">·</native:text>
+            <native:text font="mono" class="{{ $metaSize }} text-theme-ink-muted flex-shrink-0">{{ \App\Devnull\Display::relativeTime($commit->createdAt) }}</native:text>
             @if ($commit->isSeriesPart())
                 @include('native.partials.series-position')
             @endif
@@ -47,7 +54,7 @@
             </native:pressable>
         @endif
 
-        @include('native.partials.commit-body', ['size' => $focused ? 'text-[17px]' : 'text-[15px]'])
+        @include('native.partials.commit-body', ['size' => $focused ? 'text-[17px]' : ($muted ? 'text-sm' : 'text-[15px]'), 'muted' => $muted])
         @include('native.partials.commit-media')
 
         @if ($laterParts > 0)
@@ -63,7 +70,16 @@
             <native:text font="mono" class="mt-1 text-[13px] text-theme-ink-muted">{{ \App\Devnull\Display::gitDate($commit->createdAt) }} · {{ $commit->shortHash }}</native:text>
         @endif
 
-        @include('native.partials.commit-actions', ['withReply' => ! $focused, 'withReplies' => ! $focused])
+        @if ($focused)
+            @include('native.partials.commit-actions', [
+                'withReply' => false,
+                'repliesToggle' => 'toggleReplies',
+                'repliesOpen' => $repliesShown ?? false,
+                'repliesCount' => $replyCount ?? $commit->repliesCount,
+            ])
+        @else
+            @include('native.partials.commit-actions', ['compact' => $muted])
+        @endif
     </native:column>
     @if ($hairline && ! $threadBelow)
         <native:column class="w-full h-[1] bg-theme-hairline" />
@@ -78,6 +94,7 @@
     'replyTail' => $threadBelow && ! ($inFeed && $continuesNext),
     'replyDashes' => \App\Devnull\Display::dashesFor($commit),
     'node' => $continuesRun ? 'dot' : 'avatar',
+    'avatarSize' => $muted ? 36 : 48,
     'user' => $author,
     'press' => "openProfile('{$author->username}')",
 ])

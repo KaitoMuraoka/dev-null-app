@@ -27,6 +27,9 @@ use Native\Mobile\Facades\Dialog;
  * parts below, with its replies between, as on the web. Deleted ancestors,
  * parts and replies show as tombstones.
  *
+ * The commit opens at the top, with what it replies to behind "↑ N earlier
+ * commits" and its replies behind "› N replies", each opened in place.
+ *
  * It opens on the commit as it was last time, or opened from a row, on what
  * the row knew of it, then asks devnull for the rest behind it and fills it in.
  */
@@ -71,6 +74,16 @@ class CommitDetail extends NativeComponent
     public array $tombstoneReplies = [];
 
     public string $reply = '';
+
+    /**
+     * Whether the ancestors show above the commit, rather than "↑ N earlier commits".
+     */
+    public bool $earlierShown = false;
+
+    /**
+     * Whether the replies show under the commit, rather than "› N replies".
+     */
+    public bool $repliesShown = false;
 
     /**
      * Opened from a Reply action, so the reply composer takes the focus.
@@ -146,6 +159,22 @@ class CommitDetail extends NativeComponent
     }
 
     /**
+     * "↑ N earlier commits": the ancestors open above the commit.
+     */
+    public function showEarlier(): void
+    {
+        $this->earlierShown = true;
+    }
+
+    /**
+     * "› N replies" under the commit opens them in place, and "Hide replies" folds them away.
+     */
+    public function toggleReplies(): void
+    {
+        $this->repliesShown = ! $this->repliesShown;
+    }
+
+    /**
      * A deleted reply has no page of its own, so its replies open in place below it.
      */
     public function toggleTombstone(string $id): void
@@ -189,6 +218,7 @@ class CommitDetail extends NativeComponent
 
         $this->reply = '';
         $this->replies = [...$this->replies, $reply];
+        $this->repliesShown = true;
     }
 
     public function confirmDelete(): void
@@ -313,9 +343,17 @@ class CommitDetail extends NativeComponent
 
     public function render(): View
     {
+        $earlier = $this->earlierShown ? [] : $this->ancestors;
+
         return view('native.commit-detail', [
             'viewer' => $this->me(),
-            'rows' => $this->commit === null ? [] : Timeline::thread([...$this->ancestors, $this->commit, ...$this->series]),
+            'rows' => $this->commit === null ? [] : Timeline::thread(
+                [...($this->earlierShown ? $this->ancestors : []), $this->commit, ...$this->series],
+                laneAbove: $earlier === [] ? null : end($earlier)->lane(),
+            ),
+            'earlierCount' => $this->commit === null ? 0 : count($earlier),
+            'earlierLane' => $earlier === [] ? null : end($earlier)->lane(),
+            'replyCount' => max($this->commit->repliesCount ?? 0, count($this->replies)),
         ]);
     }
 }

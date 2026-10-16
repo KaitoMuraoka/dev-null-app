@@ -28,15 +28,85 @@ function fakeThread(array $commit = [], array $replies = [], array $extra = []):
     ]);
 }
 
-it('shows the ancestors above the commit and the replies below', function () {
-    fakeThread(replies: [replyJson(['id' => 'r1', 'parent_id' => 'c2', 'body' => 'First reply', 'author' => userJson(['username' => 'grace', 'name' => 'Grace'])])]);
+it('opens on the commit, with its ancestors and replies folded away above and below it', function () {
+    fakeThread(['replies_count' => 1], replies: [replyJson(['id' => 'r1', 'parent_id' => 'c2', 'body' => 'First reply', 'author' => userJson(['username' => 'grace', 'name' => 'Grace'])])]);
 
-    Native::visit('/log/commits/c2')
+    $screen = Native::visit('/log/commits/c2')
         ->assertNavTitle('Commit')
-        ->assertSee('The parent commit')
         ->assertSee('The focused commit')
-        ->assertSee('First reply')
+        ->assertSee('1 earlier commit')
+        ->assertSee('1 reply')
+        ->assertDontSee('The parent commit')
+        ->assertDontSee('First reply')
         ->assertSee('Reply to @local_dev');
+
+    // The commit comes first, after only the row standing in for what it replies to.
+    expect(childRefs($screen, 'thread-page'))->toBe(['earlier-commits', 'focused-commit', 'reply-bar-clearance']);
+
+    $screen->tap('earlier-commits')
+        ->assertSee('The parent commit')
+        ->assertDontSee('1 earlier commit');
+
+    expect(childRefs($screen, 'thread-page'))->toBe(['commit-c1', 'focused-commit', 'reply-bar-clearance']);
+
+    $screen->tap('replies-c2')
+        ->assertSee('First reply')
+        ->assertSee('Hide replies');
+
+    expect(childRefs($screen, 'thread-page'))->toBe(['commit-c1', 'focused-commit', 'thread-reply-r1', 'reply-bar-clearance']);
+
+    $screen->tap('replies-c2')
+        ->assertDontSee('First reply')
+        ->assertSee('1 reply');
+});
+
+it('runs the rail from the folded ancestors into the commit, which shows its avatar', function () {
+    $ada = userJson(['id' => 'u2', 'username' => 'ada', 'name' => 'Ada', 'lane' => 1]);
+    fakeApi([
+        'GET /api/v1/commits/c2' => [commitPageJson(
+            commitJson(['id' => 'c2', 'parent_id' => 'c1', 'body' => 'Ada again', 'author' => $ada]),
+            [commitJson(['id' => 'c1', 'body' => 'Ada first', 'author' => $ada])],
+        )],
+        'GET /api/v1/commits/c2/replies' => [pageJson([])],
+    ]);
+
+    $screen = Native::visit('/log/commits/c2', platform: 'ios');
+    $lane = config('native-ui.theme.light.lane-1');
+    $segment = fn (array $node): bool => ($node['layout']['width'] ?? null) === 2.0 && ($node['style']['bg_color'] ?? null) === $lane;
+
+    expect(railNode($screen, 'focused-commit'))->toBe('avatar')
+        ->and(findNode(nodeByRef($screen, 'earlier-commits'), $segment))->not->toBeNull()
+        ->and(findNode(nodeByRef($screen, 'focused-commit'), $segment))->not->toBeNull();
+});
+
+it('draws the commit as the main thing, and what is around it muted', function () {
+    fakeThread(['stars_count' => 2], replies: [replyJson(['id' => 'r1', 'parent_id' => 'c2', 'body' => 'First reply'])]);
+
+    $screen = unfolded(Native::visit('/log/commits/c2', platform: 'ios'));
+    $ink = strtolower(config('native-ui.theme.light.ink'));
+    $muted = strtolower(config('native-ui.theme.light.ink-muted'));
+    $bodyOf = fn (string $ref, string $text): ?array => findNode(nodeByRef($screen, $ref), fn (array $node): bool => ($node['type'] ?? null) === 'text'
+        && str_contains(implode('', array_map(fn (array $run): string => $run['props']['text'] ?? '', $node['children'] ?? [])), $text));
+    $avatarRing = fn (string $ref): ?float => findNode(nodeByRef($screen, $ref), fn (array $node): bool => ($node['type'] ?? null) === 'stack' && in_array($node['layout']['width'] ?? null, [36.0, 48.0], true))['layout']['width'] ?? null;
+    $linkIcon = fn (string $id): mixed => findNode(nodeByRef($screen, 'copy-link-'.$id), fn (array $node): bool => ($node['type'] ?? null) === 'icon')['props']['size'] ?? null;
+
+    $focused = $bodyOf('focused-commit', 'The focused commit');
+    $ancestor = $bodyOf('commit-c1', 'The parent commit');
+    $reply = $bodyOf('thread-reply-r1', 'First reply');
+
+    expect($focused['props']['font_size'])->toEqual(17)
+        ->and(strtolower($focused['props']['color']))->toBe($ink)
+        ->and($ancestor['props']['font_size'])->toEqual(14)
+        ->and(strtolower($ancestor['props']['color']))->toBe($muted)
+        ->and($reply['props']['font_size'])->toEqual(14)
+        ->and(strtolower($reply['props']['color']))->toBe($muted)
+        ->and($avatarRing('focused-commit'))->toEqual(48)
+        ->and($avatarRing('commit-c1'))->toEqual(36)
+        ->and($linkIcon('c2'))->toEqual(16)
+        ->and($linkIcon('c1'))->toEqual(14)
+        ->and($linkIcon('r1'))->toEqual(14);
+
+    $screen->assertSee('+0000 · c2');
 });
 
 it("hangs the replies under the commit on the web's thread, the rail ending in a dot above them", function () {
@@ -45,7 +115,7 @@ it("hangs the replies under the commit on the web's thread, the rail ending in a
         replyJson(['id' => 'r2', 'parent_id' => 'c2', 'body' => 'Second reply']),
     ]);
 
-    $screen = Native::visit('/log/commits/c2', platform: 'ios');
+    $screen = unfolded(Native::visit('/log/commits/c2', platform: 'ios'));
     $first = nodeByRef($screen, 'thread-reply-r1');
     $second = nodeByRef($screen, 'thread-reply-r2');
 
@@ -150,8 +220,8 @@ it('offers delete only on your own commits', function () {
 it('opens ancestors, replies and profiles', function () {
     fakeThread(replies: [replyJson(['id' => 'r1'])]);
 
-    Native::visit('/log/commits/c2')->tap('commit-c1')->assertNavigatedTo('/log/commits/c1');
-    Native::visit('/log/commits/c2')->tap('thread-reply-r1')->assertNavigatedTo('/log/commits/r1');
+    Native::visit('/log/commits/c2')->tap('earlier-commits')->tap('commit-c1')->assertNavigatedTo('/log/commits/c1');
+    Native::visit('/log/commits/c2')->tap('replies-c2')->tap('thread-reply-r1')->assertNavigatedTo('/log/commits/r1');
     Native::visit('/log/commits/c2')->call('openProfile', 'ada')->assertNavigatedTo('/log/users/ada');
 });
 
@@ -170,6 +240,8 @@ it('keeps deleted ancestors on the rail as tombstones', function () {
     $rail = config('native-ui.theme.light.rail');
 
     $screen = Native::visit('/log/commits/c2')
+        ->assertSee('2 earlier commits')
+        ->tap('earlier-commits')
         ->assertSee('The root commit')
         ->assertSee('[deleted]')
         ->assertSee('This commit was deleted.')
@@ -194,6 +266,7 @@ it('keeps deleted replies as tombstones and opens their replies in place', funct
     ]);
 
     $screen = Native::visit('/log/commits/c2')
+        ->tap('replies-c2')
         ->assertSee('This commit was deleted.')
         ->assertSee('Still here')
         ->assertDontSee('Answering the deleted one')
@@ -208,6 +281,7 @@ it('keeps deleted replies as tombstones and opens their replies in place', funct
     $screen->tap('thread-reply-r3')->assertNavigatedTo('/log/commits/r3');
 
     Native::visit('/log/commits/c2')
+        ->tap('replies-c2')
         ->tap('tombstone-replies-r1')
         ->tap('tombstone-replies-r1')
         ->assertDontSee('Answering the deleted one')
@@ -282,6 +356,7 @@ it('reloads when you come back from a reply you deleted', function () {
     });
 
     $reply = Native::visit('/log/commits/c2')
+        ->tap('replies-c2')
         ->assertSee('Soon gone')
         ->tap('thread-reply-r1')
         ->follow()
@@ -309,6 +384,11 @@ it('shows your avatar once when you reply to yourself', function () {
     $screen = Native::visit('/log/commits/c3')
         ->assertSee('And one more thing');
 
+    // Folded away, the run above has no avatar to share, so the commit shows its own.
+    expect(railNode($screen, 'focused-commit'))->toBe('avatar');
+
+    $screen->tap('earlier-commits');
+
     expect(railNode($screen, 'commit-c1'))->toBe('avatar')
         ->and(railNode($screen, 'commit-c2'))->toBe('avatar')
         ->and(railNode($screen, 'focused-commit'))->toBe('dot');
@@ -329,7 +409,7 @@ it('stars the focused commit and its replies in place', function () {
         'PUT /api/v1/commits/r1/bookmark' => [['data' => commitJson(['id' => 'r1', 'is_saved' => true])]],
     ]);
 
-    $screen = Native::visit('/log/commits/c2')->tap('star-c2')->tap('bookmark-r1');
+    $screen = Native::visit('/log/commits/c2')->tap('star-c2')->tap('replies-c2')->tap('bookmark-r1');
 
     expect($screen->instance()->commit->starred)->toBeTrue()
         ->and($screen->instance()->commit->body)->toBe('The focused commit')
@@ -339,7 +419,7 @@ it('stars the focused commit and its replies in place', function () {
 it('lets a drag that starts on an ancestor or a reply scroll the thread', function () {
     fakeThread(replies: [replyJson(['id' => 'r1', 'parent_id' => 'c2'])]);
 
-    $screen = Native::visit('/log/commits/c2', platform: 'ios');
+    $screen = unfolded(Native::visit('/log/commits/c2', platform: 'ios'));
 
     nodeByRef($screen, 'commit-c1');
     nodeByRef($screen, 'thread-reply-r1');

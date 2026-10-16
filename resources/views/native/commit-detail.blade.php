@@ -6,7 +6,7 @@
     @include('native.partials.refresh-failed')
 
     <native:scroll-view class="w-full flex-1 bg-theme-surface">
-        <native:column class="w-full bg-theme-surface">
+        <native:column ref="thread-page" class="w-full bg-theme-surface">
             @if (! $commit && $error === null)
                 <native:column ref="loading-commit" class="w-full items-center py-16" a11y-label="Loading commit">
                     <native:activity-indicator />
@@ -14,15 +14,22 @@
             @endif
 
             {{--
-                The ancestors, the commit and the rest of its series on one rail, so someone replying to themselves shows
-                their avatar once. As on the web, the commit's replies hang under it on the thread's dashed lines, with
-                the rail ending in a dot above them. A part of a series with more parts after it has its replies right
-                under it, beside the rail running on, and the later parts follow. A deleted reply's own replies open in
-                place, one level in, since a deleted commit has no page.
+                The commit is the main thing, at the top: larger, in full ink, with its git date and its replies behind
+                a toggle in its action row. What it replies to waits behind "↑ N earlier commits" above it, since EDGE
+                can't open the page scrolled down to it. Opened, the ancestors, the commit and the rest of its series
+                share one rail, so someone replying to themselves shows their avatar once. The replies hang under it
+                on the thread's dashed lines, with the rail ending in a dot above them. A part of a series with more
+                parts after it has its replies right under it, beside the rail running on, and the later parts follow.
+                Everything around the commit is muted, and still opens its own page. A deleted reply's own replies
+                open in place, one level in, since a deleted commit has no page.
             --}}
+            @if ($earlierCount > 0)
+                @include('native.partials.earlier-commits', ['count' => $earlierCount, 'lane' => $earlierLane])
+            @endif
+
             @foreach ($rows as $row)
                 @php($isFocused = $row->commit->id === $commit?->id)
-                @php($hasThread = $isFocused && $replies !== [])
+                @php($hasThread = $isFocused && $repliesShown && $replies !== [])
                 @include('native.partials.commit-row', [
                     'commit' => $row->commit,
                     'previousLane' => $row->previousLane,
@@ -30,9 +37,15 @@
                     'continuesNext' => $isFocused ? ! $loop->last : null,
                     'threadBelow' => $hasThread,
                     'focused' => $isFocused,
+                    'muted' => ! $isFocused,
                     'seriesExpanded' => true,
                     'withTail' => ! $loop->last,
                 ])
+                @if ($isFocused && $repliesShown && $replies === [] && ! $repliesLoaded && $error === null)
+                    <native:row ref="loading-replies" class="w-full pl-[64] pr-4 py-4 gap-2 items-center" a11y-label="Loading replies">
+                        <native:activity-indicator size="small" />
+                    </native:row>
+                @endif
                 @if ($hasThread)
                     @php($railLane = $loop->last ? null : $commit->lane())
                     @foreach ($replies as $index => $threadReply)
@@ -45,6 +58,7 @@
                             'hasNext' => $hasNext,
                             'railLane' => $railLane,
                             'tombstones' => true,
+                            'muted' => true,
                             'thread' => $commit,
                             'more' => $loop->last && $nested === [] && $repliesCursor !== null ? 'loadMoreReplies' : null,
                             'last' => $loop->last && $nested === [],
@@ -58,6 +72,7 @@
                                 'railLane' => $railLane,
                                 'indent' => 32,
                                 'spine' => $hasNext ? $threadReply->lane() : null,
+                                'muted' => true,
                                 'thread' => $commit,
                                 'more' => $loop->last && $loop->parent->last && $repliesCursor !== null ? 'loadMoreReplies' : null,
                                 'last' => $loop->last && $loop->parent->last,
@@ -67,16 +82,10 @@
                 @endif
             @endforeach
 
-            @if ($commit && $replies === [] && $series === [])
-                @if ($repliesLoaded)
-                    <native:column class="w-full px-4 py-4">
-                        <native:text class="text-sm text-theme-ink-muted">No replies yet.</native:text>
-                    </native:column>
-                @elseif ($error === null)
-                    <native:row ref="loading-replies" class="w-full px-4 py-4 gap-2 items-center" a11y-label="Loading replies">
-                        <native:activity-indicator size="small" />
-                    </native:row>
-                @endif
+            @if ($commit && $replyCount === 0 && $repliesLoaded && $series === [])
+                <native:column class="w-full pl-[64] pr-4 py-4">
+                    <native:text class="text-sm text-theme-ink-muted">No replies yet.</native:text>
+                </native:column>
             @endif
 
             {{--

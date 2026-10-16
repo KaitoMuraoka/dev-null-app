@@ -111,6 +111,14 @@ it('lays the series out in order on a part\'s page, the part in focus', function
     ]);
 
     $screen = Native::visit('/log/commits/p2')
+        // The earlier part waits above, the later one follows.
+        ->assertSee('1 earlier commit')
+        ->assertDontSee('Part 1 of the thread')
+        ->assertSee('Part 3 of the thread');
+
+    expect(threadRows($screen))->toBe(['focused-commit', 'commit-p3']);
+
+    $screen->tap('earlier-commits')
         ->assertSee('Part 1 of the thread')
         ->assertSee('Part 2 of the thread')
         ->assertSee('Part 3 of the thread')
@@ -142,6 +150,12 @@ it('puts a part\'s replies under it, above the later parts, as on the web', func
     ]);
 
     $screen = Native::visit('/log/commits/p1')
+        ->assertDontSee('Reads well')
+        ->assertSee('2 replies');
+
+    expect(threadRows($screen))->toBe(['focused-commit', 'commit-p2', 'commit-p3']);
+
+    $screen->tap('replies-p1')
         ->assertSee('Reads well')
         ->assertSee('Agreed')
         ->assertDontSee('2 replies');
@@ -155,7 +169,7 @@ it('keeps replies at the foot of the last part\'s page', function () {
         'GET /api/v1/commits/p3/replies' => [pageJson([replyJson(['id' => 'r1', 'parent_id' => 'p3', 'body' => 'The end'])])],
     ]);
 
-    $screen = Native::visit('/log/commits/p3')
+    $screen = unfolded(Native::visit('/log/commits/p3'))
         ->assertSee('The end');
 
     expect(threadRows($screen))->toBe(['commit-p1', 'commit-p2', 'focused-commit', 'thread-reply-r1'])

@@ -13,6 +13,7 @@
     $endsWithDot stops the $tail 20pt above the bottom at a lane dot, as the web ends a commit that's alone in its run.
     $replyTail runs a dashed line in the lane on down from the node, or from that dot, to the replies under the row.
     It's $replyDashes long when it starts at the node, enough for the row, since PHP can't know its height.
+    $avatarSize draws the avatar's ring smaller than its 48pt, centred in the same place.
 --}}
 @php($previous ??= null)
 @php($tail ??= null)
@@ -22,6 +23,7 @@
 @php($endsWithDot ??= false)
 @php($replyTail ??= false)
 @php($replyDashes ??= 40)
+@php($avatarSize ??= 48)
 @php($center = 32)
 @php($endDot = 20)
 @php($segment = fn (int|string $lane): string => $lane === \App\Devnull\Lane::Rail ? 'bg-theme-rail' : 'bg-theme-lane-'.$lane)
@@ -69,10 +71,11 @@
             @endif
         </native:column>
     @else
-        <native:column class="absolute top-[{{ $center - 24 }}] left-[8]">
+        @php($nodeSize = $node === 'avatar' ? $avatarSize : 48)
+        <native:column class="absolute top-[{{ $center - intdiv($nodeSize, 2) }}] left-[{{ 32 - intdiv($nodeSize, 2) }}]">
             @if ($node === 'avatar' && $press)
                 <native:pressable @press="{{ $press }}" a11y-label="{{ $user->name }}'s profile">
-                    @include('native.partials.rail-avatar', ['user' => $user, 'lane' => $lane])
+                    @include('native.partials.rail-avatar', ['user' => $user, 'lane' => $lane, 'size' => $avatarSize])
                 </native:pressable>
             @elseif ($node === 'avatar' || $node === 'staged')
                 @include('native.partials.rail-avatar', ['user' => $user, 'lane' => $lane, 'staged' => $node === 'staged'])

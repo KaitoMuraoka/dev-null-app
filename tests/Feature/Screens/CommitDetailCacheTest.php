@@ -37,7 +37,7 @@ it('opens on the commit and replies kept last time, with no request and no spinn
     keep('commits/c1/replies', pageJson([replyJson(['id' => 'r1', 'parent_id' => 'c1', 'body' => 'A compiler'])]));
     serveThread();
 
-    $screen = Native::visit('/log/commits/c1')
+    $screen = unfolded(Native::visit('/log/commits/c1'))
         ->assertSee('The commit it replies to')
         ->assertSee('What should I build next?')
         ->assertSee('A compiler');
@@ -59,17 +59,23 @@ it('opens from a row on what the row knew, then fills in the replies and what it
         ->assertSee('What should I build next?')
         ->assertSee('Ada Lovelace')
         ->assertSee('3')
-        ->assertElement('row', fn (array $node): bool => ($node['ref'] ?? null) === 'loading-replies')
+        ->assertSee('1 reply')
+        ->assertMissingElement('row', fn (array $node): bool => ($node['ref'] ?? null) === 'loading-replies')
         ->assertElement('bare_text_input', fn (array $node): bool => ($node['ref'] ?? null) === 'reply-input')
         ->assertDontSee('No replies yet.')
         ->assertMissingElement('column', fn (array $node): bool => ($node['ref'] ?? null) === 'loading-commit');
 
+    // Opened before devnull answers, the replies say they're on their way.
+    $commit->tap('replies-c1')
+        ->assertElement('row', fn (array $node): bool => ($node['ref'] ?? null) === 'loading-replies');
+
     expect(count(Http::recorded()))->toBe(0);
 
     finishRefreshes($commit)
-        ->assertSee('The commit it replies to')
         ->assertSee('A compiler')
-        ->assertMissingElement('row', fn (array $node): bool => ($node['ref'] ?? null) === 'loading-replies');
+        ->assertMissingElement('row', fn (array $node): bool => ($node['ref'] ?? null) === 'loading-replies')
+        ->tap('earlier-commits')
+        ->assertSee('The commit it replies to');
 });
 
 it('shows a spinner only the first time, when nothing is known of the commit', function () {
@@ -79,7 +85,7 @@ it('shows a spinner only the first time, when nothing is known of the commit', f
     $screen = Native::visit('/log/commits/c1')
         ->assertElement('column', fn (array $node): bool => ($node['ref'] ?? null) === 'loading-commit');
 
-    finishRefreshes($screen)->assertSee('What should I build next?')->assertSee('A compiler');
+    finishRefreshes($screen)->assertSee('What should I build next?')->tap('replies-c1')->assertSee('A compiler');
 
     $again = Native::visit('/log/commits/c1');
 
@@ -100,7 +106,7 @@ it('keeps your reply under the commit and counts it in the log', function () {
 
     holdRefreshes();
 
-    Native::visit('/log/commits/c1')->assertSee('A spreadsheet');
+    Native::visit('/log/commits/c1')->assertSee('2 replies')->tap('replies-c1')->assertSee('A spreadsheet');
 });
 
 it('keeps the commit and says it could not refresh when offline', function () {
@@ -134,7 +140,7 @@ it('asks for the replies of a deleted reply opened in place again', function () 
         'GET /api/v1/commits/d1/replies' => [pageJson([replyJson(['id' => 'r9', 'parent_id' => 'd1', 'body' => 'Under a deleted reply'])])],
     ]);
 
-    $screen = Native::visit('/log/commits/c1')->call('toggleTombstone', 'd1')->assertSee('Under a deleted reply');
+    $screen = Native::visit('/log/commits/c1')->tap('replies-c1')->call('toggleTombstone', 'd1')->assertSee('Under a deleted reply');
 
     $screen->call('load');
 

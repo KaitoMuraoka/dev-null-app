@@ -646,6 +646,14 @@ function childRefs(TestableComponent $screen, string $ref): array
 }
 
 /**
+ * A commit page with what it folds away opened: the earlier commits above its commit, and the replies under it.
+ */
+function unfolded(TestableComponent $screen): TestableComponent
+{
+    return $screen->call('showEarlier')->set('repliesShown', true);
+}
+
+/**
  * The refs of everything inside the screen's list or scroll view that draws press-* feedback. EDGE draws it
  * with a zero-distance DragGesture, which on iOS keeps the list from scrolling when a drag starts there.
  *
@@ -672,7 +680,7 @@ function railNode(TestableComponent $screen, string $ref): ?string
     $stackOfWidth = fn (float $width): Closure => fn (array $node): bool => ($node['type'] ?? null) === 'stack' && ($node['layout']['width'] ?? null) === $width;
 
     return match (true) {
-        findNode($row, $stackOfWidth(48.0)) !== null => 'avatar',
+        findNode($row, $stackOfWidth(48.0)) !== null, findNode($row, $stackOfWidth(36.0)) !== null => 'avatar',
         findNode($row, $stackOfWidth(18.0)) !== null => 'dot',
         default => null,
     };

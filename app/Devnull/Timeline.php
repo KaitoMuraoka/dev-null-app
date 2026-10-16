@@ -124,17 +124,19 @@ final class Timeline
     /**
      * A commit page's ancestors and the commit itself, on one rail with no day
      * markers, so someone replying to themselves shows their avatar once.
+     * When the ancestors wait behind a row of their own, $laneAbove runs the
+     * last one's lane into the first row, which shows its avatar all the same.
      *
      * @param  list<Commit>  $commits
      * @return list<TimelineRow>
      */
-    public static function thread(array $commits): array
+    public static function thread(array $commits, int|string|null $laneAbove = null): array
     {
         $rows = [];
         $previous = null;
 
         foreach ($commits as $commit) {
-            $rows[] = TimelineRow::commit($commit, $previous?->lane(), self::continuesRun($previous, $commit));
+            $rows[] = TimelineRow::commit($commit, $previous === null ? $laneAbove : $previous->lane(), self::continuesRun($previous, $commit));
             $previous = $commit;
         }
 

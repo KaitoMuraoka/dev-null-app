@@ -13,8 +13,11 @@
 
     The last reply carries the thread's "Show more" when there's more ($more, what it presses), with the line from its
     avatar running down to it.
+
+    A commit page draws its replies $muted, smaller and in muted ink, so the commit they answer stays the main thing.
 --}}
 @php($previousLane ??= null)
+@php($muted ??= false)
 @php($railLane ??= null)
 @php($indent ??= 0)
 @php($spine ??= null)
@@ -70,16 +73,16 @@
                     </native:pressable>
                     <native:column class="flex-1 gap-1">
                         <native:row class="w-full min-h-[24] gap-[6] items-center">
-                            <native:text font="semibold" class="text-sm text-theme-ink flex-shrink" :max-lines="1">{{ $reply->author->name }}</native:text>
+                            <native:text font="semibold" class="{{ $muted ? 'text-[13px] text-theme-ink-muted' : 'text-sm text-theme-ink' }} flex-shrink" :max-lines="1">{{ $reply->author->name }}</native:text>
                             <native:text class="text-[13px] text-theme-ink-muted">·</native:text>
                             <native:text font="mono" class="text-xs text-theme-ink-muted flex-shrink-0">{{ \App\Devnull\Display::relativeTime($reply->createdAt) }}</native:text>
                             @unless ($reply->isApproved())
                                 @include('native.partials.status-chip', ['status' => $reply->status])
                             @endunless
                         </native:row>
-                        @include('native.partials.commit-body', ['size' => 'text-[15px]'])
+                        @include('native.partials.commit-body', ['size' => $muted ? 'text-sm' : 'text-[15px]'])
                         @include('native.partials.commit-media', ['withEmbeds' => false])
-                        @include('native.partials.commit-actions', ['expandable' => false, 'withQuote' => false])
+                        @include('native.partials.commit-actions', ['expandable' => false, 'withQuote' => false, 'compact' => $muted])
                     </native:column>
                 </native:row>
                 @if ($more !== null)
