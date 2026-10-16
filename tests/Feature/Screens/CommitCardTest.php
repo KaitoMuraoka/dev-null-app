@@ -74,6 +74,21 @@ it('draws a poll you voted on like the web: bars, percentages, your vote checked
         ->and($grow($spaces))->toEqual([25, 75]);
 });
 
+it('fills the whole option at 100%, with no spacer for EDGE to grow', function () {
+    $screen = logOf([commitJson(['id' => 'c1', 'body' => 'Tabs or spaces?', 'poll' => votedPollJson([
+        'total_votes' => 1,
+        'options' => [
+            ['id' => 'o1', 'label' => 'Tabs', 'votes_count' => 1, 'voted' => true, 'percentage' => 100],
+            ['id' => 'o2', 'label' => 'Spaces', 'votes_count' => 0, 'voted' => false, 'percentage' => 0],
+        ],
+    ])])])->assertSee('100%');
+
+    $bar = nodeByRef($screen, 'poll-option-o1')['children'][0]['children'];
+
+    expect($bar)->toHaveCount(1)
+        ->and($bar[0]['layout']['flex_grow'] ?? $bar[0]['layout']['flexGrow'] ?? null)->toEqual(100);
+});
+
 it("draws a poll you haven't voted on as plain options, with nothing to tap, since the app can't vote yet", function () {
     $screen = logOf([commitJson(['id' => 'c1', 'poll' => votedPollJson([
         'has_voted' => false,

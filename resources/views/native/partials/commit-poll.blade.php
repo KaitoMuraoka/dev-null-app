@@ -16,7 +16,10 @@
                 @if ($option->share() > 0)
                     <native:row class="absolute top-0 bottom-0 left-0 right-0">
                         <native:column :flexGrow="$option->share()" :flexBasis="0" class="h-full rounded-md {{ $option->voted ? 'bg-theme-primary-soft' : 'bg-theme-wash' }}" />
-                        <native:column :flexGrow="100 - $option->share()" :flexBasis="0" />
+                        {{-- EDGE grows a 0 flex-grow child that would fill the row (FlexContainer.swift effectiveGrow), so at 100% there's no spacer at all. --}}
+                        @if ($option->share() < 100)
+                            <native:column :flexGrow="100 - $option->share()" :flexBasis="0" />
+                        @endif
                     </native:row>
                 @endif
                 <native:row class="w-full px-3 py-2 gap-[6] items-center">
