@@ -118,7 +118,7 @@ it('commits without leaving the log, then clears the composer and puts the commi
 
     $screen->tap('commit')
         ->assertNoNavigation()
-        ->assertNativeCalled('Dialog.Toast', fn (array $params): bool => $params['message'] === '[log 000beef] Shipped the mobile app.')
+        ->assertNativeNotCalled('Dialog.Toast')
         ->assertSet('body', '')
         ->assertSet('composing', false)
         ->assertSee('Shipped the mobile app.')
@@ -136,7 +136,7 @@ it('commits without leaving the log, then clears the composer and puts the commi
     Http::assertSent(fn (Request $request): bool => $request->method() === 'POST' && $request->body() === '{"body":"Shipped the mobile app."}');
 });
 
-it('says so when the commit is pending', function () {
+it('marks the new commit as pending on its row', function () {
     fakeApi([
         'GET /api/v1/log/following' => [pageJson([])],
         'POST /api/v1/commits' => [['data' => commitJson(['id' => 'abc1234', 'body' => 'Needs a look first', 'status' => 'pending'])], 201],
@@ -145,7 +145,7 @@ it('says so when the commit is pending', function () {
     Native::visit('/log')
         ->input('body', 'Needs a look first')
         ->tap('commit')
-        ->assertNativeCalled('Dialog.Toast', fn (array $params): bool => $params['message'] === "[log abc1234] pending: only you can see it until it's approved.")
+        ->assertNativeNotCalled('Dialog.Toast')
         ->assertNoNavigation()
         ->assertSee('Needs a look first')
         ->assertSee('pending');

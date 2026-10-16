@@ -162,10 +162,6 @@ class CommitDetail extends NativeComponent
 
         $this->reply = '';
         $this->replies = [...$this->replies, $reply];
-
-        Dialog::toast($reply->isPending()
-            ? "[reply {$reply->shortHash()}] pending: only you can see it until it's approved."
-            : "[reply {$reply->shortHash()}] {$reply->body}", 'short');
     }
 
     public function confirmDelete(): void

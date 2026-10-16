@@ -56,20 +56,20 @@ it('counts down the reply budget and posts the reply', function () {
         ->tap('send-reply')
         ->assertSet('reply', '')
         ->assertSee('A fresh reply')
-        ->assertNativeCalled('Dialog.Toast', fn (array $params): bool => $params['message'] === '[reply r9] A fresh reply');
+        ->assertNativeNotCalled('Dialog.Toast');
 
     Http::assertSent(fn (Request $request): bool => $request->method() === 'POST'
         && $request->body() === '{"body":"A fresh reply","parent_id":"c2"}');
 });
 
-it('says when a reply is waiting for approval', function () {
+it('marks a reply waiting for approval as pending on its row', function () {
     fakeThread(extra: ['POST /api/v1/commits' => [['data' => commitJson(['id' => 'r9', 'status' => 'pending', 'body' => 'Hold on'])], 201]]);
 
     Native::visit('/log/commits/c2')
         ->input('reply-input', 'Hold on')
         ->tap('send-reply')
         ->assertSee('pending')
-        ->assertNativeCalled('Dialog.Toast', fn (array $params): bool => $params['message'] === "[reply r9] pending: only you can see it until it's approved.");
+        ->assertNativeNotCalled('Dialog.Toast');
 });
 
 it('shows validation messages from the server', function () {

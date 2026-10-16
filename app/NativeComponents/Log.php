@@ -18,7 +18,6 @@ use Native\Mobile\Attributes\Lazy;
 use Native\Mobile\Edge\Layouts\Builders\NavAction;
 use Native\Mobile\Edge\Layouts\Builders\NavBarOptions;
 use Native\Mobile\Edge\NativeComponent;
-use Native\Mobile\Facades\Dialog;
 
 /**
  * The log: commits from you and the people you follow, or from everyone, under
@@ -216,10 +215,6 @@ class Log extends NativeComponent
         $this->focusComposer = false;
         $this->composerKey++;
         $this->commits = [$commit, ...$this->commits];
-
-        Dialog::toast($commit->isPending()
-            ? "[log {$commit->shortHash()}] pending: only you can see it until it's approved."
-            : "[log {$commit->shortHash()}] {$commit->body}");
     }
 
     public function openCommit(string $id): void
