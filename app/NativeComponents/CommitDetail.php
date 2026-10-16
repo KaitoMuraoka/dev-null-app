@@ -90,6 +90,12 @@ class CommitDetail extends NativeComponent
      */
     public bool $focusReply = false;
 
+    /**
+     * Keys the page's scroll view. EDGE can't scroll it from PHP, so a new key
+     * mounts it again at the top.
+     */
+    public int $scrollKey = 0;
+
     public function mount(): void
     {
         $this->focusReply = $this->data('reply', false) === true;
@@ -164,6 +170,16 @@ class CommitDetail extends NativeComponent
     public function showEarlier(): void
     {
         $this->earlierShown = true;
+    }
+
+    /**
+     * Tapping into the reply bar brings the commit being answered to the top:
+     * the earlier commits fold away again and the page starts over from the top.
+     */
+    public function replyTapped(): void
+    {
+        $this->earlierShown = false;
+        $this->scrollKey++;
     }
 
     /**

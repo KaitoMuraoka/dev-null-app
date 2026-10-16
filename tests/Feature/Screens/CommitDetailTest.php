@@ -60,6 +60,23 @@ it('opens on the commit, with its ancestors and replies folded away above and be
         ->assertSee('1 reply');
 });
 
+it('brings the commit back to the top when you tap into the reply bar', function () {
+    fakeThread(['replies_count' => 1], replies: [replyJson(['id' => 'r1', 'parent_id' => 'c2', 'body' => 'First reply', 'author' => userJson(['username' => 'grace', 'name' => 'Grace'])])]);
+
+    $screen = Native::visit('/log/commits/c2')->tap('earlier-commits')->assertSee('The parent commit');
+    $before = nodeByRef($screen, 'thread-scroll')['id'];
+
+    // EDGE can't scroll from PHP, so the ancestors fold away and the scroll view mounts again at the top.
+    $screen->pressUp('reply-field')
+        ->assertSet('earlierShown', false)
+        ->assertSet('scrollKey', 1)
+        ->assertSee('1 earlier commit')
+        ->assertDontSee('The parent commit');
+
+    expect(childRefs($screen, 'thread-page'))->toBe(['earlier-commits', 'focused-commit', 'reply-bar-clearance'])
+        ->and(nodeByRef($screen, 'thread-scroll')['id'])->not->toBe($before);
+});
+
 it('runs the rail from the folded ancestors into the commit, which shows its avatar', function () {
     $ada = userJson(['id' => 'u2', 'username' => 'ada', 'name' => 'Ada', 'lane' => 1]);
     fakeApi([

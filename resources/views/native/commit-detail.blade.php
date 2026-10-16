@@ -5,7 +5,7 @@
     @include('native.partials.error')
     @include('native.partials.refresh-failed')
 
-    <native:scroll-view class="w-full flex-1 bg-theme-surface">
+    <native:scroll-view native:key="thread-{{ $scrollKey }}" ref="thread-scroll" class="w-full flex-1 bg-theme-surface">
         <native:column ref="thread-page" class="w-full bg-theme-surface">
             @if (! $commit && $error === null)
                 <native:column ref="loading-commit" class="w-full items-center py-16" a11y-label="Loading commit">
@@ -107,16 +107,19 @@
             <native:column ref="reply-bar" class="w-full bg-theme-surface">
                 <native:column class="w-full h-[1] bg-theme-hairline" />
                 <native:row class="w-full px-4 py-2 gap-3 items-center">
-                    <native:bare-text-input
-                        ref="reply-input"
-                        class="flex-1 py-2 text-theme-ink"
-                        placeholder="Reply to {{ $commit->author->handle() }}"
-                        native:model.debounce.150ms="reply"
-                        :autofocus="$focusReply"
-                        multiline
-                        :max-lines="5"
-                        :max-length="\App\Devnull\Data\Commit::MaxLength"
-                    />
+                    {{-- EDGE sends no focus event, so a press on the field is how the page learns you're replying. --}}
+                    <native:column ref="reply-field" class="flex-1" @pressUp="replyTapped">
+                        <native:bare-text-input
+                            ref="reply-input"
+                            class="w-full py-2 text-theme-ink"
+                            placeholder="Reply to {{ $commit->author->handle() }}"
+                            native:model.debounce.150ms="reply"
+                            :autofocus="$focusReply"
+                            multiline
+                            :max-lines="5"
+                            :max-length="\App\Devnull\Data\Commit::MaxLength"
+                        />
+                    </native:column>
                     @include('native.partials.body-counter', ['body' => $reply, 'ref' => 'reply-budget'])
                     <native:button ref="send-reply" size="sm" :disabled="$replyLength < 3 || $remaining < 0" @press="sendReply">Reply</native:button>
                 </native:row>
