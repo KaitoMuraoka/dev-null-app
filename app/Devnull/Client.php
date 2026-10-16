@@ -27,6 +27,11 @@ use SensitiveParameter;
 final readonly class Client
 {
     /**
+     * Where the app talks to unless DEVNULL_URL says otherwise.
+     */
+    public const string ProductionUrl = 'https://dev-null.sh';
+
+    /**
      * The one place the sign-in's redeem endpoint lives.
      */
     public const string SignInPath = 'devices';
@@ -88,6 +93,16 @@ final readonly class Client
     public function me(): CurrentUser
     {
         return CurrentUser::fromArray($this->get('me'));
+    }
+
+    /**
+     * Deletes the account this phone is signed in as, the way the web's Delete
+     * account does. devnull deletes its devices with it, so this phone's key
+     * stops working.
+     */
+    public function deleteAccount(): void
+    {
+        $this->send('DELETE', 'me');
     }
 
     /**

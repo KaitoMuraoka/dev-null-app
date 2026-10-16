@@ -61,16 +61,31 @@ it('keeps the status and says it could not refresh when offline', function () {
         ->assertSet('error', null);
 });
 
-it('empties the cache when you forget this device', function () {
+it('empties the cache when you sign out or delete your account', function (string $label, string $id) {
     keep('log/following', pageJson([commitJson()]));
     keep('me', ['data' => userWithCountsJson()]);
+    serveApi(['DELETE /api/v1/me' => [null, 204]]);
 
     Native::visit('/profile/device')
-        ->emitNative(ButtonPressed::class, ['index' => 1, 'label' => 'Forget', 'id' => 'forget-device'])
+        ->emitNative(ButtonPressed::class, ['index' => 1, 'label' => $label, 'id' => $id])
         ->assertReplacedWith('/onboarding');
 
     signIn();
 
     expect(kept('log/following'))->toBeNull()
         ->and(kept('me'))->toBeNull();
+})->with([
+    'sign out' => ['Sign out', 'sign-out'],
+    'delete account' => ['Delete', 'delete-account'],
+]);
+
+it('keeps the cache when devnull cannot delete your account', function () {
+    keep('log/following', pageJson([commitJson()]));
+    serveApi(['DELETE /api/v1/me' => [['message' => 'Server Error'], 500]]);
+
+    Native::visit('/profile/device')
+        ->emitNative(ButtonPressed::class, ['index' => 1, 'label' => 'Delete', 'id' => 'delete-account'])
+        ->assertNoNavigation();
+
+    expect(kept('log/following'))->not->toBeNull();
 });

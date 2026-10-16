@@ -33,7 +33,7 @@ use Native\Mobile\Facades\Browser;
  *
  * The Profile tab shows your own, with no username in the route. Like the web,
  * your own profile swaps Follow for "Edit on GitHub", and its nav bar leads to
- * this device's key.
+ * your account.
  *
  * It opens on the profile as it was last time, or opened from a commit, on
  * what the commit knew of its author, then asks devnull again behind it. The
@@ -106,10 +106,10 @@ class Profile extends NativeComponent
         }
 
         return NavBarOptions::make()->action(
-            NavAction::make('device')
+            NavAction::make('account')
                 ->icon(ios: Lucide::Settings2->ios(), android: Lucide::Settings2->android())
-                ->a11yLabel('This device')
-                ->press('openDevice'),
+                ->a11yLabel('Account')
+                ->press('openAccount'),
         );
     }
 
@@ -195,7 +195,7 @@ class Profile extends NativeComponent
             || ($this->isShowingPath($this->tabRoot()) && '/'.trim($uri, '/') === $this->tabRoot().'/users/'.$this->username);
     }
 
-    public function openDevice(): void
+    public function openAccount(): void
     {
         $this->navigate('/profile/device');
     }

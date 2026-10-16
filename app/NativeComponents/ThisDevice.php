@@ -17,11 +17,12 @@ use Native\Mobile\Edge\NativeComponent;
 use Native\Mobile\Events\Alert\ButtonPressed;
 use Native\Mobile\Facades\Browser;
 use Native\Mobile\Facades\Dialog;
-use Native\Mobile\Facades\Share;
 use SensitiveParameter;
 
 /**
- * This device's key and where it talks to, reached from your own profile.
+ * Your account, reached from your own profile: this phone's fingerprint, as
+ * your devices on dev-null.sh list it, signing out, and deleting the account.
+ * Where the app talks to only shows when it isn't dev-null.sh.
  *
  * On iOS it also links an Apple ID to your account, as a second way in on a
  * new phone. The account stays the GitHub one: Apple only signs you into it.
@@ -33,11 +34,11 @@ class ThisDevice extends NativeComponent
     use SignsInWithApple;
     use TalksToDevnull;
 
-    public const string ForgetAlert = 'forget-device';
+    public const string SignOutAlert = 'sign-out';
 
     public const string UnlinkAppleAlert = 'unlink-apple';
 
-    public string $publicKey = '';
+    public const string DeleteAccountAlert = 'delete-account';
 
     public string $fingerprint = '';
 
@@ -49,9 +50,7 @@ class ThisDevice extends NativeComponent
     public function mount(): void
     {
         try {
-            $key = app(DeviceKey::class)->current();
-            $this->publicKey = $key->openSsh();
-            $this->fingerprint = $key->fingerprint();
+            $this->fingerprint = app(DeviceKey::class)->current()->fingerprint();
         } catch (KeychainUnavailable $exception) {
             $this->error = $exception->getMessage();
 
@@ -81,12 +80,7 @@ class ThisDevice extends NativeComponent
 
     public function navTitle(): string
     {
-        return 'This device';
-    }
-
-    public function shareKey(): void
-    {
-        Share::file('', $this->publicKey, '');
+        return 'Account';
     }
 
     /**
@@ -97,16 +91,28 @@ class ThisDevice extends NativeComponent
         Browser::inApp(rtrim((string) config('devnull.url'), '/').'/settings/devices');
     }
 
-    public function confirmForget(): void
+    public function confirmSignOut(): void
     {
         Dialog::alert(
-            'Forget this device?',
-            'This deletes the device key from the Keychain and signs you out. The phone stays listed on dev-null.sh until you remove it there. Signing in again makes a new key.',
+            'Sign out?',
+            'This deletes the key from this phone. The phone stays listed on dev-null.sh until you remove it there, and signing in again makes a new key.',
             [
                 ['label' => 'Cancel', 'style' => 'cancel'],
-                ['label' => 'Forget', 'style' => 'destructive'],
+                ['label' => 'Sign out', 'style' => 'destructive'],
             ],
-        )->id(self::ForgetAlert);
+        )->id(self::SignOutAlert);
+    }
+
+    public function confirmDeleteAccount(): void
+    {
+        Dialog::alert(
+            'Delete your account?',
+            'Your profile, commits, replies, stars and follows are removed from /dev/null. There is no undo.',
+            [
+                ['label' => 'Cancel', 'style' => 'cancel'],
+                ['label' => 'Delete', 'style' => 'destructive'],
+            ],
+        )->id(self::DeleteAccountAlert);
     }
 
     /**
@@ -150,8 +156,12 @@ class ThisDevice extends NativeComponent
     #[On(ButtonPressed::class)]
     public function onAlertButton(string $label = '', ?string $id = null): void
     {
-        if ($id === self::ForgetAlert && $label === 'Forget') {
+        if ($id === self::SignOutAlert && $label === 'Sign out') {
             $this->forget();
+        }
+
+        if ($id === self::DeleteAccountAlert && $label === 'Delete') {
+            $this->deleteAccount();
         }
 
         if ($id === self::UnlinkAppleAlert && $label === 'Unlink') {
@@ -159,6 +169,10 @@ class ThisDevice extends NativeComponent
         }
     }
 
+    /**
+     * Signs out: the key goes from this phone, and with it who you are and
+     * every answer kept for you (see Account::forget).
+     */
     public function forget(): void
     {
         app(DeviceKey::class)->forget();
@@ -167,10 +181,27 @@ class ThisDevice extends NativeComponent
         $this->replace('/onboarding');
     }
 
+    /**
+     * Deletes the account on devnull, which takes its devices with it, then
+     * signs out. When devnull can't, the error shows and you stay signed in.
+     */
+    public function deleteAccount(): void
+    {
+        $deleted = $this->attempt(function (Client $devnull): bool {
+            $devnull->deleteAccount();
+
+            return true;
+        });
+
+        if ($deleted === true) {
+            $this->forget();
+        }
+    }
+
     public function render(): View
     {
         return view('native.this-device', [
-            'remote' => config('devnull.url'),
+            'remote' => self::remote(),
             'offersApple' => AppleSignIn::isAvailable(),
             'appleStatus' => match ($this->appleLinked) {
                 true => 'linked',
@@ -178,6 +209,16 @@ class ThisDevice extends NativeComponent
                 null => 'unknown',
             },
         ]);
+    }
+
+    /**
+     * Where the app talks to, or null when it's dev-null.sh itself.
+     */
+    private static function remote(): ?string
+    {
+        $url = rtrim((string) config('devnull.url'), '/');
+
+        return $url === Client::ProductionUrl ? null : $url;
     }
 
     /**
