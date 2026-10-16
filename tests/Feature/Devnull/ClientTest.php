@@ -100,6 +100,17 @@ it('sends the JSON body as the exact bytes it signed', function () {
     });
 });
 
+it('quotes a commit with its id next to the body, and no parent', function () {
+    Http::fake(['devnull.test/*' => Http::response(['data' => commitJson(['id' => 'q1', 'quoted_commit_id' => 'c1'])], 201)]);
+
+    $commit = app(Client::class)->createCommit('This, all of it.', quotedCommitId: 'c1');
+
+    expect($commit->quotedCommitId)->toBe('c1');
+
+    Http::assertSent(fn (Request $request): bool => $request->body() === '{"body":"This, all of it.","quoted_commit_id":"c1"}'
+        && str_ends_with(receivedMessage($request), "\nPOST\n/api/v1/commits\n".'{"body":"This, all of it.","quoted_commit_id":"c1"}'));
+});
+
 it('uses a fresh nonce for every request', function () {
     Http::fake(['devnull.test/*' => Http::response(['data' => userJson()])]);
 

@@ -126,9 +126,13 @@ final readonly class Client
         return Page::fromArray($this->get('commits/'.rawurlencode($id).'/replies', ['cursor' => $cursor]), Commit::fromArray(...));
     }
 
-    public function createCommit(string $body, ?string $parentId = null): Commit
+    /**
+     * Commits, as a reply to $parentId or quoting $quotedCommitId, as the web's
+     * composer, reply box and Quote do. devnull takes one or the other, not both.
+     */
+    public function createCommit(string $body, ?string $parentId = null, ?string $quotedCommitId = null): Commit
     {
-        $payload = $parentId === null ? ['body' => $body] : ['body' => $body, 'parent_id' => $parentId];
+        $payload = array_filter(['body' => $body, 'parent_id' => $parentId, 'quoted_commit_id' => $quotedCommitId], fn (?string $value): bool => $value !== null);
 
         $commit = $this->data($this->send('POST', 'commits', payload: $payload));
         $this->cache->commitAdded($commit);
