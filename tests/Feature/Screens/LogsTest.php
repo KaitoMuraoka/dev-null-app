@@ -108,6 +108,22 @@ it('gives each log its own list, so a switch opens a fresh one on what was kept,
         ->and(showsLoading($screen->tree()))->toBeFalse();
 });
 
+it('keys each row by what it shows, so a commit put on top leaves the rows under it as they were', function () {
+    serveApi([
+        'GET /api/v1/log/following' => [pageJson([commitJson(['id' => 'c1', 'body' => 'Already here'])])],
+        'POST /api/v1/commits' => [['data' => commitJson(['id' => 'mine', 'body' => 'Fresh from the composer'])], 201],
+        'GET /api/v1/me' => [['data' => userWithCountsJson(), 'unread_notifications_count' => 0]],
+    ]);
+
+    $screen = Native::visit('/log');
+    $row = nodeByRef($screen, 'commit-c1')['id'];
+
+    $screen->pressUp('composer-field')->input('body', 'Fresh from the composer')->tap('commit');
+
+    expect(shownLogIds($screen))->toBe(['mine', 'c1'])
+        ->and(nodeByRef($screen, 'commit-c1')['id'])->toBe($row);
+});
+
 it('asks Following and Latest what came in since the newest commit showing, and counts the pill by devnull', function () {
     holdRefreshes();
     keep('log/latest', pageJson([commitJson(['id' => 'c1', 'body' => 'Seen before'])]));

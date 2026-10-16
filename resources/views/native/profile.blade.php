@@ -139,7 +139,7 @@
                         <native:text font="mono" class="text-xs text-theme-ink-muted">Pinned</native:text>
                     </native:row>
                 </native:row>
-                @include('native.partials.commit-row', ['commit' => $pinnedCommit, 'previousLane' => null, 'continuesRun' => false])
+                @include('native.partials.commit-row', ['commit' => $pinnedCommit, 'previousLane' => null, 'continuesRun' => false, 'rowKey' => 'pinned-'.$pinnedCommit->id])
             @endif
 
             @include('native.partials.feed', ['rows' => $rows])

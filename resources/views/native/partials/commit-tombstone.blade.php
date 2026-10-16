@@ -5,7 +5,7 @@
 --}}
 @php($previousLane ??= null)
 @php($withTail ??= true)
-<native:row ref="tombstone-{{ $commit->id }}" class="w-full bg-theme-surface">
+<native:row native:key="{{ $rowKey ?? 'tombstone-'.$commit->id }}" ref="tombstone-{{ $commit->id }}" class="w-full bg-theme-surface">
     <native:column :width="64" />
 
     <native:column class="flex-1">

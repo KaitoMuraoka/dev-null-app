@@ -27,7 +27,7 @@
 @php($avatarLine = 76 + $indent)
 @if ($reply->isDeleted())
     @php($opened = $tombstones && array_key_exists($reply->id, $tombstoneReplies ?? []))
-    <native:row ref="thread-reply-{{ $reply->id }}" class="w-full bg-theme-surface">
+    <native:row native:key="thread-reply-{{ $reply->id }}" ref="thread-reply-{{ $reply->id }}" class="w-full bg-theme-surface">
         <native:column :width="64" />
         <native:column class="flex-1">
             <native:row class="w-full pr-4 pt-[10] gap-2 {{ $last && $more === null ? 'pb-3' : 'pb-1' }} {{ $indent > 0 ? 'pl-['.$indent.']' : '' }}">
@@ -63,7 +63,7 @@
     </native:row>
 @else
     @php($commit = $reply)
-    <native:pressable ref="thread-reply-{{ $reply->id }}" @press="openCommit('{{ $reply->id }}')" class="w-full bg-theme-surface">
+    <native:pressable native:key="thread-reply-{{ $reply->id }}" ref="thread-reply-{{ $reply->id }}" @press="openCommit('{{ $reply->id }}')" class="w-full bg-theme-surface">
         <native:row class="w-full">
             <native:column :width="64" />
             <native:column class="flex-1">

@@ -17,7 +17,7 @@
 @php($open = array_key_exists($notification->id, $expanded))
 @php($failed = in_array($notification->id, $failedGroups, true))
 @php($noun = $notification->groupNoun())
-<native:pressable ref="notification-{{ $notification->id }}" @press="open('{{ $notification->id }}')" class="w-full bg-theme-surface" a11y-label="{{ $isNew ? 'New. ' : '' }}{{ $notification->isModeration() ? $notification->sentence() : $notification->actor->name.' '.$notification->sentence() }}">
+<native:pressable native:key="notification-{{ $notification->id }}" ref="notification-{{ $notification->id }}" @press="open('{{ $notification->id }}')" class="w-full bg-theme-surface" a11y-label="{{ $isNew ? 'New. ' : '' }}{{ $notification->isModeration() ? $notification->sentence() : $notification->actor->name.' '.$notification->sentence() }}">
     <native:row class="w-full">
         <native:column :width="64" />
         <native:column class="flex-1">
