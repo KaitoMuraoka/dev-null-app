@@ -32,7 +32,6 @@
         "laravel/tinker": "^3.0",
         "nativephp/mobile": "dev-feat/custom-icons as 4.6.0",
         "nativephp/mobile-browser": "^1.0",
-        "nativephp/mobile-clipboard": "^1.0",
         "nativephp/mobile-secure-storage": "^1.1",
         "nativephp/mobile-share": "^1.1",
         "nativephp/mobile-ui": "dev-feat/custom-icons as 0.8.0",
