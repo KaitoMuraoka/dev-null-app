@@ -73,6 +73,17 @@ it('shows the Unix rank beside the handle and the achievements shelf, as the web
         ->and(findNode(nodeByRef($screen, 'badge-init'), fn (array $node): bool => ($node['type'] ?? null) === 'icon')['props']['name'] ?? null)->toBe('custom:terminal');
 });
 
+it('scrolls the badges out to the edge of the screen, with the first one still in line with the shelf', function () {
+    fakeApi(['GET /api/v1/users/ada' => [standingJson()], 'GET /api/v1/users/ada/commits' => [pageJson([])]]);
+
+    $screen = Native::visit('/log/users/ada', platform: 'ios');
+    $horizontal = fn (array $node): array => [($node['layout']['padding'] ?? [0, 0, 0, 0])[1], ($node['layout']['padding'] ?? [0, 0, 0, 0])[3]];
+
+    expect($horizontal(nodeByRef($screen, 'achievements')))->toEqual([0, 0])
+        ->and($horizontal(nodeByRef($screen, 'badges')))->toEqual([0, 0])
+        ->and($horizontal(nodeByRef($screen, 'badges')['children'][0]))->toEqual([16, 16]);
+});
+
 it('marks a profile you mute, as the web does', function () {
     fakeApi(['GET /api/v1/users/ada' => [standingJson(['is_muting' => true])], 'GET /api/v1/users/ada/commits' => [pageJson([])]]);
 
