@@ -40,6 +40,26 @@
                         <native:text class="w-full text-[15px] leading-relaxed text-theme-ink">{{ $user->bio }}</native:text>
                     @endif
 
+                    {{--
+                        What GitHub says about them, as the web lists it under the bio, links in Commit Blue. The web wraps
+                        them onto as many lines as it needs; EDGE's rows don't wrap on iOS, so here each has its own line.
+                    --}}
+                    <native:column ref="profile-facts" class="w-full gap-[6]">
+                        @if ($user->company)
+                            @include('native.partials.profile-fact', ['key' => 'company', 'icon' => \App\Icons\Lucide::Building2, 'label' => $user->company])
+                        @endif
+                        @if ($user->location)
+                            @include('native.partials.profile-fact', ['key' => 'location', 'icon' => \App\Icons\Lucide::MapPin, 'label' => $user->location])
+                        @endif
+                        @if ($user->websiteLabel())
+                            @include('native.partials.profile-fact', ['key' => 'website', 'icon' => \App\Icons\Lucide::Link, 'label' => $user->websiteLabel(), 'press' => 'openWebsite'])
+                        @endif
+                        @include('native.partials.profile-fact', ['key' => 'github', 'icon' => \App\Icons\Lucide::Github, 'label' => 'github.com/'.$user->username, 'press' => 'openGitHubProfile'])
+                        @if ($user->createdAt)
+                            @include('native.partials.profile-fact', ['key' => 'joined', 'icon' => \App\Icons\Lucide::CalendarDays, 'label' => 'Joined '.$user->createdAt->format('F Y')])
+                        @endif
+                    </native:column>
+
                     <native:row ref="counts" class="w-full gap-4">
                         @foreach ([[$profile->commitsCount, 'commit', 'commits'], [$profile->followingCount, 'following', 'following'], [$profile->followersCount, 'follower', 'followers']] as [$count, $singular, $plural])
                             <native:row class="gap-1 items-center">

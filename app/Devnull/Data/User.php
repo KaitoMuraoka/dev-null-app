@@ -91,6 +91,35 @@ final readonly class User
         return '@'.$this->username;
     }
 
+    /**
+     * Their GitHub profile. Everyone on devnull signed in with GitHub, so it can be
+     * worked out when the API leaves it out.
+     */
+    public function gitHubProfileUrl(): string
+    {
+        return $this->githubUrl ?? 'https://github.com/'.rawurlencode($this->username);
+    }
+
+    /**
+     * Their website, as GitHub has it, which may leave off the scheme.
+     */
+    public function websiteUrl(): ?string
+    {
+        if ($this->website === null) {
+            return null;
+        }
+
+        return preg_match('#^https?://#i', $this->website) === 1 ? $this->website : 'https://'.$this->website;
+    }
+
+    /**
+     * Their website as the web prints it, without the scheme.
+     */
+    public function websiteLabel(): ?string
+    {
+        return $this->website === null ? null : rtrim((string) preg_replace('#^https?://#i', '', $this->website), '/');
+    }
+
     private static function text(mixed $value): ?string
     {
         return is_string($value) && trim($value) !== '' ? $value : null;

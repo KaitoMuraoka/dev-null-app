@@ -38,6 +38,11 @@ enum Lucide
     case Pin;
     case Trash2;
     case ListOrdered;
+    case Building2;
+    case MapPin;
+    case CalendarDays;
+    /** The web draws GitHub's own mark, which neither system has, so this is the code glyph. */
+    case Github;
 
     public function ios(bool $filled = false): Ios|string
     {
@@ -57,6 +62,10 @@ enum Lucide
             self::Pin => Ios::Pin,
             self::Trash2 => Ios::Trash,
             self::ListOrdered => Ios::ListNumber,
+            self::Building2 => Ios::Building2,
+            self::MapPin => Ios::Mappin,
+            self::CalendarDays => Ios::Calendar,
+            self::Github => Ios::ChevronLeftForwardslashChevronRight,
         };
     }
 
@@ -78,6 +87,10 @@ enum Lucide
             self::Pin => AndroidOutlined::PushPin,
             self::Trash2 => AndroidOutlined::Delete,
             self::ListOrdered => AndroidOutlined::FormatListNumbered,
+            self::Building2 => AndroidOutlined::Business,
+            self::MapPin => AndroidOutlined::LocationOn,
+            self::CalendarDays => AndroidOutlined::CalendarToday,
+            self::Github => AndroidOutlined::Code,
         };
     }
 }

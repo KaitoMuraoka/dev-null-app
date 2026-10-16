@@ -184,6 +184,26 @@ class Profile extends NativeComponent
         Browser::inApp('https://github.com/settings/profile');
     }
 
+    /**
+     * The website on their GitHub profile. Taps name the link rather than carry
+     * a URL, so the URL always comes from what devnull sent.
+     */
+    public function openWebsite(): void
+    {
+        $url = $this->profile?->user->websiteUrl();
+
+        if ($url !== null && in_array(parse_url($url, PHP_URL_SCHEME), ['http', 'https'], true)) {
+            Browser::inApp($url);
+        }
+    }
+
+    public function openGitHubProfile(): void
+    {
+        if ($this->profile !== null) {
+            Browser::inApp($this->profile->user->gitHubProfileUrl());
+        }
+    }
+
     public function openCommit(string $id): void
     {
         $this->openInTab('/commits/'.$id);

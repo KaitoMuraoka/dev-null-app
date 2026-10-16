@@ -57,6 +57,43 @@ it('shows who they are, their counts and their commits', function () {
         ->assertSee("That's @ada's root commit.");
 });
 
+it('lists what GitHub says about them under the bio, as the web does', function () {
+    fakeApi([
+        'GET /api/v1/users/ada' => [profileJson(user: [
+            'company' => 'Analytical Engines',
+            'location' => 'London',
+            'website' => 'https://ada.example/',
+            'github_url' => 'https://github.com/ada',
+            'created_at' => '2026-09-01T08:00:00Z',
+        ])],
+        'GET /api/v1/users/ada/commits' => [pageJson([])],
+    ]);
+
+    Native::visit('/log/users/ada')
+        ->assertSee('Analytical Engines')
+        ->assertSee('London')
+        ->assertSee('ada.example')
+        ->assertSee('github.com/ada')
+        ->assertSee('Joined September 2026')
+        ->tap('profile-website')
+        ->assertNativeCalled('Browser.OpenInApp', fn (array $params): bool => $params['url'] === 'https://ada.example/')
+        ->tap('profile-github')
+        ->assertNativeCalled('Browser.OpenInApp', fn (array $params): bool => $params['url'] === 'https://github.com/ada');
+});
+
+it('leaves out what GitHub does not say, and opens a website given without its scheme', function () {
+    fakeApi([
+        'GET /api/v1/users/ada' => [profileJson(user: ['company' => null, 'location' => null, 'website' => 'ada.example'])],
+        'GET /api/v1/users/ada/commits' => [pageJson([])],
+    ]);
+
+    Native::visit('/log/users/ada')
+        ->assertMissingElement('row', fn (array $node): bool => in_array($node['ref'] ?? null, ['profile-company', 'profile-location'], true))
+        ->assertSee('github.com/ada')
+        ->tap('profile-website')
+        ->assertNativeCalled('Browser.OpenInApp', fn (array $params): bool => $params['url'] === 'https://ada.example');
+});
+
 it('rings the avatar in the author lane', function () {
     fakeApi([
         'GET /api/v1/users/ada' => [profileJson(user: ['lane' => 5])],
