@@ -8,6 +8,8 @@ There are no passwords or tokens. On first launch the app makes its own ed25519 
 
 Sign in with GitHub opens dev-null.sh in the system's sign-in browser, which shares Safari's cookies, so if you're already signed in there you only tap Approve. dev-null.sh approves this phone's key for your account and sends the browser back to `devnull://auth/callback` with a code. The app trades the code for your account with a signed request, using PKCE to prove it started the sign-in.
 
+On iOS you can also link an Apple ID from This device, under your profile. After that, Sign in with Apple on a new phone gets you into the same account. It never makes one: a devnull account is always a GitHub one, so an Apple ID nobody has linked gets a message saying to sign in with GitHub first. It comes from [codingwithrk/nativephp-social-auth](https://github.com/codingwithrk/nativephp-social-auth), which hashes the app's nonce for Apple, and the app asks Apple for no name or email.
+
 ## The API
 
 The app talks to the signed `/api/v1` from [nunomaduro/dev-null.sh#130](https://github.com/nunomaduro/dev-null.sh/pull/130), which isn't merged yet. Until it is, point the app at a devnull instance running that branch.
@@ -44,6 +46,9 @@ These can be set in `.env`:
 
 - `DEVNULL_URL` is the devnull instance to talk to. It defaults to production.
 - `NATIVEPHP_DEEPLINK_SCHEME` must be `devnull`, as in `.env.example`. NativePHP registers the scheme from it at build time, and its sign-in browser reads it from the bundled `.env` to know when dev-null.sh has sent the browser back.
+- `GOOGLE_SERVER_CLIENT_ID`, `GOOGLE_IOS_CLIENT_ID` and `GOOGLE_IOS_REVERSED_CLIENT_ID` belong to the social-auth plugin's Google Sign-In, which the app doesn't use. NativePHP won't build without the first, so keep the placeholders from `.env.example`.
+
+A build for a real iPhone needs an explicit App ID (`com.simonhamp.devnull`) with the Sign in with Apple capability, since the plugin adds its entitlement. A wildcard provisioning profile can't carry it.
 
 ## Running it
 
