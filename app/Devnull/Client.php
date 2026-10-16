@@ -27,6 +27,11 @@ final readonly class Client
      */
     public const string SignInPath = 'devices';
 
+    /**
+     * Where the signed-in account's Apple ID is linked and unlinked.
+     */
+    public const string ApplePath = 'me/apple';
+
     public function __construct(private DeviceKey $deviceKey, private string $baseUrl) {}
 
     /**
@@ -37,6 +42,37 @@ final readonly class Client
     public function redeemSignIn(string $code, #[SensitiveParameter] string $verifier): User
     {
         return User::fromArray($this->data($this->send('POST', self::SignInPath, payload: ['code' => $code, 'code_verifier' => $verifier])));
+    }
+
+    /**
+     * Signs in on a phone devnull doesn't know yet with an Apple ID linked to
+     * an account, which approves this phone's key. Apple's identity token
+     * carries sha256 of the nonce, and devnull checks it against the raw one.
+     */
+    public function signInWithApple(#[SensitiveParameter] string $identityToken, #[SensitiveParameter] string $nonce, string $deviceName): User
+    {
+        return User::fromArray($this->data($this->send('POST', self::SignInPath, payload: [
+            'apple_identity_token' => $identityToken,
+            'nonce' => $nonce,
+            'device_name' => $deviceName,
+        ])));
+    }
+
+    /**
+     * Links an Apple ID to the account this phone is signed in as. Returns
+     * whether devnull now has one linked.
+     */
+    public function linkApple(#[SensitiveParameter] string $identityToken, #[SensitiveParameter] string $nonce): bool
+    {
+        return $this->appleLinked($this->send('PUT', self::ApplePath, payload: ['identity_token' => $identityToken, 'nonce' => $nonce]));
+    }
+
+    /**
+     * Unlinks the account's Apple ID. Returns whether one is still linked.
+     */
+    public function unlinkApple(): bool
+    {
+        return $this->appleLinked($this->send('DELETE', self::ApplePath));
     }
 
     public function me(): CurrentUser
@@ -198,6 +234,11 @@ final readonly class Client
         $json = $response->json();
 
         return is_array($json) ? $json : [];
+    }
+
+    private function appleLinked(Response $response): bool
+    {
+        return ($this->json($response)['apple_linked'] ?? false) === true;
     }
 
     /**

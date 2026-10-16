@@ -423,3 +423,90 @@ it('reads who you are and how many notifications are unread', function () {
         ->and($current->user->lane())->toBe(2)
         ->and($current->unreadNotificationsCount)->toBe(7);
 });
+
+it('reads whether an Apple ID is linked from /me, and says no when devnull is silent', function (array $extra, bool $linked) {
+    Http::fake(['devnull.test/api/v1/me' => Http::response(['data' => userWithCountsJson(), 'unread_notifications_count' => 0, ...$extra])]);
+
+    expect(app(Client::class)->me()->appleLinked)->toBe($linked);
+})->with([
+    'linked' => [['apple_linked' => true], true],
+    'not linked' => [['apple_linked' => false], false],
+    'an older server' => [[], false],
+    'anything but true' => [['apple_linked' => 1], false],
+]);
+
+it('links an Apple ID with a signed PUT of the token and the raw nonce', function () {
+    Http::fake(['devnull.test/*' => Http::response(['data' => userWithCountsJson(), 'apple_linked' => true])]);
+
+    expect(app(Client::class)->linkApple('the.identity.token', 'raw-nonce'))->toBeTrue();
+
+    Http::assertSent(function (Request $request): bool {
+        $body = '{"identity_token":"the.identity.token","nonce":"raw-nonce"}';
+
+        expect($request->method())->toBe('PUT')
+            ->and($request->url())->toBe('http://devnull.test/api/v1/'.Client::ApplePath)
+            ->and($request->body())->toBe($body)
+            ->and(receivedMessage($request))->toEndWith("\nPUT\n/api/v1/me/apple\n".$body)
+            ->and($request->header('X-SSH-Signature')[0])->toBe(testKey()->sign(receivedMessage($request), 'devnull-api'));
+
+        return true;
+    });
+});
+
+it('unlinks an Apple ID with a signed bodiless DELETE', function () {
+    Http::fake(['devnull.test/*' => Http::response(['data' => userWithCountsJson(), 'apple_linked' => false])]);
+
+    expect(app(Client::class)->unlinkApple())->toBeFalse();
+
+    Http::assertSent(function (Request $request): bool {
+        expect($request->method())->toBe('DELETE')
+            ->and($request->url())->toBe('http://devnull.test/api/v1/me/apple')
+            ->and($request->body())->toBe('')
+            ->and($request->hasHeader('Content-Type'))->toBeFalse()
+            ->and(receivedMessage($request))->toEndWith("\nDELETE\n/api/v1/me/apple\n")
+            ->and($request->header('X-SSH-Signature')[0])->toBe(testKey()->sign(receivedMessage($request), 'devnull-api'));
+
+        return true;
+    });
+});
+
+it('signs in with Apple on the sign-in endpoint, signed, for the user', function () {
+    Http::fake(['devnull.test/*' => Http::response(['data' => userWithCountsJson()])]);
+
+    $user = app(Client::class)->signInWithApple('the.identity.token', 'raw-nonce', 'devnull on iPhone');
+
+    expect($user->username)->toBe('local_dev');
+
+    Http::assertSent(function (Request $request): bool {
+        $body = '{"apple_identity_token":"the.identity.token","nonce":"raw-nonce","device_name":"devnull on iPhone"}';
+
+        expect($request->method())->toBe('POST')
+            ->and($request->url())->toBe('http://devnull.test/api/v1/'.Client::SignInPath)
+            ->and($request->body())->toBe($body)
+            ->and(receivedMessage($request))->toEndWith("\nPOST\n/api/v1/devices\n".$body)
+            ->and($request->header('X-SSH-Signature')[0])->toBe(testKey()->sign(receivedMessage($request), 'devnull-api'));
+
+        return true;
+    });
+});
+
+it("keeps devnull's Apple error codes and messages", function (string $call, int $status, string $code, string $message) {
+    Http::fake(['devnull.test/*' => Http::response(['message' => $message, 'code' => $code], $status)]);
+
+    try {
+        match ($call) {
+            'link' => app(Client::class)->linkApple('token', 'nonce'),
+            'sign in' => app(Client::class)->signInWithApple('token', 'nonce', 'devnull on iPhone'),
+        };
+        $this->fail('Expected an ApiException.');
+    } catch (ApiException $exception) {
+        expect($exception->status)->toBe($status)
+            ->and($exception->errorCode)->toBe($code)
+            ->and($exception->firstError())->toBe($message);
+    }
+})->with([
+    'a bad token on link' => ['link', 422, 'invalid_apple_token', 'That Apple sign-in could not be verified.'],
+    'an Apple ID on another account' => ['link', 409, 'apple_linked_elsewhere', 'That Apple ID is linked to another devnull account.'],
+    'a bad token on sign-in' => ['sign in', 422, 'invalid_apple_token', 'That Apple sign-in could not be verified.'],
+    'an Apple ID on no account' => ['sign in', 404, 'apple_not_linked', 'No devnull account is linked to this Apple ID. Sign in with GitHub, then link Apple in settings.'],
+]);
