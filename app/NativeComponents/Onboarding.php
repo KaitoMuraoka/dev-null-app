@@ -122,13 +122,20 @@ class Onboarding extends NativeComponent
 
     private int $copiedUntil = 0;
 
+    /**
+     * Set when nothing sent this phone here, yet it already had a key: only
+     * the stored sign-in may be gone, so the first tick asks devnull who it is.
+     */
+    private bool $signInOnTick = false;
+
     public function mount(DeviceKey $deviceKey): void
     {
         $this->notice = $this->data('message');
         $this->registerCleanup(fn () => app(GitHubToken::class)->forget());
 
         try {
-            $key = $deviceKey->current();
+            $existing = $deviceKey->existing();
+            $key = $existing ?? $deviceKey->current();
         } catch (KeychainUnavailable $exception) {
             $this->error = $exception->getMessage();
 
@@ -143,6 +150,8 @@ class Onboarding extends NativeComponent
         }
 
         $this->approveFromAnotherScreen();
+
+        $this->signInOnTick = $existing !== null && $this->notice === null && $this->step === GitHubStep::Start;
     }
 
     /**
@@ -286,6 +295,14 @@ class Onboarding extends NativeComponent
             $this->keyCopied = false;
         }
 
+        if ($this->signInOnTick) {
+            $this->signInOnTick = false;
+
+            if ($this->step === GitHubStep::Start && $this->signInWithExistingKey()) {
+                return;
+            }
+        }
+
         if ($this->now() < $this->nextAttemptAt) {
             return;
         }
@@ -318,6 +335,30 @@ class Onboarding extends NativeComponent
             $this->username = $username;
             $this->step = GitHubStep::Approving;
         }
+    }
+
+    /**
+     * A key devnull already knows and approved signs in with nothing to do,
+     * as after the app's stored sign-in was lost. Any other answer leaves
+     * onboarding as it is, without an error: there was nothing to ask for.
+     */
+    private function signInWithExistingKey(): bool
+    {
+        try {
+            $current = app(Client::class)->me();
+        } catch (ApiException|KeychainUnavailable) {
+            return false;
+        }
+
+        if ($current->user->username === '') {
+            return false;
+        }
+
+        app(Account::class)->remember($current->user);
+        app(Account::class)->rememberUnreadNotifications($current->unreadNotificationsCount);
+        $this->replace('/log');
+
+        return true;
     }
 
     private function checkAuthorization(): void

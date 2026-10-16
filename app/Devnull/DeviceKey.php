@@ -21,6 +21,26 @@ final class DeviceKey
      */
     public function current(): SshKey
     {
+        $existing = $this->existing();
+
+        if ($existing !== null) {
+            return $existing;
+        }
+
+        $key = SshKey::generate();
+
+        if (! $this->store->set(self::StorageKey, base64_encode($key->seed()))) {
+            throw new KeychainUnavailable('fatal: could not save a new device key to the Keychain.');
+        }
+
+        return $key;
+    }
+
+    /**
+     * Loads the key without making one: null when there isn't one yet.
+     */
+    public function existing(): ?SshKey
+    {
         $stored = $this->store->read(self::StorageKey);
 
         if ($stored->found()) {
@@ -37,13 +57,7 @@ final class DeviceKey
             throw new KeychainUnavailable('fatal: could not read the device key from the Keychain. '.($stored->message ?? 'Unlock the phone and try again.'));
         }
 
-        $key = SshKey::generate();
-
-        if (! $this->store->set(self::StorageKey, base64_encode($key->seed()))) {
-            throw new KeychainUnavailable('fatal: could not save a new device key to the Keychain.');
-        }
-
-        return $key;
+        return null;
     }
 
     public function forget(): void
