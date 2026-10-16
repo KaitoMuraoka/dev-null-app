@@ -6,26 +6,50 @@
     reply, or "Show more", follows ($hasNext). $railLane runs the commit's own rail on past, solid, when its author's
     run goes on below the thread. A deleted reply keeps its place with a dashed ring. The $last closes the commit's row
     with its hairline.
+
+    On a commit page a deleted reply's own replies open in place ($tombstones), since it has no page of their own,
+    one level in ($indent 32), hanging off a dashed spine from its ring as the web nests them. $spine carries the
+    thread's line on past a nested reply when the deleted one has another reply after it.
 --}}
 @php($previousLane ??= null)
 @php($railLane ??= null)
+@php($indent ??= 0)
+@php($spine ??= null)
+@php($tombstones ??= false)
 @php($segment = fn (int|string $lane): string => $lane === \App\Devnull\Lane::Rail ? 'bg-theme-rail' : 'bg-theme-lane-'.$lane)
-@php($avatarLine = 76)
+@php($avatarLine = 76 + $indent)
 @if ($reply->isDeleted())
+    @php($opened = $tombstones && array_key_exists($reply->id, $tombstoneReplies ?? []))
     <native:row ref="thread-reply-{{ $reply->id }}" class="w-full bg-theme-surface">
         <native:column :width="64" />
         <native:column class="flex-1">
-            <native:row class="w-full pr-4 pt-[10] gap-2 {{ $last ? 'pb-3' : 'pb-1' }} items-center">
+            <native:row class="w-full pr-4 pt-[10] gap-2 {{ $last ? 'pb-3' : 'pb-1' }} {{ $indent > 0 ? 'pl-['.$indent.']' : '' }}">
                 <native:column :width="24" :height="24" class="rounded-full">
                     @include('native.partials.dashed-ring', ['size' => 24, 'colour' => 'bg-theme-rail'])
                 </native:column>
-                <native:text class="flex-1 text-sm text-theme-ink-muted"><native:text font="mono" class="text-xs">[deleted]</native:text> This commit was deleted.</native:text>
+                <native:column class="flex-1 gap-1">
+                    <native:row class="w-full min-h-[24] items-center">
+                        <native:text class="flex-1 text-sm text-theme-ink-muted"><native:text font="mono" class="text-xs">[deleted]</native:text> This commit was deleted.</native:text>
+                    </native:row>
+                    @if ($tombstones && $reply->repliesCount > 0)
+                        <native:pressable ref="tombstone-replies-{{ $reply->id }}" @press="toggleTombstone('{{ $reply->id }}')" class="-ml-2 px-2 py-1" a11y-label="{{ $opened ? 'Hide replies' : \App\Devnull\Display::count($reply->repliesCount, 'reply', 'replies') }}">
+                            <native:row class="gap-1 items-center">
+                                <native:icon :ios="($opened ? \App\Icons\Lucide::ChevronDown : \App\Icons\Lucide::ChevronRight)->ios()" :android="($opened ? \App\Icons\Lucide::ChevronDown : \App\Icons\Lucide::ChevronRight)->android()" :size="14" class="text-theme-primary" />
+                                <native:text font="medium" class="text-[13px] text-theme-primary">{{ $opened ? 'Hide replies' : \App\Devnull\Display::count($reply->repliesCount, 'reply', 'replies') }}</native:text>
+                            </native:row>
+                        </native:pressable>
+                    @endif
+                </native:column>
             </native:row>
             @if ($last)
                 <native:column class="w-full h-[1] bg-theme-hairline" />
             @endif
         </native:column>
         @include('native.partials.thread-links')
+        @if ($opened && ($tombstoneReplies[$reply->id] ?? []) !== [])
+            {{-- The spine its own replies hang off, down from its ring. --}}
+            @include('native.partials.dashed-line', ['position' => 'top-[38] bottom-0', 'left' => $avatarLine - 0.5, 'colour' => 'bg-theme-rail', 'dashes' => 6])
+        @endif
     </native:row>
 @else
     @php($commit = $reply)
@@ -33,7 +57,7 @@
         <native:row class="w-full">
             <native:column :width="64" />
             <native:column class="flex-1">
-                <native:row class="w-full pr-4 pt-[10] gap-2 {{ $last ? 'pb-3' : '' }}">
+                <native:row class="w-full pr-4 pt-[10] gap-2 {{ $last ? 'pb-3' : '' }} {{ $indent > 0 ? 'pl-['.$indent.']' : '' }}">
                     <native:pressable @press="openProfile('{{ $reply->author->username }}')" a11y-label="{{ $reply->author->name }}'s profile">
                         @include('native.partials.avatar', ['user' => $reply->author, 'size' => 24])
                     </native:pressable>

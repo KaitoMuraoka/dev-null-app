@@ -3,9 +3,10 @@
     short dashed link from the last reply ($previousLane), and the commit's row closing under it with its hairline.
 --}}
 @php($railLane ??= null)
+@php($press ??= "showMoreReplies('{$commit->id}')")
 @php($segment = fn (int|string $lane): string => $lane === \App\Devnull\Lane::Rail ? 'bg-theme-rail' : 'bg-theme-lane-'.$lane)
 @php($avatarLine = 76)
-<native:pressable ref="more-replies-{{ $commit->id }}" @press="showMoreReplies('{{ $commit->id }}')" class="w-full bg-theme-surface" a11y-label="Show more replies">
+<native:pressable ref="more-replies-{{ $commit->id }}" @press="{{ $press }}" class="w-full bg-theme-surface" a11y-label="Show more replies">
     <native:row class="w-full">
         <native:column :width="64" />
         <native:column class="flex-1">

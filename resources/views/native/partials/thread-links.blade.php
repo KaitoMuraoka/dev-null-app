@@ -6,8 +6,12 @@
     @include('native.partials.rail', ['previous' => $railLane])
 @endif
 
+@if ($spine !== null)
+    @include('native.partials.dashed-line', ['position' => 'top-0 bottom-0', 'left' => 75.5, 'colour' => $segment($spine), 'dashes' => \App\Devnull\Display::dashesFor($reply)])
+@endif
+
 @if ($previousLane === null)
-    @include('native.partials.thread-elbow', ['lane' => $lane])
+    @include('native.partials.thread-elbow', ['lane' => $lane, 'from' => $indent > 0 ? 75.5 : 31.5, 'to' => 64 + $indent])
 @else
     @include('native.partials.dashed-line', ['position' => 'top-0 h-[6]', 'left' => $avatarLine - 0.5, 'colour' => $segment($previousLane), 'dashes' => 1])
 @endif

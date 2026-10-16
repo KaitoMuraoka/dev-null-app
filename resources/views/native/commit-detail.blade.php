@@ -15,75 +15,66 @@
 
             {{--
                 The ancestors, the commit and the rest of its series on one rail, so someone replying to themselves shows
-                their avatar once. As on the web, a part of a series with more parts after it has its replies right under
-                it, opened in place beside the rail, and the later parts follow.
+                their avatar once. As on the web, the commit's replies hang under it on the thread's dashed lines, with
+                the rail ending in a dot above them. A part of a series with more parts after it has its replies right
+                under it, beside the rail running on, and the later parts follow. A deleted reply's own replies open in
+                place, one level in, since a deleted commit has no page.
             --}}
-            @php($repliesInThread = $series !== [] && $replies !== [])
             @foreach ($rows as $row)
                 @php($isFocused = $row->commit->id === $commit?->id)
+                @php($hasThread = $isFocused && $replies !== [])
                 @include('native.partials.commit-row', [
                     'commit' => $row->commit,
                     'previousLane' => $row->previousLane,
                     'continuesRun' => $row->continuesRun,
+                    'continuesNext' => $isFocused ? ! $loop->last : null,
+                    'threadBelow' => $hasThread,
                     'focused' => $isFocused,
                     'seriesExpanded' => true,
                     'withTail' => ! $loop->last,
-                    'hairline' => ! ($isFocused && $repliesInThread),
                 ])
-                @if ($isFocused && $repliesInThread)
+                @if ($hasThread)
+                    @php($railLane = $loop->last ? null : $commit->lane())
                     @foreach ($replies as $index => $threadReply)
+                        @php($nested = $tombstoneReplies[$threadReply->id] ?? [])
+                        @php($hasNext = ! $loop->last || $repliesCursor !== null)
                         @include('native.partials.thread-reply', [
                             'reply' => $threadReply,
                             'lane' => $commit->lane(),
                             'previousLane' => $index === 0 ? null : $replies[$index - 1]->lane(),
-                            'hasNext' => ! $loop->last || $repliesCursor !== null,
-                            'railLane' => $commit->lane(),
-                            'last' => $loop->last && $repliesCursor === null,
+                            'hasNext' => $hasNext,
+                            'railLane' => $railLane,
+                            'tombstones' => true,
+                            'last' => ! $hasNext && $nested === [],
                         ])
+                        @foreach ($nested as $nestedIndex => $nestedReply)
+                            @include('native.partials.thread-reply', [
+                                'reply' => $nestedReply,
+                                'lane' => \App\Devnull\Lane::Rail,
+                                'previousLane' => $nestedIndex === 0 ? null : $nested[$nestedIndex - 1]->lane(),
+                                'hasNext' => ! $loop->last,
+                                'railLane' => $railLane,
+                                'indent' => 32,
+                                'spine' => $hasNext ? $threadReply->lane() : null,
+                                'last' => $loop->last && ! $hasNext,
+                            ])
+                        @endforeach
                     @endforeach
                     @if ($repliesCursor !== null)
-                        <native:row class="w-full bg-theme-surface">
-                            <native:column :width="64" />
-                            <native:column class="flex-1">
-                                <native:column class="w-full pr-4 pb-3">
-                                    <native:button ref="more-replies" variant="ghost" size="sm" @press="loadMoreReplies">Show more replies</native:button>
-                                </native:column>
-                                <native:column class="w-full h-[1] bg-theme-hairline" />
-                            </native:column>
-                            @include('native.partials.rail', ['previous' => $commit->lane()])
-                        </native:row>
+                        @include('native.partials.thread-more', ['commit' => $commit, 'previousLane' => end($replies)->lane(), 'railLane' => $railLane, 'press' => 'loadMoreReplies'])
                     @endif
                 @endif
             @endforeach
 
-            @if ($commit && $series === [])
-                @if ($replies !== [])
-                    <native:column class="w-full px-4 pt-3 pb-1">
-                        <native:text font="mono" class="text-[13px] text-theme-ink-muted">{{ \App\Devnull\Display::count(max($commit->repliesCount, count($replies)), 'reply', 'replies') }}</native:text>
+            @if ($commit && $replies === [] && $series === [])
+                @if ($repliesLoaded)
+                    <native:column class="w-full px-4 py-4">
+                        <native:text class="text-sm text-theme-ink-muted">No replies yet.</native:text>
                     </native:column>
-                @endif
-
-                @forelse ($replies as $replyCommit)
-                    @include('native.partials.reply', ['reply' => $replyCommit])
-                    @foreach ($tombstoneReplies[$replyCommit->id] ?? [] as $nestedReply)
-                        @include('native.partials.reply', ['reply' => $nestedReply, 'nested' => true])
-                    @endforeach
-                @empty
-                    @if ($repliesLoaded)
-                        <native:column class="w-full px-4 py-4">
-                            <native:text class="text-sm text-theme-ink-muted">No replies yet.</native:text>
-                        </native:column>
-                    @elseif ($error === null)
-                        <native:row ref="loading-replies" class="w-full px-4 py-4 gap-2 items-center" a11y-label="Loading replies">
-                            <native:activity-indicator size="small" />
-                        </native:row>
-                    @endif
-                @endforelse
-
-                @if ($repliesCursor !== null)
-                    <native:column class="w-full px-4 py-3">
-                        <native:button ref="more-replies" variant="ghost" size="sm" @press="loadMoreReplies">Show more replies</native:button>
-                    </native:column>
+                @elseif ($error === null)
+                    <native:row ref="loading-replies" class="w-full px-4 py-4 gap-2 items-center" a11y-label="Loading replies">
+                        <native:activity-indicator size="small" />
+                    </native:row>
                 @endif
             @endif
 

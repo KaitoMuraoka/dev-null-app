@@ -156,13 +156,10 @@ it('keeps replies at the foot of the last part\'s page', function () {
     ]);
 
     $screen = Native::visit('/log/commits/p3')
-        ->assertSee('1 reply')
         ->assertSee('The end');
 
-    expect(threadRows($screen))->toBe(['commit-p1', 'commit-p2', 'focused-commit'])
+    expect(threadRows($screen))->toBe(['commit-p1', 'commit-p2', 'focused-commit', 'thread-reply-r1'])
         ->and(railRunsOn($screen, 'focused-commit'))->toBeFalse();
-
-    nodeByRef($screen, 'reply-r1');
 });
 
 it('keeps a deleted part in its place in the series', function () {

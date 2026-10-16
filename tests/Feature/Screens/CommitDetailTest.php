@@ -36,8 +36,22 @@ it('shows the ancestors above the commit and the replies below', function () {
         ->assertSee('The parent commit')
         ->assertSee('The focused commit')
         ->assertSee('First reply')
-        ->assertSee('1 reply')
         ->assertSee('Reply to @local_dev');
+});
+
+it("hangs the replies under the commit on the web's thread, the rail ending in a dot above them", function () {
+    fakeThread(replies: [
+        replyJson(['id' => 'r1', 'parent_id' => 'c2', 'body' => 'First reply', 'author' => userJson(['id' => 'u3', 'username' => 'grace', 'name' => 'Grace', 'lane' => 4])]),
+        replyJson(['id' => 'r2', 'parent_id' => 'c2', 'body' => 'Second reply']),
+    ]);
+
+    $screen = Native::visit('/log/commits/c2', platform: 'ios');
+    $first = nodeByRef($screen, 'thread-reply-r1');
+    $second = nodeByRef($screen, 'thread-reply-r2');
+
+    expect(findNode($first, fn (array $node): bool => ($node['ref'] ?? null) === 'thread-elbow'))->not->toBeNull()
+        ->and(findNode($second, fn (array $node): bool => ($node['ref'] ?? null) === 'thread-elbow'))->toBeNull()
+        ->and(findNode(nodeByRef($screen, 'focused-commit'), fn (array $node): bool => ($node['ref'] ?? null) === 'end-dot'))->not->toBeNull();
 });
 
 it('prints the date the way git log does', function () {
@@ -137,7 +151,7 @@ it('opens ancestors, replies and profiles', function () {
     fakeThread(replies: [replyJson(['id' => 'r1'])]);
 
     Native::visit('/log/commits/c2')->tap('commit-c1')->assertNavigatedTo('/log/commits/c1');
-    Native::visit('/log/commits/c2')->tap('reply-r1')->assertNavigatedTo('/log/commits/r1');
+    Native::visit('/log/commits/c2')->tap('thread-reply-r1')->assertNavigatedTo('/log/commits/r1');
     Native::visit('/log/commits/c2')->call('openProfile', 'ada')->assertNavigatedTo('/log/users/ada');
 });
 
@@ -183,12 +197,15 @@ it('keeps deleted replies as tombstones and opens their replies in place', funct
         ->assertSee('This commit was deleted.')
         ->assertSee('Still here')
         ->assertDontSee('Answering the deleted one')
-        ->assertMissingElement('pressable', fn (array $node): bool => ($node['ref'] ?? null) === 'reply-r1')
+        ->assertMissingElement('pressable', fn (array $node): bool => ($node['ref'] ?? null) === 'thread-reply-r1')
         ->tap('tombstone-replies-r1')
         ->assertSee('Answering the deleted one')
         ->assertSee('Hide replies');
 
-    $screen->tap('reply-r3')->assertNavigatedTo('/log/commits/r3');
+    // One level in, on an elbow off the deleted reply's spine.
+    expect(findNode(nodeByRef($screen, 'thread-reply-r3'), fn (array $node): bool => ($node['ref'] ?? null) === 'thread-elbow'))->not->toBeNull();
+
+    $screen->tap('thread-reply-r3')->assertNavigatedTo('/log/commits/r3');
 
     Native::visit('/log/commits/c2')
         ->tap('tombstone-replies-r1')
@@ -266,7 +283,7 @@ it('reloads when you come back from a reply you deleted', function () {
 
     $reply = Native::visit('/log/commits/c2')
         ->assertSee('Soon gone')
-        ->tap('reply-r1')
+        ->tap('thread-reply-r1')
         ->follow()
         ->call('delete')
         ->assertWentBack();
@@ -325,7 +342,7 @@ it('lets a drag that starts on an ancestor or a reply scroll the thread', functi
     $screen = Native::visit('/log/commits/c2', platform: 'ios');
 
     nodeByRef($screen, 'commit-c1');
-    nodeByRef($screen, 'reply-r1');
+    nodeByRef($screen, 'thread-reply-r1');
 
     expect(pressFeedbackInScroller($screen))->toBe([]);
 });
