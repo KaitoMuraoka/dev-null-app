@@ -458,6 +458,9 @@ it('shows an author once per run, and starts a new run at each day', function ()
 });
 
 it('marks where your last visit ended, which also starts a new run', function () {
+    // The fixtures and the assertions both use now(), so it mustn't tick between them.
+    $this->freezeSecond();
+
     $ada = userJson(['id' => 'u2', 'username' => 'ada', 'name' => 'Ada']);
     app(LastVisit::class)->remember(userJson()['id'], 'following', [Commit::fromArray(commitJson(['created_at' => now()->subHour()->toIso8601String()]))]);
 
@@ -483,6 +486,8 @@ it('marks where your last visit ended, which also starts a new run', function ()
 });
 
 it('leaves out the last-visit marker on a first visit, or when only you committed since', function () {
+    $this->freezeSecond();
+
     Http::fake(['devnull.test/*' => Http::response(pageJson([
         commitJson(['id' => 'c2', 'created_at' => now()->subMinutes(10)->toIso8601String()]),
         commitJson(['id' => 'c1', 'author' => userJson(['id' => 'u2', 'username' => 'ada']), 'created_at' => now()->subHour()->toIso8601String()]),
