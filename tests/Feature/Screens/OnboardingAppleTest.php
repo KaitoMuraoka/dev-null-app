@@ -4,7 +4,6 @@ use App\Devnull\Account;
 use App\Devnull\AppleSignIn;
 use App\Devnull\Client;
 use App\NativeComponents\Onboarding;
-use Codingwithrk\NativephpSocialAuth\Events\AppleSignInCompleted;
 use Codingwithrk\NativephpSocialAuth\Events\SignInFailed;
 use Illuminate\Http\Client\Request;
 use Illuminate\Log\Events\MessageLogged;
@@ -13,11 +12,7 @@ use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Native\Mobile\Platform;
-use Native\Mobile\Testing\FakeBridge;
 use Native\Mobile\Testing\Native;
-use Native\Mobile\Testing\TestableComponent;
-
-const AppleToken = 'eyJhbGciOiJSUzI1NiJ9.apple-identity-token.signature';
 
 const AppleNotLinkedMessage = 'No devnull account is linked to this Apple ID. Sign in with GitHub, then link Apple in settings.';
 
@@ -27,61 +22,6 @@ beforeEach(function () {
 });
 
 afterEach(fn () => Platform::set(null));
-
-/**
- * An iPhone with its key in the Keychain, whose Apple sheet opens.
- */
-function appleBridge(): FakeBridge
-{
-    return fakeKeychain(testSeed())
-        ->respondTo('NativephpSocialAuth.AppleSignIn', ['pending' => true])
-        ->respondTo('Device.GetInfo', ['info' => json_encode(['model' => 'iPhone', 'platform' => 'ios'])]);
-}
-
-/**
- * The raw nonce of the Apple sign-in under way, as held in memory.
- */
-function heldAppleNonce(): ?string
-{
-    return (fn () => $this->nonce?->getValue())->call(app(AppleSignIn::class));
-}
-
-/**
- * The params of the last call that opened Apple's sheet.
- *
- * @return array<string, mixed>
- */
-function appleSheetParams(FakeBridge $bridge): array
-{
-    $calls = $bridge->callsTo('NativephpSocialAuth.AppleSignIn');
-
-    expect($calls)->not->toBeEmpty("Apple's sheet was never opened.");
-
-    return end($calls)['params'];
-}
-
-/**
- * Apple answering, as the plugin sends it: the raw nonce echoed back, and no
- * name or email, since the app asks for neither.
- *
- * @param  array<string, mixed>  $overrides
- */
-function appleAnswers(TestableComponent $screen, string $nonce, array $overrides = []): TestableComponent
-{
-    return $screen->emitNative(AppleSignInCompleted::class, [
-        'userId' => '001234.abcdef0123456789.0042',
-        'identityToken' => AppleToken,
-        'authorizationCode' => 'c0de.apple',
-        'email' => null,
-        'givenName' => null,
-        'familyName' => null,
-        'fullName' => null,
-        'nonce' => $nonce,
-        'state' => null,
-        'isRealUser' => 'likelyReal',
-        ...$overrides,
-    ]);
-}
 
 it('offers Sign in with Apple under GitHub on iOS, as big as it and in Apple\'s colours', function () {
     appleBridge();
@@ -132,7 +72,7 @@ it("signs in with Apple's token and the raw nonce, which approves this phone", f
     Http::assertSentCount(1);
     Http::assertSent(fn (Request $request): bool => $request->method() === 'POST'
         && $request->url() === 'http://devnull.test/api/v1/'.Client::SignInPath
-        && $request->body() === json_encode(['apple_identity_token' => AppleToken, 'nonce' => $nonce, 'device_name' => 'devnull on iPhone'])
+        && $request->body() === json_encode(['apple_identity_token' => AppleIdentityToken, 'nonce' => $nonce, 'device_name' => 'devnull on iPhone'])
         && $request->hasHeader('X-SSH-Signature'));
 
     // Apple's token carries sha256(nonce) as hex, which is what devnull checks against the raw nonce.
@@ -277,15 +217,15 @@ it('never writes the Apple token or the nonce down', function () {
 
     $cached = (fn () => $this->storage)->call(Cache::store()->getStore());
 
-    expect(json_encode(get_object_vars($screen->instance())))->not->toContain(AppleToken)->not->toContain($nonce)
-        ->and(json_encode($screen->tree()))->not->toContain(AppleToken)->not->toContain($nonce)
-        ->and(json_encode($cached))->not->toContain(AppleToken)->not->toContain($nonce)
+    expect(json_encode(get_object_vars($screen->instance())))->not->toContain(AppleIdentityToken)->not->toContain($nonce)
+        ->and(json_encode($screen->tree()))->not->toContain(AppleIdentityToken)->not->toContain($nonce)
+        ->and(json_encode($cached))->not->toContain(AppleIdentityToken)->not->toContain($nonce)
         ->and(Storage::disk('local')->allFiles())->toBe([])
-        ->and(implode("\n", $logged))->not->toContain(AppleToken)->not->toContain($nonce)
+        ->and(implode("\n", $logged))->not->toContain(AppleIdentityToken)->not->toContain($nonce)
         ->and(heldAppleNonce())->toBeNull();
 
     foreach ($bridge->callsTo('SecureStorage.Set') as $call) {
-        expect(json_encode($call['params']))->not->toContain(AppleToken)->not->toContain($nonce);
+        expect(json_encode($call['params']))->not->toContain(AppleIdentityToken)->not->toContain($nonce);
     }
 });
 

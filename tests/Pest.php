@@ -1,9 +1,11 @@
 <?php
 
 use App\Devnull\Account;
+use App\Devnull\AppleSignIn;
 use App\Devnull\Data\User;
 use App\Devnull\DeviceKey;
 use App\Devnull\SshKey;
+use Codingwithrk\NativephpSocialAuth\Events\AppleSignInCompleted;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Native\Mobile\Testing\FakeBridge;
@@ -94,6 +96,66 @@ function fakeKeychain(?string $seed = null): FakeBridge
 
             return ['success' => true];
         });
+}
+
+/**
+ * An identity token as Apple signs one. The app never reads it, only passes it on.
+ */
+const AppleIdentityToken = 'eyJhbGciOiJSUzI1NiJ9.apple-identity-token.signature';
+
+/**
+ * An iPhone with its key in the Keychain, whose Apple sheet opens.
+ */
+function appleBridge(): FakeBridge
+{
+    return fakeKeychain(testSeed())
+        ->respondTo('NativephpSocialAuth.AppleSignIn', ['pending' => true])
+        ->respondTo('Device.GetInfo', ['info' => json_encode(['model' => 'iPhone', 'platform' => 'ios'])]);
+}
+
+/**
+ * The raw nonce of the Apple sign-in under way, as held in memory.
+ */
+function heldAppleNonce(): ?string
+{
+    return (fn () => $this->nonce?->getValue())->call(app(AppleSignIn::class));
+}
+
+/**
+ * The params of the last call that opened Apple's sheet.
+ *
+ * @return array<string, mixed>
+ */
+function appleSheetParams(FakeBridge $bridge): array
+{
+    $calls = $bridge->callsTo('NativephpSocialAuth.AppleSignIn');
+
+    expect($calls)->not->toBeEmpty("Apple's sheet was never opened.");
+
+    return end($calls)['params'];
+}
+
+/**
+ * Apple answering, as the plugin sends it: the raw nonce echoed back, and no
+ * name or email, since the app asks for neither.
+ *
+ * @param  array<string, mixed>  $overrides
+ */
+function appleAnswers(TestableComponent $screen, string $nonce, array $overrides = []): TestableComponent
+{
+    return $screen->emitNative(AppleSignInCompleted::class, [
+        'userId' => '001234.abcdef0123456789.0042',
+        'identityToken' => AppleIdentityToken,
+        'authorizationCode' => 'c0de.apple',
+        'email' => null,
+        'givenName' => null,
+        'familyName' => null,
+        'fullName' => null,
+        'nonce' => $nonce,
+        'state' => null,
+        'isRealUser' => 'likelyReal',
+        ...$overrides,
+    ]);
 }
 
 function testSeed(): string
