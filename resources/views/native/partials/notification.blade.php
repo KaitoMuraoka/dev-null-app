@@ -31,7 +31,7 @@
                         @include('native.partials.stacked-avatars', ['id' => $notification->id, 'actors' => $notification->actors, 'more' => max(0, $notification->actorsCount - count($notification->actors))])
                     @endif
                     <native:spacer />
-                    <native:text font="mono" class="text-[13px] text-theme-ink-muted">{{ \App\Devnull\Display::relativeTime($notification->createdAt) }}</native:text>
+                    <native:text font="mono" class="text-[13px] text-theme-ink-muted flex-shrink-0">{{ \App\Devnull\Display::relativeTime($notification->createdAt) }}</native:text>
                     @if ($notification->isFollow() && $notification->actorIsFollowed !== null)
                         @include('native.partials.follow-back', ['actor' => $notification->actor, 'isFollowing' => $notification->actorIsFollowed])
                     @endif
