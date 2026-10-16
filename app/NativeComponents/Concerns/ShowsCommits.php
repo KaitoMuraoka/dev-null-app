@@ -11,15 +11,18 @@ use Native\Mobile\Facades\Share;
 
 /**
  * The actions under a commit: the star, Reply, the bookmark and copy link,
- * plus opening its link preview or images in the in-app browser, and "Show
- * more" on a long one. Taps name the commit rather than a URL, so a URL is
- * never rebuilt from an attribute.
+ * or More on a commit you can report (see OpensCommitSheet), plus opening its
+ * link preview or images in the in-app browser, and "Show more" on a long
+ * one. Taps name the commit rather than a URL, so a URL is never rebuilt from
+ * an attribute.
  *
  * A commit can be tapped where a row nests it too: the commit a row quotes,
  * and the replies a feed shows under a commit.
  */
 trait ShowsCommits
 {
+    use OpensCommitSheet;
+
     /**
      * Long commits opened in place with "Show more", by id.
      *

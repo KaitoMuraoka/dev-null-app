@@ -1,6 +1,7 @@
 <native:column class="w-full h-full bg-theme-background">
     @include('native.partials.error')
     @include('native.partials.refresh-failed')
+    @include('native.partials.commit-sheet')
 
     <native:column class="w-full flex-1">
     {{-- Keyed so a new key puts the profile back at the top, as the new commits pill does. --}}

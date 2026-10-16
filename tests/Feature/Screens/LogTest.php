@@ -277,7 +277,7 @@ it('lays out several images in the web grid', function () {
         ->assertNativeCalled('Browser.OpenInApp', fn (array $params): bool => $params['url'] === 'https://img.test/3');
 });
 
-it('puts the web action row under each commit: the star, Quote, Reply and replies, then the bookmark and copy link', function () {
+it('puts the web action row under each commit: the star, Quote, Reply and replies, then the bookmark and More', function () {
     $ada = userJson(['id' => 'u2', 'username' => 'ada']);
 
     Http::fake(['devnull.test/*' => Http::response(pageJson([
@@ -300,8 +300,8 @@ it('puts the web action row under each commit: the star, Quote, Reply and replie
         ->assertMissingElement('pressable', fn (array $node): bool => in_array($node['ref'] ?? null, ['star-c0', 'bookmark-c0'], true))
         ->assertMissingElement('column', fn (array $node): bool => ($node['ref'] ?? null) === 'quote-c0');
 
-    // The web's order: star, Quote, Reply and replies on the left, then the bookmark and copy link on the right.
-    expect(array_values(array_filter(childRefs($screen, 'actions-c2'))))->toBe(['star-c2', 'quote-c2', 'reply-to-c2', 'replies-c2', 'bookmark-c2', 'copy-link-c2']);
+    // The web's order: star, Quote, Reply and replies on the left, then the bookmark and More, standing in for copy link, on the right.
+    expect(array_values(array_filter(childRefs($screen, 'actions-c2'))))->toBe(['star-c2', 'quote-c2', 'reply-to-c2', 'replies-c2', 'bookmark-c2', 'more-c2']);
 
     $icon = fn (string $ref): ?array => findNode(nodeByRef($screen, $ref), fn (array $node): bool => ($node['type'] ?? null) === 'icon');
     $text = fn (string $ref, string $text): ?array => findNode(nodeByRef($screen, $ref), fn (array $node): bool => ($node['props']['text'] ?? null) === $text);
@@ -317,7 +317,7 @@ it('puts the web action row under each commit: the star, Quote, Reply and replie
         ->and($icon('reply-to-c1')['props']['name'] ?? null)->toBe('custom:message-square-reply')
         ->and($icon('replies-c2')['props']['name'] ?? null)->toBe('chevron.right')
         ->and($text('replies-c2', '1 reply')['props']['color'] ?? null)->toBe($primary)
-        ->and($icon('copy-link-c1')['props']['name'] ?? null)->toBe('custom:link');
+        ->and($icon('more-c1')['props']['name'] ?? null)->toBe('custom:ellipsis');
 
     // Reply opens the commit with its reply composer focused.
     $screen->tap('reply-to-c1')->assertNavigatedTo('/log/commits/c1');

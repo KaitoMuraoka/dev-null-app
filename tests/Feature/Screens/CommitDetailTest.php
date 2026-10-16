@@ -105,7 +105,7 @@ it('draws the commit as the main thing, and what is around it muted', function (
     $bodyOf = fn (string $ref, string $text): ?array => findNode(nodeByRef($screen, $ref), fn (array $node): bool => ($node['type'] ?? null) === 'text'
         && str_contains(implode('', array_map(fn (array $run): string => $run['props']['text'] ?? '', $node['children'] ?? [])), $text));
     $avatarRing = fn (string $ref): ?float => findNode(nodeByRef($screen, $ref), fn (array $node): bool => ($node['type'] ?? null) === 'stack' && in_array($node['layout']['width'] ?? null, [36.0, 48.0], true))['layout']['width'] ?? null;
-    $linkIcon = fn (string $id): mixed => findNode(nodeByRef($screen, 'copy-link-'.$id), fn (array $node): bool => ($node['type'] ?? null) === 'icon')['props']['size'] ?? null;
+    $iconSize = fn (string $ref): mixed => findNode(nodeByRef($screen, $ref), fn (array $node): bool => ($node['type'] ?? null) === 'icon')['props']['size'] ?? null;
 
     $focused = $bodyOf('focused-commit', 'The focused commit');
     $ancestor = $bodyOf('commit-c1', 'The parent commit');
@@ -119,9 +119,10 @@ it('draws the commit as the main thing, and what is around it muted', function (
         ->and(strtolower($reply['props']['color']))->toBe($muted)
         ->and($avatarRing('focused-commit'))->toEqual(48)
         ->and($avatarRing('commit-c1'))->toEqual(36)
-        ->and($linkIcon('c2'))->toEqual(16)
-        ->and($linkIcon('c1'))->toEqual(14)
-        ->and($linkIcon('r1'))->toEqual(14);
+        ->and($iconSize('copy-link-c2'))->toEqual(16)
+        // Ada's commit, which you can report, has More where yours have copy link.
+        ->and($iconSize('more-c1'))->toEqual(14)
+        ->and($iconSize('copy-link-r1'))->toEqual(14);
 
     $screen->assertDontSee('+0000')->assertSee('c2');
 });

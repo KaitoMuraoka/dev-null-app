@@ -8,6 +8,7 @@
 
     @include('native.partials.error')
     @include('native.partials.refresh-failed')
+    @include('native.partials.commit-sheet')
 
     <native:column class="w-full flex-1">
     {{--
