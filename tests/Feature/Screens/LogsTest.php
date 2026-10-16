@@ -3,6 +3,7 @@
 use App\Devnull\Client;
 use App\Devnull\Timeline;
 use App\NativeComponents\Log;
+use App\NativeComponents\Notifications;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Native\Mobile\Testing\Native;
@@ -301,6 +302,16 @@ it('keys each row by what it shows, so a commit put on top leaves the rows under
 
     expect(shownLogIds($screen))->toBe(['mine', 'c1'])
         ->and(nodeByRef($screen, 'commit-c1')['id'])->toBe($row);
+});
+
+it('sends the Log and Notifications in full every frame, as EDGE advises for lists that change often', function () {
+    Http::fake(['devnull.test/*' => Http::response(pageJson([]))]);
+
+    foreach ([Log::class, Notifications::class] as $screen) {
+        $instance = Native::test($screen)->instance();
+
+        expect((fn (): bool => $this->forceFullFrames)->call($instance))->toBeTrue();
+    }
 });
 
 it('asks Following and Latest what came in since the newest commit showing, and counts the pill by devnull', function () {

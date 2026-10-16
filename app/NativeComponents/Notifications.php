@@ -41,6 +41,11 @@ class Notifications extends NativeComponent
     use TalksToDevnull;
 
     /**
+     * Every frame goes in full, as on the Log (see Log::$forceFullFrames).
+     */
+    protected bool $forceFullFrames = true;
+
+    /**
      * The web's filters, their labels and what each says when it has nothing.
      */
     public const array Types = [
