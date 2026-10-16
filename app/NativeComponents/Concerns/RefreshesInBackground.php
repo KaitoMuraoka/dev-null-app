@@ -26,7 +26,8 @@ use Throwable;
  *
  * When a refresh fails over something worth showing, the screen keeps it and
  * says so quietly, with a retry. Only a screen with nothing to show prints the
- * error. A 401 signs the phone out, as any request does.
+ * error. A 401 signs the phone out, as any request does. A server error is
+ * asked once more first, signed afresh, since it's often a passing one.
  */
 trait RefreshesInBackground
 {
@@ -81,7 +82,7 @@ trait RefreshesInBackground
      * @param  array<string, string|null>  $query
      * @param  Closure(array<string, mixed>): void  $apply
      */
-    protected function refresh(string $path, array $query, Closure $apply, bool $again = false, bool $quiet = false): void
+    protected function refresh(string $path, array $query, Closure $apply, bool $again = false, bool $quiet = false, bool $retried = false): void
     {
         $key = ResponseCache::key('', $path, $query);
 
@@ -103,9 +104,18 @@ trait RefreshesInBackground
 
         FetchInBackground::dispatch($request->url, $request->headers)
             ->timeout(30)
-            ->finished(function (mixed $result) use ($key, $path, $query, $apply, $quiet): void {
+            ->finished(function (mixed $result) use ($key, $path, $query, $apply, $quiet, $retried): void {
                 unset($this->refreshing[$key]);
-                $this->settleRefresh(is_array($result) ? $result : [], $path, $query, $apply, $quiet);
+
+                $result = is_array($result) ? $result : [];
+
+                if (! $retried && (int) ($result['status'] ?? 0) >= 500) {
+                    $this->refresh($path, $query, $apply, again: true, quiet: $quiet, retried: true);
+
+                    return;
+                }
+
+                $this->settleRefresh($result, $path, $query, $apply, $quiet);
             })
             ->failed(function (Throwable $exception) use ($key, $quiet): void {
                 unset($this->refreshing[$key]);

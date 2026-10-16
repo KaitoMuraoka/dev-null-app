@@ -191,6 +191,38 @@ it('keeps the kept log and says quietly that it could not refresh when offline, 
         ->assertSee('Still here');
 });
 
+it('asks once more after a server error, signed afresh, before saying it could not refresh', function () {
+    holdRefreshes();
+    keep('log/following', pageJson([commitJson(['id' => 'c1', 'body' => 'Kept'])]));
+    $answers = [500, 200];
+    serveApi(function (Request $request) use (&$answers) {
+        if (str_contains($request->url(), '/log/following')) {
+            $status = array_shift($answers) ?? 500;
+
+            return $status === 200
+                ? Http::response(pageJson([commitJson(['id' => 'c1', 'body' => 'Kept', 'stars_count' => 9])]))
+                : Http::response(['message' => 'Server Error'], $status);
+        }
+
+        return Http::response(['data' => userWithCountsJson(), 'unread_notifications_count' => 0]);
+    });
+
+    $screen = finishRefreshes(Native::visit('/log'))->assertDontSee("warning: couldn't refresh");
+
+    $nonces = collect(Http::recorded())
+        ->filter(fn (array $pair): bool => str_contains($pair[0]->url(), '/log/following'))
+        ->map(fn (array $pair): string => $pair[0]->header('X-Devnull-Nonce')[0]);
+
+    expect($screen->instance()->commits[0]->starsCount)->toBe(9)
+        ->and($nonces)->toHaveCount(2)
+        ->and($nonces->unique())->toHaveCount(2);
+
+    // Twice in a row, it gives up and says so.
+    $answers = [500, 500];
+
+    finishRefreshes($screen->firePoll('checkForNewCommits'))->assertSee("warning: couldn't refresh");
+});
+
 it('prints the error when there is nothing kept to show', function () {
     holdRefreshes();
     fakeOffline();
