@@ -91,6 +91,16 @@ final readonly class Client
     }
 
     /**
+     * Deletes the account this phone is signed in as, the way the web's Delete
+     * account does. devnull deletes its devices with it, so this phone's key
+     * stops working.
+     */
+    public function deleteAccount(): void
+    {
+        $this->send('DELETE', 'me');
+    }
+
+    /**
      * @return Page<Commit>
      */
     public function log(string $log, ?string $cursor = null): Page

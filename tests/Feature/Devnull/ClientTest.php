@@ -471,6 +471,23 @@ it('unlinks an Apple ID with a signed bodiless DELETE', function () {
     });
 });
 
+it('deletes your account with a signed bodiless DELETE of /me', function () {
+    Http::fake(['devnull.test/*' => Http::response(null, 204)]);
+
+    app(Client::class)->deleteAccount();
+
+    Http::assertSent(function (Request $request): bool {
+        expect($request->method())->toBe('DELETE')
+            ->and($request->url())->toBe('http://devnull.test/api/v1/me')
+            ->and($request->body())->toBe('')
+            ->and($request->hasHeader('Content-Type'))->toBeFalse()
+            ->and(receivedMessage($request))->toEndWith("\nDELETE\n/api/v1/me\n")
+            ->and($request->header('X-SSH-Signature')[0])->toBe(testKey()->sign(receivedMessage($request), 'devnull-api'));
+
+        return true;
+    });
+});
+
 it('signs in with Apple on the sign-in endpoint, signed, for the user', function () {
     Http::fake(['devnull.test/*' => Http::response(['data' => userWithCountsJson()])]);
 
