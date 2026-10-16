@@ -43,7 +43,7 @@ it('shares the public key and opens GitHub in the in-app browser', function () {
 });
 
 it('connects, remembers the user and goes to the log', function () {
-    fakeKeychain(testSeed());
+    fakeKeychain(testSeed())->respondTo('Device.GetInfo', ['info' => json_encode(['model' => 'iPhone'])]);
     Http::fake(['devnull.test/api/v1/key-syncs' => Http::response(['data' => userJson()])]);
 
     Native::visit('/onboarding')
@@ -54,7 +54,7 @@ it('connects, remembers the user and goes to the log', function () {
     expect(app(Account::class)->user()?->username)->toBe('local_dev');
 
     Http::assertSent(fn (Request $request): bool => $request->url() === 'http://devnull.test/api/v1/key-syncs'
-        && $request->body() === '{"username":"local_dev"}'
+        && $request->body() === '{"username":"local_dev","device_name":"devnull on iPhone"}'
         && $request->hasHeader('X-SSH-Signature'));
 });
 

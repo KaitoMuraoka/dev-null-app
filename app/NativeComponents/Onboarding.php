@@ -5,7 +5,10 @@ namespace App\NativeComponents;
 use App\Devnull\Account;
 use App\Devnull\Client;
 use App\Devnull\Data\AuthorizationStatus;
+use App\Devnull\Data\PairingCode;
+use App\Devnull\Data\User;
 use App\Devnull\DeviceKey;
+use App\Devnull\Display;
 use App\Devnull\Exceptions\ApiException;
 use App\Devnull\Exceptions\GitHubException;
 use App\Devnull\Exceptions\GitHubUnreachable;
@@ -25,7 +28,8 @@ use SensitiveParameter;
  * This phone has its own SSH key. Add it to GitHub once and devnull knows who you are.
  *
  * With a GitHub App configured, the app adds the key itself through GitHub's
- * device flow. Adding it by hand stays available either way.
+ * device flow. Adding it by hand stays available either way, and ends with a
+ * code to enter on the web, since devnull also wants this phone approved.
  */
 class Onboarding extends NativeComponent
 {
@@ -43,6 +47,17 @@ class Onboarding extends NativeComponent
      * What key-syncs answers while the key isn't on the person's GitHub yet.
      */
     public const int KeyNotListedYet = 403;
+
+    /**
+     * devnull lets one IP ask key-syncs 10 times a minute, so the approval
+     * step asks whether the phone was approved every 6 seconds at most.
+     */
+    public const int ApprovalPollSeconds = 6;
+
+    /**
+     * How long to wait after a 429 that doesn't say.
+     */
+    public const int RateLimitedSeconds = 60;
 
     public string $publicKey = '';
 
@@ -66,6 +81,14 @@ class Onboarding extends NativeComponent
 
     public ?string $githubNotice = null;
 
+    public string $pairingCode = '';
+
+    public string $pairingMessage = '';
+
+    public int $pairingMinutes = 15;
+
+    public ?string $pairingError = null;
+
     private string $deviceCode = '';
 
     private string $devicePage = '';
@@ -77,6 +100,12 @@ class Onboarding extends NativeComponent
     private int $nextAttemptAt = 0;
 
     private int $keySyncAttempts = 0;
+
+    private string $approvalUrl = '';
+
+    private int $pairingExpiresAt = 0;
+
+    private string $deviceName = '';
 
     public function mount(DeviceKey $deviceKey): void
     {
@@ -117,7 +146,7 @@ class Onboarding extends NativeComponent
         }
 
         try {
-            $user = app(Client::class)->syncKey($username);
+            $answer = app(Client::class)->syncKey($username, deviceName: $this->keyTitle());
         } catch (ApiException $exception) {
             $this->error = $exception->firstError();
 
@@ -128,8 +157,9 @@ class Onboarding extends NativeComponent
             return;
         }
 
-        app(Account::class)->remember($user);
-        $this->replace('/log');
+        $this->username = $username;
+        $this->error = null;
+        $this->signInOrShowCode($answer);
     }
 
     /**
@@ -181,6 +211,29 @@ class Onboarding extends NativeComponent
         $this->startOver();
     }
 
+    public function openApprovalPage(): void
+    {
+        if ($this->approvalUrl !== '') {
+            Browser::inApp($this->approvalUrl);
+        }
+    }
+
+    /**
+     * Shares where to enter the code as well as the code, for approving the
+     * phone from a computer.
+     */
+    public function sharePairingCode(): void
+    {
+        if ($this->pairingCode !== '') {
+            Share::file('', $this->pairingMessage !== '' ? $this->pairingMessage : $this->pairingCode, '');
+        }
+    }
+
+    public function cancelApproval(): void
+    {
+        $this->startOver();
+    }
+
     /**
      * GitHub sets the pace of the device flow and devnull the pace of key
      * syncs, so both wait between requests. Ticking every second to see if
@@ -193,11 +246,12 @@ class Onboarding extends NativeComponent
             return;
         }
 
-        if ($this->step === GitHubStep::Authorizing) {
-            $this->checkAuthorization();
-        } elseif ($this->step === GitHubStep::Listing) {
-            $this->syncKeyWithDevnull();
-        }
+        match ($this->step) {
+            GitHubStep::Authorizing => $this->checkAuthorization(),
+            GitHubStep::Listing => $this->syncKeyWithDevnull(),
+            GitHubStep::Approving => $this->checkApproval(),
+            default => null,
+        };
     }
 
     public function render(): View
@@ -279,7 +333,7 @@ class Onboarding extends NativeComponent
         $this->keySyncAttempts++;
 
         try {
-            $user = app(Client::class)->syncKey($this->login);
+            $answer = app(Client::class)->syncKey($this->login, deviceName: $this->keyTitle());
         } catch (ApiException $exception) {
             if ($exception->status === self::KeyNotListedYet && $this->keySyncAttempts <= self::KeySyncRetries) {
                 $this->waitSeconds(self::KeySyncRetrySeconds);
@@ -297,8 +351,91 @@ class Onboarding extends NativeComponent
             return;
         }
 
-        app(Account::class)->remember($user);
+        $this->username = $this->login;
+        $this->startOver();
+        $this->signInOrShowCode($answer);
+    }
+
+    /**
+     * Asks devnull whether the phone has been approved on the web yet. Until
+     * it has, each answer carries the code to show: the same one until it runs
+     * out, then a new one.
+     */
+    private function checkApproval(): void
+    {
+        try {
+            $answer = app(Client::class)->syncKey($this->username, deviceName: $this->keyTitle());
+        } catch (ApiException $exception) {
+            $this->keepWaitingOrStop($exception);
+
+            return;
+        } catch (KeychainUnavailable $exception) {
+            $this->stopApproving($exception->getMessage());
+
+            return;
+        }
+
+        $this->signInOrShowCode($answer);
+    }
+
+    /**
+     * A 429 says how long to wait, and a dropped connection or a failing
+     * server are worth asking again. Anything else, such as the key gone from
+     * GitHub, can't be waited out, so it goes back to the start.
+     */
+    private function keepWaitingOrStop(ApiException $exception): void
+    {
+        if ($exception->status === 429) {
+            $seconds = max(self::ApprovalPollSeconds, $exception->retryAfter ?? self::RateLimitedSeconds);
+
+            if ($this->now() >= $this->pairingExpiresAt) {
+                $this->pairingCode = '';
+            }
+
+            $this->pairingError = $exception->getMessage().' Asking again in '.self::duration($seconds).'.';
+            $this->waitSeconds($seconds);
+
+            return;
+        }
+
+        if ($exception->status === 0 || $exception->status >= 500) {
+            $this->pairingError = $exception->getMessage();
+            $this->waitSeconds(self::ApprovalPollSeconds);
+
+            return;
+        }
+
+        $this->stopApproving($exception->firstError());
+    }
+
+    private function stopApproving(string $error): void
+    {
+        $this->startOver();
+        $this->error = $error;
+    }
+
+    private function signInOrShowCode(User|PairingCode $answer): void
+    {
+        if ($answer instanceof PairingCode) {
+            $this->showPairingCode($answer);
+
+            return;
+        }
+
+        app(Account::class)->remember($answer);
         $this->replace('/log');
+    }
+
+    private function showPairingCode(PairingCode $code): void
+    {
+        $this->step = GitHubStep::Approving;
+        $this->pairingCode = $code->code;
+        $this->pairingMessage = $code->message;
+        $this->approvalUrl = $code->approvalUrl;
+        $this->pairingExpiresAt = $code->expiresAt->getTimestampMs();
+        $this->pairingMinutes = max(1, (int) ceil(($this->pairingExpiresAt - $this->now()) / 60_000));
+        $this->pairingError = null;
+        $this->waitSeconds(self::ApprovalPollSeconds);
     }
 
     private function expire(): void
@@ -317,17 +454,36 @@ class Onboarding extends NativeComponent
         $this->keySyncAttempts = 0;
         $this->githubError = $error;
         $this->githubNotice = $notice;
+        $this->pairingCode = '';
+        $this->pairingMessage = '';
+        $this->pairingError = null;
+        $this->approvalUrl = '';
+        $this->pairingExpiresAt = 0;
     }
 
     /**
-     * Names the key on GitHub after the phone, so it's clear what to remove later.
+     * Names the key on GitHub, and the device on devnull, after the phone, so
+     * it's clear what to remove later.
      */
     private function keyTitle(): string
     {
-        $info = json_decode((string) Device::getInfo(), true);
-        $model = is_array($info) && is_string($info['model'] ?? null) ? trim($info['model']) : '';
+        if ($this->deviceName === '') {
+            $info = json_decode((string) Device::getInfo(), true);
+            $model = is_array($info) && is_string($info['model'] ?? null) ? trim($info['model']) : '';
 
-        return 'devnull on '.($model === '' ? 'a phone' : $model);
+            $this->deviceName = 'devnull on '.($model === '' ? 'a phone' : $model);
+        }
+
+        return $this->deviceName;
+    }
+
+    private static function duration(int $seconds): string
+    {
+        return match (true) {
+            $seconds < 60 => Display::count($seconds, 'second', 'seconds'),
+            $seconds < 3600 => Display::count((int) ceil($seconds / 60), 'minute', 'minutes'),
+            default => Display::count((int) ceil($seconds / 3600), 'hour', 'hours'),
+        };
     }
 
     private function waitSeconds(int $seconds): void

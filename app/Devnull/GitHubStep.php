@@ -3,7 +3,8 @@
 namespace App\Devnull;
 
 /**
- * How far onboarding has got with adding the key through GitHub.
+ * How far onboarding has got: adding the key through GitHub, then, when
+ * devnull wants it, approving this phone on the web.
  */
 enum GitHubStep: string
 {
@@ -18,4 +19,7 @@ enum GitHubStep: string
 
     /** The key is on GitHub; devnull is asked to find it until GitHub lists it publicly. */
     case Listing = 'listing';
+
+    /** devnull found the key but wants the phone approved: a code is on screen and devnull is asked, at its pace, whether it was entered. */
+    case Approving = 'approving';
 }

@@ -145,7 +145,7 @@ it('adds the key through GitHub, forgets the token and signs in', function () {
         ->and($signingKey->header('Authorization'))->toBe(['Bearer '.GitHubToken]);
 
     $keySync = requestsTo('http://devnull.test/api/v1/key-syncs')[0];
-    expect($keySync->body())->toBe('{"username":"local_dev"}')
+    expect($keySync->body())->toBe('{"username":"local_dev","device_name":"devnull on iPhone"}')
         ->and($keySync->hasHeader('X-SSH-Signature'))->toBeTrue()
         ->and($keySync->hasHeader('Authorization'))->toBeFalse();
 });
