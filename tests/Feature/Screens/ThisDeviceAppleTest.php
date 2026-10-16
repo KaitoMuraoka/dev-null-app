@@ -50,7 +50,7 @@ it('shows that no Apple ID is linked, with a line on what linking is for and App
     $status = nodeByRef($screen, 'apple-status');
 
     expect($status['text'] ?? $status['props']['text'] ?? null)->toBe('not linked')
-        ->and(nodeByRef($screen, 'link-apple')['props'])->toMatchArray(['label' => 'Link Apple ID', 'variant' => 'accent', 'leading_icon' => 'apple.logo'])
+        ->and(nodeByRef($screen, 'link-apple')['props'])->toMatchArray(['label' => 'Sign in with Apple', 'variant' => 'accent', 'leading_icon' => 'apple.logo'])
         ->and(nodeByRef($screen, 'link-apple')['layout'])->toEqual(['width' => 'fill']);
 
     Http::assertSentCount(1);
@@ -64,7 +64,7 @@ it('shows a linked Apple ID with a way to unlink it', function () {
     $screen = Native::visit('/profile/device', platform: 'ios')
         ->assertSet('appleLinked', true)
         ->assertSee('Unlink Apple ID')
-        ->assertDontSee('Link Apple ID');
+        ->assertDontSee('Sign in with Apple');
 
     $status = nodeByRef($screen, 'apple-status');
 
@@ -80,7 +80,7 @@ it("says it doesn't know, and offers nothing, when devnull can't be asked", func
         ->assertSet('appleLinked', null)
         ->assertSee('GitHub is not answering right now.')
         ->assertSee('unknown')
-        ->assertDontSee('Link Apple ID')
+        ->assertDontSee('Sign in with Apple')
         ->assertDontSee('Unlink Apple ID');
 });
 
@@ -129,7 +129,7 @@ it("shows devnull's message when the Apple ID can't be linked", function (int $s
         ->assertSet('error', $message)
         ->assertSee($message)
         ->assertSet('appleLinked', false)
-        ->assertSee('Link Apple ID');
+        ->assertSee('Sign in with Apple');
 })->with([
     'linked to another account' => [409, 'apple_linked_elsewhere', 'That Apple ID is linked to another devnull account.'],
     'a token devnull cannot verify' => [422, 'invalid_apple_token', 'That Apple sign-in could not be verified.'],
@@ -179,7 +179,7 @@ it('unlinks the Apple ID only after a confirm', function () {
     $screen->emitNative(ButtonPressed::class, ['index' => 1, 'label' => 'Unlink', 'id' => ThisDevice::UnlinkAppleAlert])
         ->assertNoNavigation()
         ->assertSet('appleLinked', false)
-        ->assertSee('Link Apple ID');
+        ->assertSee('Sign in with Apple');
 
     Http::assertSent(fn (Request $request): bool => $request->method() === 'DELETE'
         && $request->url() === 'http://devnull.test/api/v1/me/apple'
@@ -196,7 +196,7 @@ it('has no Apple section on Android, and never asks devnull about it', function 
 
     Native::visit('/profile/device', platform: 'android')
         ->assertDontSee('apple id')
-        ->assertDontSee('Link Apple ID')
+        ->assertDontSee('Sign in with Apple')
         ->assertDontSee('A quicker way back in')
         ->call('linkApple')
         ->call('unlinkApple')

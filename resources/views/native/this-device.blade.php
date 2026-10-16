@@ -52,7 +52,7 @@
                 @if ($appleLinked === false)
                     {{-- Apple's black button (white in dark mode, the theme's accent) with its logo, as Apple's guidelines ask. --}}
                     <native:column class="w-full px-4 pt-4">
-                        <native:button ref="link-apple" variant="accent" :ios-icon="Ios::AppleLogo" @press="linkApple" class="w-full">Link Apple ID</native:button>
+                        <native:button ref="link-apple" variant="accent" :ios-icon="Ios::AppleLogo" @press="linkApple" class="w-full">Sign in with Apple</native:button>
                     </native:column>
                 @elseif ($appleLinked === true)
                     <native:column class="w-full px-4 pt-4">
