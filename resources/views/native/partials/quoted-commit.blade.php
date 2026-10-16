@@ -21,9 +21,7 @@
                 <native:text class="text-xs text-theme-ink-muted">·</native:text>
                 <native:text font="mono" class="text-xs text-theme-ink-muted flex-shrink-0">{{ \App\Devnull\Display::relativeTime($quoted->createdAt) }}</native:text>
                 @unless ($quoted->isApproved())
-                    <native:column class="px-[6] rounded-full bg-theme-pending-soft flex-shrink-0">
-                        <native:text font="mono" class="text-[11px] text-theme-pending">{{ $quoted->status }}</native:text>
-                    </native:column>
+                    @include('native.partials.status-chip', ['status' => $quoted->status, 'small' => true])
                 @endunless
             </native:row>
             <native:text class="w-full text-[15px] leading-relaxed text-theme-ink" :max-lines="6">{{ $quoted->plainText() }}</native:text>

@@ -13,10 +13,12 @@
     @foreach ($poll->options as $option)
         @if ($poll->showsResults())
             <native:column ref="poll-option-{{ $option->id }}" class="w-full rounded-md border border-theme-hairline" a11y-label="{{ $option->label }}{{ $option->voted ? ', your vote' : '' }}, {{ $option->share() }}%, {{ $option->votesLabel() }}">
-                <native:row class="absolute top-0 bottom-0 left-0 right-0">
-                    <native:column :flexGrow="$option->share()" :flexBasis="0" class="h-full rounded-md {{ $option->voted ? 'bg-theme-primary-soft' : 'bg-theme-wash' }}" />
-                    <native:column :flexGrow="100 - $option->share()" :flexBasis="0" />
-                </native:row>
+                @if ($option->share() > 0)
+                    <native:row class="absolute top-0 bottom-0 left-0 right-0">
+                        <native:column :flexGrow="$option->share()" :flexBasis="0" class="h-full rounded-md {{ $option->voted ? 'bg-theme-primary-soft' : 'bg-theme-wash' }}" />
+                        <native:column :flexGrow="100 - $option->share()" :flexBasis="0" />
+                    </native:row>
+                @endif
                 <native:row class="w-full px-3 py-2 gap-[6] items-center">
                     <native:text :font="$option->voted ? 'medium' : null" class="flex-shrink text-[15px] text-theme-ink">{{ $option->label }}</native:text>
                     @if ($option->voted)

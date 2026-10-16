@@ -41,7 +41,8 @@
             @endforeach
         </native:column>
     @elseif ($tail !== null)
-        <native:column class="absolute top-[{{ $center }}] bottom-[{{ $endsWithDot ? $endDot : 0 }}] left-[31] w-[2] {{ $segment($tail) }}" />
+        {{-- `bottom-0`, never `bottom-[0]`: EDGE reads an arbitrary zero inset as no inset, which leaves the tail no height. --}}
+        <native:column class="absolute top-[{{ $center }}] {{ $endsWithDot ? 'bottom-['.$endDot.']' : 'bottom-0' }} left-[31] w-[2] {{ $segment($tail) }}" />
     @endif
 
     @if ($replyTail && $endsWithDot)

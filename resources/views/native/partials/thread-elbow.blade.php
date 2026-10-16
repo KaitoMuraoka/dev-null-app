@@ -9,7 +9,7 @@
 @php($level = 22)
 <native:column ref="thread-elbow" class="absolute top-0 left-0 w-[64] h-[{{ $level + 1 }}]">
     @foreach ([0, 7] as $y)
-        <native:column class="absolute top-[{{ $y }}] left-[{{ $rail }}] w-[1] h-[4] {{ $colour }}" />
+        <native:column class="absolute {{ $y === 0 ? 'top-0' : 'top-['.$y.']' }} left-[{{ $rail }}] w-[1] h-[4] {{ $colour }}" />
     @endforeach
     @foreach ([160, 130, 100] as $angle)
         @php($x = $rail + $radius + $radius * cos(deg2rad($angle)))

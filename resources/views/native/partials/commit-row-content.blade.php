@@ -29,9 +29,7 @@
                 @include('native.partials.series-position')
             @endif
             @unless ($commit->isApproved())
-                <native:column class="ml-1 px-2 py-[2] rounded-full bg-theme-pending-soft flex-shrink-0">
-                    <native:text font="mono" class="text-xs text-theme-pending">{{ $commit->status }}</native:text>
-                </native:column>
+                @include('native.partials.status-chip', ['status' => $commit->status])
             @endunless
         </native:row>
 

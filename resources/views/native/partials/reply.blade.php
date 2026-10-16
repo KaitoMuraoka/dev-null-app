@@ -32,9 +32,7 @@
                     <native:text class="text-[13px] text-theme-ink-muted">·</native:text>
                     <native:text font="mono" class="text-[13px] text-theme-ink-muted">{{ \App\Devnull\Display::relativeTime($reply->createdAt) }}</native:text>
                     @unless ($reply->isApproved())
-                        <native:column class="ml-1 px-2 py-[2] rounded-full bg-theme-pending-soft">
-                            <native:text font="mono" class="text-xs text-theme-pending">{{ $reply->status }}</native:text>
-                        </native:column>
+                        @include('native.partials.status-chip', ['status' => $reply->status])
                     @endunless
                 </native:row>
                 @include('native.partials.commit-body')

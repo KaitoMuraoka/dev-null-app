@@ -1,5 +1,6 @@
 {{--
     What hangs under a commit's body on the web: its images, its poll, the commit it quotes, then the link preview.
+    A reply in a thread shows only its images and link preview ($withEmbeds false), as the web's thread does.
     Images hold their space at their aspect ratio on a wash, so one that fails to load leaves the row as it was.
 --}}
 @php($images = $commit->images)
@@ -25,11 +26,11 @@
     </native:row>
 @endif
 
-@if ($commit->poll)
+@if ($commit->poll && ($withEmbeds ?? true))
     @include('native.partials.commit-poll')
 @endif
 
-@if ($commit->isQuote())
+@if ($commit->isQuote() && ($withEmbeds ?? true))
     @include('native.partials.quoted-commit')
 @endif
 

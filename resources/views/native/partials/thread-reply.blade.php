@@ -43,13 +43,11 @@
                             <native:text class="text-[13px] text-theme-ink-muted">·</native:text>
                             <native:text font="mono" class="text-xs text-theme-ink-muted flex-shrink-0">{{ \App\Devnull\Display::relativeTime($reply->createdAt) }}</native:text>
                             @unless ($reply->isApproved())
-                                <native:column class="ml-1 px-2 py-[2] rounded-full bg-theme-pending-soft flex-shrink-0">
-                                    <native:text font="mono" class="text-xs text-theme-pending">{{ $reply->status }}</native:text>
-                                </native:column>
+                                @include('native.partials.status-chip', ['status' => $reply->status])
                             @endunless
                         </native:row>
                         @include('native.partials.commit-body', ['size' => 'text-[15px]'])
-                        @include('native.partials.commit-media')
+                        @include('native.partials.commit-media', ['withEmbeds' => false])
                         @include('native.partials.commit-actions', ['expandable' => false, 'withQuote' => false])
                     </native:column>
                 </native:row>
