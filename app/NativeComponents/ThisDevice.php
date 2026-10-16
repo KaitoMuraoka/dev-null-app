@@ -21,8 +21,8 @@ use SensitiveParameter;
 
 /**
  * Your account, reached from your own profile: this phone's fingerprint, as
- * your devices on dev-null.sh list it, and signing out. Where the app talks
- * to only shows when it isn't dev-null.sh.
+ * your devices on dev-null.sh list it, signing out, and deleting the account.
+ * Where the app talks to only shows when it isn't dev-null.sh.
  *
  * On iOS it also links an Apple ID to your account, as a second way in on a
  * new phone. The account stays the GitHub one: Apple only signs you into it.
@@ -37,6 +37,8 @@ class ThisDevice extends NativeComponent
     public const string SignOutAlert = 'sign-out';
 
     public const string UnlinkAppleAlert = 'unlink-apple';
+
+    public const string DeleteAccountAlert = 'delete-account';
 
     public string $fingerprint = '';
 
@@ -101,6 +103,18 @@ class ThisDevice extends NativeComponent
         )->id(self::SignOutAlert);
     }
 
+    public function confirmDeleteAccount(): void
+    {
+        Dialog::alert(
+            'Delete your account?',
+            'Your profile, commits, replies, stars and follows are removed from /dev/null. There is no undo.',
+            [
+                ['label' => 'Cancel', 'style' => 'cancel'],
+                ['label' => 'Delete', 'style' => 'destructive'],
+            ],
+        )->id(self::DeleteAccountAlert);
+    }
+
     /**
      * Opens Apple's sheet. Its answer arrives as an event (see SignsInWithApple).
      */
@@ -146,6 +160,10 @@ class ThisDevice extends NativeComponent
             $this->forget();
         }
 
+        if ($id === self::DeleteAccountAlert && $label === 'Delete') {
+            $this->deleteAccount();
+        }
+
         if ($id === self::UnlinkAppleAlert && $label === 'Unlink') {
             $this->unlinkApple();
         }
@@ -161,6 +179,23 @@ class ThisDevice extends NativeComponent
         app(Account::class)->forget();
 
         $this->replace('/onboarding');
+    }
+
+    /**
+     * Deletes the account on devnull, which takes its devices with it, then
+     * signs out. When devnull can't, the error shows and you stay signed in.
+     */
+    public function deleteAccount(): void
+    {
+        $deleted = $this->attempt(function (Client $devnull): bool {
+            $devnull->deleteAccount();
+
+            return true;
+        });
+
+        if ($deleted === true) {
+            $this->forget();
+        }
     }
 
     public function render(): View

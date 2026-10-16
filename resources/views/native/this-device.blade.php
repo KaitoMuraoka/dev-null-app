@@ -55,5 +55,10 @@
             <native:button ref="sign-out" variant="secondary" @press="confirmSignOut" class="w-full">Sign out</native:button>
             <native:text class="text-xs leading-relaxed text-theme-ink-muted">Deletes the key from this phone and signs you out.</native:text>
         </native:column>
+
+        <native:column class="w-full px-4 pt-12 gap-2">
+            <native:button ref="delete-account" variant="destructive" @press="confirmDeleteAccount" class="w-full">Delete account</native:button>
+            <native:text class="text-xs leading-relaxed text-theme-ink-muted">Removes your account and everything in it from /dev/null.</native:text>
+        </native:column>
     </native:column>
 </native:scroll-view>
