@@ -3,7 +3,7 @@
 use App\Devnull\Account;
 use App\Devnull\AppleSignIn;
 use App\Devnull\Client;
-use App\NativeComponents\Onboarding;
+use App\Devnull\ErrorCode;
 use App\NativeComponents\ThisDevice;
 use Codingwithrk\NativephpSocialAuth\Events\SignInFailed;
 use Illuminate\Http\Client\Request;
@@ -89,7 +89,7 @@ it('goes to onboarding when devnull no longer takes this key', function () {
     fakeApi(['GET /api/v1/me' => [['message' => 'Not approved.', 'code' => 'device_not_approved'], 401]]);
 
     Native::visit('/profile/device', platform: 'ios')
-        ->assertReplacedWith('/onboarding', ['message' => Onboarding::NeedsApproval]);
+        ->assertReplacedWith('/onboarding', ['message' => ErrorCode::DeviceNotApproved->message()]);
 
     expect(app(Account::class)->user())->toBeNull();
 });
@@ -119,9 +119,10 @@ it("links the Apple ID with Apple's token and the raw nonce it was asked for", f
         && $request->hasHeader('X-SSH-Signature'));
 });
 
-it("shows devnull's message when the Apple ID can't be linked", function (int $status, string $code, string $message) {
+it("says by devnull's code why the Apple ID can't be linked", function (int $status, ErrorCode $code) {
     signedInAppleBridge();
-    fakeApi(['GET /api/v1/me' => meWithApple(false), 'PUT /api/v1/me/apple' => [['message' => $message, 'code' => $code], $status]]);
+    $message = $code->message();
+    fakeApi(['GET /api/v1/me' => meWithApple(false), 'PUT /api/v1/me/apple' => [['message' => 'Whatever /dev/null words it as.', 'code' => $code->value], $status]]);
     $screen = Native::visit('/profile/device', platform: 'ios')->tap('link-apple');
 
     appleAnswers($screen, heldAppleNonce())
@@ -131,8 +132,8 @@ it("shows devnull's message when the Apple ID can't be linked", function (int $s
         ->assertSet('appleLinked', false)
         ->assertSee('Sign in with Apple');
 })->with([
-    'linked to another account' => [409, 'apple_linked_elsewhere', 'That Apple ID is linked to another devnull account.'],
-    'a token devnull cannot verify' => [422, 'invalid_apple_token', 'That Apple sign-in could not be verified.'],
+    'linked to another account' => [409, ErrorCode::AppleLinkedElsewhere],
+    'a token devnull cannot verify' => [422, ErrorCode::InvalidAppleToken],
 ]);
 
 it("returns quietly when Apple's sheet is closed, and says so when it fails", function () {

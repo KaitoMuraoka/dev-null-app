@@ -8,16 +8,15 @@ use App\Devnull\Data\User;
 use App\Devnull\Exceptions\ApiException;
 use App\Devnull\Exceptions\KeychainUnavailable;
 use App\Devnull\Exceptions\Unauthenticated;
-use App\NativeComponents\Onboarding;
 use Closure;
 
 /**
  * Calls the devnull API from a screen.
  *
  * A 401 means devnull no longer accepts this phone's key, so the screen
- * hands over to onboarding with the server's message. When devnull only
- * wants the phone approved, onboarding says that signing in approves it.
- * Any other failure lands in $error for the screen to print.
+ * hands over to onboarding with the reason, worded by its code (see
+ * ErrorCode). When devnull only wants the phone approved, that says signing
+ * in approves it. Any other failure lands in $error for the screen to print.
  */
 trait TalksToDevnull
 {
@@ -54,7 +53,7 @@ trait TalksToDevnull
     {
         app(Account::class)->forget();
 
-        $this->replace('/onboarding', ['message' => $exception->needsApproval() ? Onboarding::NeedsApproval : $exception->getMessage()]);
+        $this->replace('/onboarding', ['message' => $exception->firstError()]);
     }
 
     protected function me(): ?User

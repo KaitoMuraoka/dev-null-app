@@ -2,12 +2,16 @@
 
 namespace App\Devnull\Exceptions;
 
+use App\Devnull\ErrorCode;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Client\Response;
 use RuntimeException;
 
 /**
- * A devnull API error, carrying the server's message as is.
+ * A devnull API error, carrying the server's message and its code.
+ *
+ * What the app shows for it depends on the code (see ErrorCode), never on
+ * the message's wording.
  */
 class ApiException extends RuntimeException
 {
@@ -80,10 +84,28 @@ class ApiException extends RuntimeException
     }
 
     /**
-     * The first validation message, falling back to the server's message.
+     * The code devnull sent, when the app knows it.
+     */
+    public function code(): ?ErrorCode
+    {
+        return $this->errorCode === null ? null : ErrorCode::tryFrom($this->errorCode);
+    }
+
+    public function is(ErrorCode $code): bool
+    {
+        return $this->code() === $code;
+    }
+
+    /**
+     * What to show for it: the app's own words for a code it knows, else the
+     * first validation message, else the server's message.
      */
     public function firstError(): string
     {
+        if (($message = $this->code()?->message()) !== null) {
+            return $message;
+        }
+
         foreach ($this->errors as $messages) {
             if (isset($messages[0])) {
                 return $messages[0];

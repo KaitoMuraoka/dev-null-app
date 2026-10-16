@@ -4,6 +4,7 @@ use App\Devnull\Client;
 use App\Devnull\Data\Commit;
 use App\Devnull\Data\User;
 use App\Devnull\DeviceKey;
+use App\Devnull\ErrorCode;
 use App\Devnull\Exceptions\ApiException;
 use App\Devnull\Exceptions\KeychainUnavailable;
 use App\Devnull\Exceptions\Unauthenticated;
@@ -490,8 +491,8 @@ it('signs in with Apple on the sign-in endpoint, signed, for the user', function
     });
 });
 
-it("keeps devnull's Apple error codes and messages", function (string $call, int $status, string $code, string $message) {
-    Http::fake(['devnull.test/*' => Http::response(['message' => $message, 'code' => $code], $status)]);
+it("words devnull's Apple errors by their code, whatever the message says", function (string $call, int $status, ErrorCode $code) {
+    Http::fake(['devnull.test/*' => Http::response(['message' => 'Something /dev/null says today.', 'code' => $code->value], $status)]);
 
     try {
         match ($call) {
@@ -501,12 +502,29 @@ it("keeps devnull's Apple error codes and messages", function (string $call, int
         $this->fail('Expected an ApiException.');
     } catch (ApiException $exception) {
         expect($exception->status)->toBe($status)
-            ->and($exception->errorCode)->toBe($code)
-            ->and($exception->firstError())->toBe($message);
+            ->and($exception->errorCode)->toBe($code->value)
+            ->and($exception->is($code))->toBeTrue()
+            ->and($exception->firstError())->toBe($code->message())->not->toContain('/dev/null says');
     }
 })->with([
-    'a bad token on link' => ['link', 422, 'invalid_apple_token', 'That Apple sign-in could not be verified.'],
-    'an Apple ID on another account' => ['link', 409, 'apple_linked_elsewhere', 'That Apple ID is linked to another devnull account.'],
-    'a bad token on sign-in' => ['sign in', 422, 'invalid_apple_token', 'That Apple sign-in could not be verified.'],
-    'an Apple ID on no account' => ['sign in', 404, 'apple_not_linked', 'No devnull account is linked to this Apple ID. Sign in with GitHub, then link Apple in settings.'],
+    'a bad token on link' => ['link', 422, ErrorCode::InvalidAppleToken],
+    'an Apple ID on another account' => ['link', 409, ErrorCode::AppleLinkedElsewhere],
+    'a bad token on sign-in' => ['sign in', 422, ErrorCode::InvalidAppleToken],
+    'an Apple ID on no account' => ['sign in', 404, ErrorCode::AppleNotLinked],
+]);
+
+it('shows the server message for a code it leaves to devnull, and for one it does not know', function (?string $code) {
+    Http::fake(['devnull.test/*' => Http::response(array_filter(['message' => 'Slow down: 10 commits a minute. Even CI takes breaks.', 'code' => $code]), 429, ['Retry-After' => '12'])]);
+
+    try {
+        app(Client::class)->createCommit('Hello');
+        $this->fail('Expected an ApiException.');
+    } catch (ApiException $exception) {
+        expect($exception->firstError())->toBe('Slow down: 10 commits a minute. Even CI takes breaks.')
+            ->and($exception->retryAfter)->toBe(12);
+    }
+})->with([
+    'rate limited' => ['rate_limited'],
+    'a code from a newer server' => ['something_new'],
+    'no code' => [null],
 ]);

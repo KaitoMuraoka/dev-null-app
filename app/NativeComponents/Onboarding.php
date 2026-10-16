@@ -42,8 +42,6 @@ class Onboarding extends NativeComponent
 
     public const string NotStartedHere = "fatal: that sign-in didn't start on this phone, so it was ignored.";
 
-    public const string NeedsApproval = "This phone isn't approved on devnull. Sign in to approve it.";
-
     public string $fingerprint = '';
 
     public ?string $error = null;

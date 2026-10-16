@@ -3,6 +3,7 @@
 use App\Devnull\Account;
 use App\Devnull\Client;
 use App\Devnull\DeviceKey;
+use App\Devnull\ErrorCode;
 use App\Devnull\SignIn;
 use App\Devnull\SignInAttempt;
 use App\NativeComponents\AuthCallback;
@@ -314,6 +315,22 @@ it("shows the server's message when the code won't redeem", function (int $statu
     'a failing server' => [503, 'GitHub is not answering right now. Try again in a minute.'],
 ]);
 
+it("says a spent or expired sign-in by devnull's invalid_grant code, not its message", function () {
+    $bridge = signInBridge(testSeed());
+    fakeApi(['POST /api/v1/devices' => [['message' => 'This sign-in has expired or was already used. Sign in again in the app.', 'code' => 'invalid_grant'], 400]]);
+    $screen = Native::visit('/onboarding');
+    $state = tapSignIn($screen, $bridge);
+
+    sendBack($screen, ['code' => 'spent', 'state' => $state])
+        ->assertNoNavigation()
+        ->assertSet('error', ErrorCode::InvalidGrant->message())
+        ->assertSee('fatal: that sign-in expired or was already used. Sign in again.')
+        ->assertDontSee('in the app')
+        ->assertElement('button', fn (array $node): bool => ($node['ref'] ?? null) === 'sign-in' && $node['props']['label'] === 'Try again');
+
+    expect(app(Account::class)->user())->toBeNull();
+});
+
 it('spends an attempt on its first answer, so a replayed callback is rejected', function () {
     $bridge = signInBridge(testSeed());
     fakeApi(['POST /api/v1/devices' => [['message' => 'That code has expired.'], 422]]);
@@ -365,7 +382,7 @@ it("doesn't say why a 401 sent it here: the buttons are enough", function (strin
         ->and(childRefs($screen, 'actions'))->toBe(['sign-in']);
 })->with([
     'a key devnull no longer takes' => ['This key is no longer accepted.'],
-    'a phone to approve' => [Onboarding::NeedsApproval],
+    'a phone to approve' => [ErrorCode::DeviceNotApproved->message()],
     'a lost key' => [Launch::KeyGone],
 ]);
 

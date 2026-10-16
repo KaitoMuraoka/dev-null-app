@@ -2,10 +2,10 @@
 
 use App\Devnull\Account;
 use App\Devnull\Data\Commit;
+use App\Devnull\ErrorCode;
 use App\Devnull\LastVisit;
 use App\NativeComponents\Layouts\TabsLayout;
 use App\NativeComponents\Log;
-use App\NativeComponents\Onboarding;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Native\Mobile\System;
@@ -139,12 +139,20 @@ it('sends you back to onboarding with the server message on a 401', function () 
         ->and(app(Account::class)->user())->toBeNull();
 });
 
+it('words a bad signature by its code when it signs you out', function () {
+    Http::fake(['devnull.test/*' => Http::response(['message' => 'The /dev/null signature is invalid.', 'code' => 'invalid_signature'], 401)]);
+
+    $screen = Native::visit('/log')->assertReplacedWith('/onboarding');
+
+    expect($screen->navigationIntent()->data)->toBe(['message' => ErrorCode::InvalidSignature->message()]);
+});
+
 it('sends an unapproved phone back to onboarding to sign in and approve it', function () {
     Http::fake(['devnull.test/*' => Http::response(['message' => "This key isn't approved for the devnull app yet.", 'code' => 'device_not_approved'], 401)]);
 
     $screen = Native::visit('/log')->assertReplacedWith('/onboarding');
 
-    expect($screen->navigationIntent()->data)->toBe(['message' => Onboarding::NeedsApproval])
+    expect($screen->navigationIntent()->data)->toBe(['message' => ErrorCode::DeviceNotApproved->message()])
         ->and(app(Account::class)->user())->toBeNull();
 });
 

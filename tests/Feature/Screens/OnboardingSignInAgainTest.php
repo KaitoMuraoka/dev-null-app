@@ -2,8 +2,8 @@
 
 use App\Devnull\Account;
 use App\Devnull\DeviceKey;
+use App\Devnull\ErrorCode;
 use App\NativeComponents\Launch;
-use App\NativeComponents\Onboarding;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Native\Mobile\Testing\Native;
@@ -76,5 +76,5 @@ it('does not ask when another screen sent the phone here', function (array $data
     Http::assertNotSent(fn (Request $request): bool => str_ends_with($request->url(), '/api/v1/me'));
 })->with([
     'signed out with a reason' => [['message' => Launch::KeyGone]],
-    'to approve the phone' => [['message' => Onboarding::NeedsApproval]],
+    'to approve the phone' => [['message' => ErrorCode::DeviceNotApproved->message()]],
 ]);

@@ -3,6 +3,7 @@
 use App\Devnull\Account;
 use App\Devnull\AppleSignIn;
 use App\Devnull\Client;
+use App\Devnull\ErrorCode;
 use Codingwithrk\NativephpSocialAuth\Events\SignInFailed;
 use Illuminate\Http\Client\Request;
 use Illuminate\Log\Events\MessageLogged;
@@ -12,8 +13,6 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Native\Mobile\Platform;
 use Native\Mobile\Testing\Native;
-
-const AppleNotLinkedMessage = 'No devnull account is linked to this Apple ID. Sign in with GitHub, then link Apple in settings.';
 
 beforeEach(function () {
     config(['devnull.url' => 'http://devnull.test']);
@@ -80,33 +79,34 @@ it("signs in with Apple's token and the raw nonce, which approves this phone", f
     expect(hash('sha256', $nonce))->toMatch('/^[0-9a-f]{64}$/')->not->toBe($nonce);
 });
 
-it("shows devnull's message above the buttons when no account has this Apple ID linked", function () {
+it('says above the buttons when no account has this Apple ID linked, going by the code', function () {
     appleBridge();
-    fakeApi(['POST /api/v1/devices' => [['message' => AppleNotLinkedMessage, 'code' => 'apple_not_linked'], 404]]);
+    $message = ErrorCode::AppleNotLinked->message();
+    fakeApi(['POST /api/v1/devices' => [['message' => 'No /dev/null account is linked to this Apple ID.', 'code' => 'apple_not_linked'], 404]]);
     $screen = Native::visit('/onboarding', platform: 'ios')->tap('sign-in-apple');
 
     $screen = appleAnswers($screen, heldAppleNonce())
         ->assertNoNavigation()
-        ->assertSee(AppleNotLinkedMessage)
-        ->assertSet('appleError', AppleNotLinkedMessage)
+        ->assertSee($message)
+        ->assertSet('appleError', $message)
         ->assertSet('error', null)
         ->assertElement('button', fn (array $node): bool => ($node['ref'] ?? null) === 'sign-in' && $node['props']['label'] === 'Sign in with GitHub');
 
     expect(childRefs($screen, 'actions'))->toBe(['apple-error', 'sign-in', 'sign-in-apple'])
-        ->and(shownText($screen))->toBe([AppleNotLinkedMessage]);
+        ->and(shownText($screen))->toBe([$message]);
 
     expect(app(Account::class)->user())->toBeNull();
 });
 
-it("shows devnull's message when it can't verify Apple's token, without turning GitHub into Try again", function () {
+it("says when devnull can't verify Apple's token, without turning GitHub into Try again", function () {
     appleBridge();
     fakeApi(['POST /api/v1/devices' => [['message' => 'That Apple sign-in could not be verified.', 'code' => 'invalid_apple_token'], 422]]);
     $screen = Native::visit('/onboarding', platform: 'ios')->tap('sign-in-apple');
 
     appleAnswers($screen, heldAppleNonce())
         ->assertNoNavigation()
-        ->assertSet('appleError', 'That Apple sign-in could not be verified.')
-        ->assertSee('That Apple sign-in could not be verified.')
+        ->assertSet('appleError', ErrorCode::InvalidAppleToken->message())
+        ->assertSee(ErrorCode::InvalidAppleToken->message())
         ->assertElement('button', fn (array $node): bool => ($node['ref'] ?? null) === 'sign-in' && $node['props']['label'] === 'Sign in with GitHub');
 
     expect(app(Account::class)->user())->toBeNull();
