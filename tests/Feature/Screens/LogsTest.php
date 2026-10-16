@@ -68,9 +68,19 @@ it('has the web\'s three logs, each asked for by name, and no Everyone', functio
 
     $screen = Native::visit('/log')->assertSee('From following');
 
-    $screen->tap('tab-latest')->assertSet('log', 'latest')->assertSee('From latest')->assertDontSee('From following');
-    $screen->tap('tab-trending')->assertSet('log', 'trending')->assertSee('From trending')->assertDontSee('From latest');
-    $screen->tap('tab-following')->assertSet('log', 'following')->assertSee('From following');
+    $screen->tap('tab-latest')->assertSet('log', 'latest');
+
+    expect(treeShows(showingLog($screen), 'From latest'))->toBeTrue()
+        ->and(treeShows(showingLog($screen), 'From following'))->toBeFalse();
+
+    $screen->tap('tab-trending')->assertSet('log', 'trending');
+
+    expect(treeShows(showingLog($screen), 'From trending'))->toBeTrue()
+        ->and(treeShows(showingLog($screen), 'From latest'))->toBeFalse();
+
+    $screen->tap('tab-following')->assertSet('log', 'following');
+
+    expect(treeShows(showingLog($screen), 'From following'))->toBeTrue();
 
     expect(array_map(fn (string $sent): string => strtok($sent, '?'), logRequestsSent()))->toContain('log/following', 'log/latest', 'log/trending')
         ->and(implode(' ', logRequestsSent()))->not->toContain('everyone');
@@ -82,30 +92,199 @@ it('has the web\'s three logs, each asked for by name, and no Everyone', functio
     expect(count(Http::recorded()))->toBe($before);
 });
 
-it('gives each log its own list, so a switch opens a fresh one on what was kept, with no spinner', function () {
+it('gives each log its own list, showing what was kept with no spinner', function () {
     holdRefreshes();
     keep('log/following', pageJson([commitJson(['id' => 'f1', 'body' => 'Kept on Following'])]));
     keep('log/latest', pageJson([commitJson(['id' => 'l1', 'body' => 'Kept on Latest'])]));
     keep('log/trending', trendingJson([commitJson(['id' => 't1', 'body' => 'Kept on Trending'])], newest: 't1'));
 
     $screen = Native::visit('/log');
-    $following = nodeByRef($screen, 'log')['id'];
+    $lists = fn (): array => array_map(fn (array $list): int => $list['id'], findNodes($screen->tree(), fn (array $node): bool => ($node['type'] ?? null) === 'list'));
 
-    $screen->tap('tab-latest')->assertSee('Kept on Latest');
-    $latest = nodeByRef($screen, 'log')['id'];
+    expect($lists())->toHaveCount(3)
+        ->and(array_unique($lists()))->toHaveCount(3);
 
-    expect($latest)->not->toBe($following)
-        ->and(showsLoading($screen->tree()))->toBeFalse();
+    foreach (['latest' => 'Kept on Latest', 'trending' => 'Kept on Trending', 'following' => 'Kept on Following'] as $log => $kept) {
+        $screen->tap('tab-'.$log);
 
-    $screen->tap('tab-trending')->assertSee('Kept on Trending');
+        expect(treeShows(showingLog($screen), $kept))->toBeTrue()
+            ->and(showsLoading(showingLog($screen)))->toBeFalse()
+            ->and(array_unique($lists()))->toHaveCount(3);
+    }
+});
 
-    expect(nodeByRef($screen, 'log')['id'])->not->toBeIn([$following, $latest])
-        ->and(showsLoading($screen->tree()))->toBeFalse();
+it('swipes between the logs both ways, with the tabs following, and stops at the ends', function () {
+    holdRefreshes();
+    keep('log/following', pageJson([commitJson(['id' => 'f1', 'body' => 'Kept on Following'])]));
+    keep('log/latest', pageJson([commitJson(['id' => 'l1', 'body' => 'Kept on Latest'])]));
+    keep('log/trending', trendingJson([commitJson(['id' => 't1', 'body' => 'Kept on Trending'])], newest: 't1'));
 
-    $screen->tap('tab-following')->assertSee('Kept on Following');
+    $screen = Native::visit('/log');
+    $pager = fn (): array => nodeByRef($screen, 'log-pager');
+    $selected = fn (): array => array_values(array_filter(Log::Logs, fn (string $log): bool => str_ends_with(nodeByRef($screen, 'tab-'.$log)['props']['a11y_label'] ?? '', ', selected')));
 
-    expect(nodeByRef($screen, 'log')['id'])->not->toBe($latest)
-        ->and(showsLoading($screen->tree()))->toBeFalse();
+    expect($pager()['props'])->toMatchArray(['horizontal' => true, 'count' => 3, 'page' => 0]);
+
+    // A swipe to the left, then another.
+    $screen->changeTab('showPage', 1)->assertSet('log', 'latest');
+
+    expect($selected())->toBe(['latest'])
+        ->and($pager()['props']['page'])->toBe(1)
+        ->and(treeShows(showingLog($screen), 'Kept on Latest'))->toBeTrue();
+
+    $screen->changeTab('showPage', 2)->assertSet('log', 'trending');
+
+    expect($selected())->toBe(['trending'])
+        ->and(treeShows(showingLog($screen), 'Kept on Trending'))->toBeTrue();
+
+    // Past the last log there's nothing, and it doesn't wrap round to the first.
+    $screen->changeTab('showPage', 3)->assertSet('log', 'trending');
+
+    // And back to the right.
+    $screen->changeTab('showPage', 1)->assertSet('log', 'latest');
+    $screen->changeTab('showPage', 0)->assertSet('log', 'following');
+
+    expect($selected())->toBe(['following'])
+        ->and($pager()['props']['page'])->toBe(0)
+        ->and(treeShows(showingLog($screen), 'Kept on Following'))->toBeTrue();
+
+    $screen->changeTab('showPage', -1)->assertSet('log', 'following');
+});
+
+it('moves the pager for a tab tap, and takes the tab you are on back to its top', function () {
+    holdRefreshes();
+    keep('log/following', pageJson([commitJson(['id' => 'f1'])]));
+
+    $screen = Native::visit('/log');
+    $pager = fn (): array => nodeByRef($screen, 'log-pager');
+    $first = $pager()['id'];
+
+    $screen->changeTab('showPage', 1)->tap('tab-trending')->assertSet('log', 'trending');
+
+    expect($pager()['id'])->toBe($first)
+        ->and($pager()['props']['page'])->toBe(2);
+
+    $list = showingLog($screen)['id'];
+
+    $screen->tap('tab-trending');
+
+    expect($pager()['id'])->toBe($first)
+        ->and(showingLog($screen)['id'])->not->toBe($list);
+});
+
+it('changes nothing when the pager reports the log it is already on', function () {
+    holdRefreshes();
+    keep('log/following', pageJson([commitJson(['id' => 'f1'])]));
+
+    $screen = Native::visit('/log');
+    $sent = refreshesSent($screen);
+    $list = showingLog($screen)['id'];
+
+    $screen->changeTab('showPage', 0);
+
+    expect(refreshesSent($screen))->toBe($sent)
+        ->and(showingLog($screen)['id'])->toBe($list);
+});
+
+it('keeps the list a log was drawn in when you swipe to it, and starts the log you leave again in a fresh one', function () {
+    holdRefreshes();
+    keep('log/following', pageJson([commitJson(['id' => 'f1'])]));
+    keep('log/latest', pageJson([commitJson(['id' => 'l1'])]));
+    keep('log/trending', trendingJson([commitJson(['id' => 't1'])], newest: 't1'));
+
+    $screen = Native::visit('/log');
+    $listOf = fn (string $log): int => nodeByRef($screen, $screen->get('log') === $log ? 'log' : 'log-'.$log)['id'];
+
+    $following = $listOf('following');
+    $latest = $listOf('latest');
+    $trending = $listOf('trending');
+
+    // Swiped to, Latest fills the list its first commits were drawn in. Following, left, gets a fresh list at the top.
+    $screen->changeTab('showPage', 1);
+
+    expect($listOf('latest'))->toBe($latest)
+        ->and($listOf('following'))->not->toBe($following)
+        ->and($listOf('trending'))->toBe($trending);
+
+    $screen->changeTab('showPage', 2);
+
+    expect($listOf('trending'))->toBe($trending)
+        ->and($listOf('latest'))->not->toBe($latest);
+});
+
+it('opens the log you swipe back to from what was kept, at the top, and asks what is new since', function () {
+    holdRefreshes();
+    keep('log/following', pageJson([commitJson(['id' => 'f1', 'body' => 'First page'])], 'page2'));
+    keep('log/latest', pageJson([commitJson(['id' => 'l1'])]));
+    serveApi([
+        'GET /api/v1/log/following' => [pageJson([commitJson(['id' => 'f2', 'body' => 'Second page'])])],
+        'GET /api/v1/me' => [['data' => userWithCountsJson(), 'unread_notifications_count' => 0]],
+    ]);
+
+    $screen = Native::visit('/log')->call('loadMore');
+
+    expect(shownLogIds($screen))->toBe(['f1', 'f2']);
+
+    $screen->changeTab('showPage', 1);
+
+    // Off to the side, Following shows the first of what was kept, ready for a swipe back.
+    expect(treeShows(nodeByRef($screen, 'log-following'), 'First page'))->toBeTrue()
+        ->and(treeShows(nodeByRef($screen, 'log-following'), 'Second page'))->toBeFalse();
+
+    $sent = count(logRequestsSent());
+    $screen->changeTab('showPage', 0);
+
+    // No skeleton rows: only the one standing in for the next page, under what was kept.
+    expect(shownLogIds($screen))->toBe(['f1'])
+        ->and(findNode(showingLog($screen), fn (array $node): bool => ($node['ref'] ?? null) === 'loading-1'))->toBeNull();
+
+    finishRefreshes($screen);
+
+    expect(array_slice(logRequestsSent(), $sent))->toContain('log/following?since=f1');
+});
+
+it('shows the first few commits kept for a log you are not on, and has only the log you are on ask for its next page', function () {
+    holdRefreshes();
+    keep('log/latest', pageJson(array_map(fn (int $n): array => commitJson(['id' => "l{$n}", 'body' => "Latest {$n}"]), range(1, 10)), 'page2'));
+
+    $screen = Native::visit('/log');
+    $latest = nodeByRef($screen, 'log-latest');
+    $trending = nodeByRef($screen, 'log-trending');
+
+    expect(treeShows($latest, 'Latest '.Log::PreviewCommits))->toBeTrue()
+        ->and(treeShows($latest, 'Latest '.(Log::PreviewCommits + 1)))->toBeFalse()
+        // Nothing kept for Trending yet: skeleton rows, as it would open.
+        ->and(findNode($trending, fn (array $node): bool => ($node['ref'] ?? null) === 'loading-1'))->not->toBeNull();
+
+    // Pull to refresh stays on every list: iOS rebuilds a list that gains or loses it, at the top.
+    foreach ([showingLog($screen), $latest, $trending] as $list) {
+        expect($list['props'])->toHaveKey('on_refresh')
+            ->and(array_key_exists('on_end_reached', $list['props']))->toBe($list['ref'] === 'log');
+    }
+});
+
+it('holds new commits in the pill after a swipe, over what was kept, with no spinner', function () {
+    holdRefreshes();
+    keep('log/following', pageJson([commitJson(['id' => 'f1'])]));
+    keep('log/latest', pageJson([commitJson(['id' => 'l1', 'body' => 'Seen before'])]));
+    serveApi([
+        'GET /api/v1/log/following' => [pageJson([commitJson(['id' => 'f1'])])],
+        'GET /api/v1/log/latest' => [[...pageJson([commitJson(['id' => 'l2', 'body' => 'Just in', 'author' => ada()]), commitJson(['id' => 'l1', 'body' => 'Seen before'])]), 'new_commits_count' => 1]],
+        'GET /api/v1/me' => [['data' => userWithCountsJson(), 'unread_notifications_count' => 0]],
+    ]);
+
+    $screen = finishRefreshes(Native::visit('/log'))->changeTab('showPage', 1);
+
+    expect(shownLogIds($screen))->toBe(['l1'])
+        ->and(showsLoading(showingLog($screen)))->toBeFalse();
+
+    finishRefreshes($screen)->assertSee('1 new commit');
+
+    expect(logRequestsSent())->toContain('log/latest?since=l1');
+
+    $screen->tap('new-commits');
+
+    expect(shownLogIds($screen))->toBe(['l2', 'l1']);
 });
 
 it('keys each row by what it shows, so a commit put on top leaves the rows under it as they were', function () {
@@ -220,7 +399,7 @@ it('ranks Trending afresh when it opens, over the ranking kept last time', funct
 
     // The kept ranking paints at once, with no spinner.
     expect(shownLogIds($screen))->toBe(['old-top', 'c2'])
-        ->and(showsLoading($screen->tree()))->toBeFalse();
+        ->and(showsLoading(showingLog($screen)))->toBeFalse();
 
     finishRefreshes($screen);
 
@@ -318,7 +497,7 @@ it('draws Trending with no day markers and no last-visit marker', function () {
     expect(dayMarkers($screen))->toBe([])
         ->and(shownLogIds($screen))->toBe(['a', 'b']);
 
-    $screen->assertMissingElement('row', fn (array $node): bool => ($node['ref'] ?? null) === 'last-visit');
+    expect(findNode(showingLog($screen), fn (array $node): bool => ($node['ref'] ?? null) === 'last-visit'))->toBeNull();
 });
 
 it('puts a commit made on Trending above the ranking, under Just now', function () {

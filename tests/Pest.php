@@ -210,6 +210,17 @@ function showsLoading(array $tree): bool
 }
 
 /**
+ * The list of the log that's showing in the Log's pager. The pages beside it
+ * show the other logs, ready for a swipe.
+ *
+ * @return array<string, mixed>
+ */
+function showingLog(TestableComponent $screen): array
+{
+    return nodeByRef($screen, 'log');
+}
+
+/**
  * Whether a tree shows some text.
  *
  * @param  array<string, mixed>  $tree
@@ -687,15 +698,17 @@ function railNode(TestableComponent $screen, string $ref): ?string
 }
 
 /**
- * The visible text of every day marker, top to bottom.
+ * The visible text of every day marker, top to bottom, in the log showing when it's the Log.
  *
  * @return list<string>
  */
 function dayMarkers(TestableComponent $screen): array
 {
+    $tree = findNode($screen->tree(), fn (array $node): bool => ($node['ref'] ?? null) === 'log') ?? $screen->tree();
+
     return array_map(function (array $marker): string {
         $text = findNode($marker, fn (array $node): bool => ($node['type'] ?? null) === 'text');
 
         return $text['text'] ?? $text['props']['text'] ?? '';
-    }, findNodes($screen->tree(), fn (array $node): bool => str_starts_with((string) ($node['ref'] ?? ''), 'day-')));
+    }, findNodes($tree, fn (array $node): bool => str_starts_with((string) ($node['ref'] ?? ''), 'day-')));
 }

@@ -48,7 +48,7 @@ it('opens on the log kept last time, with no request and no spinner, then refres
 
     // One frame, the kept log: no placeholder before it, no spinner in it, nothing asked of devnull yet.
     expect(count($screen->bridge()->publishes) - $frames)->toBe(1)
-        ->and(showsLoading($screen->tree()))->toBeFalse()
+        ->and(showsLoading(showingLog($screen)))->toBeFalse()
         ->and(logRequests())->toBe(0)
         ->and(refreshesSent($screen))->toBeGreaterThan(0);
 
@@ -66,14 +66,14 @@ it('shows skeleton rows the first time only, until the log lands', function () {
         ->assertElement('row', fn (array $node): bool => ($node['ref'] ?? null) === 'loading-1')
         ->assertDontSee('fatal: your log does not have any commits yet');
 
-    finishRefreshes($screen)
-        ->assertSee('Fresh commit')
-        ->assertMissingElement('row', fn (array $node): bool => ($node['ref'] ?? null) === 'loading-1');
+    finishRefreshes($screen)->assertSee('Fresh commit');
+
+    expect(showsLoading(showingLog($screen)))->toBeFalse();
 
     // Next time it opens on what it fetched.
     $again = Native::visit('/log');
 
-    expect(showsLoading($again->tree()))->toBeFalse();
+    expect(showsLoading(showingLog($again)))->toBeFalse();
     $again->assertSee('Fresh commit');
 });
 
@@ -231,7 +231,7 @@ it('prints the error when there is nothing kept to show', function () {
         ->assertSee("fatal: unable to access 'http://devnull.test': could not connect to the server")
         ->assertDontSee("warning: couldn't refresh");
 
-    expect(showsLoading($screen->tree()))->toBeFalse();
+    expect(showsLoading(showingLog($screen)))->toBeFalse();
 });
 
 it('signs out and empties the cache when a background refresh gets a 401', function () {
@@ -252,9 +252,11 @@ it('opens the other log at once when it was kept', function () {
     keep('log/following', pageJson([commitJson(['id' => 'c1', 'body' => 'From following'])]));
     keep('log/latest', pageJson([commitJson(['id' => 'c2', 'body' => 'From everyone'])]));
 
-    $screen = Native::visit('/log')->tap('tab-latest')->assertSee('From everyone')->assertDontSee('From following');
+    $screen = Native::visit('/log')->tap('tab-latest');
 
-    expect(showsLoading($screen->tree()))->toBeFalse()
+    expect(treeShows(showingLog($screen), 'From everyone'))->toBeTrue()
+        ->and(treeShows(showingLog($screen), 'From following'))->toBeFalse()
+        ->and(showsLoading(showingLog($screen)))->toBeFalse()
         ->and(count(Http::recorded()))->toBe(0);
 });
 
@@ -265,13 +267,14 @@ it('ignores an answer for the log you have since left', function () {
         'GET /api/v1/log/latest' => [pageJson([commitJson(['id' => 'c2', 'body' => 'From everyone'])])],
     ]);
 
-    $screen = finishRefreshes(Native::visit('/log')->tap('tab-latest'))
-        ->assertSee('From everyone')
-        ->assertDontSee('From following')
-        ->assertSet('error', null);
+    $screen = finishRefreshes(Native::visit('/log')->tap('tab-latest'))->assertSet('error', null);
 
-    // It's still kept for when you go back.
-    expect(kept('log/following')['data'][0]['body'])->toBe('From following');
+    expect(treeShows(showingLog($screen), 'From everyone'))->toBeTrue()
+        ->and(treeShows(showingLog($screen), 'From following'))->toBeFalse();
+
+    // It's still kept for when you go back, and the page beside shows it.
+    expect(kept('log/following')['data'][0]['body'])->toBe('From following')
+        ->and(treeShows(nodeByRef($screen, 'log-following'), 'From following'))->toBeTrue();
 });
 
 it('keeps your new commit, so the log opens with it next time', function () {

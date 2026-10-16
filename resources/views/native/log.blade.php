@@ -9,45 +9,14 @@
     @include('native.partials.error')
     @include('native.partials.refresh-failed')
 
-    <native:column class="w-full flex-1">
     {{--
-        Keyed so a new key puts the log back at the top, as the nav bar's compose button and the pill do. Each log
-        has its own key. A list kept across a tab switch kept its scroll offset and row heights while every row
-        changed under it, and iOS drew it blank with the first rows pushed to the bottom.
+        The logs as pages you swipe between. The pager keeps where it is across renders, and only moves for a tab tap,
+        when $pageIndex is one it didn't report itself. Keyed so the banners above coming and going don't make it a
+        new pager, with new lists.
     --}}
-    <native:list native:key="log-{{ $log }}-{{ $listKey }}" ref="log" class="w-full flex-1 bg-theme-surface" on-refresh="load" on-end-reached="loadMore" :end-reached-buffer="5">
-        @if ($viewer)
-            @include('native.partials.composer', ['me' => $viewer])
-        @endif
-
-        @if (! $loaded && $error === null)
-            @foreach (range(1, 3) as $skeleton)
-                @include('native.partials.rail-loading', ['ref' => 'loading-'.$skeleton, 'label' => 'Loading commits'])
-            @endforeach
-        @endif
-
-        @if ($loaded && $isEmpty && $error === null)
-            @if ($log === 'following')
-                @include('native.partials.following-empty', ['suggestions' => $suggestions])
-            @else
-                @include('native.partials.empty', [
-                    'command' => 'fatal: no commits yet',
-                    'message' => "Nobody has committed anything. Be the first. It's just plain text; you'll be fine.",
-                ])
-            @endif
-        @endif
-
-        @include('native.partials.feed', ['rows' => $rows])
-
-        @if ($lastCommit)
-            @if ($nextCursor !== null)
-                @include('native.partials.rail-loading')
-            @else
-                @include('native.partials.rail-end', ['lane' => $lastCommit->lane(), 'message' => "That's the root commit. There's nothing before it."])
-            @endif
-        @endif
-    </native:list>
-
-    @include('native.partials.new-commits-pill', ['label' => $newCommitsLabel, 'press' => 'showNewCommits', 'shown' => $newCommits !== []])
-    </native:column>
+    <native:pager native:key="log-pager" ref="log-pager" horizontal class="w-full flex-1 bg-theme-surface" :count="count($pages)" :page="$pageIndex" on-page-change="showPage" a11y-label="Logs">
+        @foreach ($pages as $page)
+            @include('native.partials.log-page', ['page' => $page])
+        @endforeach
+    </native:pager>
 </native:column>

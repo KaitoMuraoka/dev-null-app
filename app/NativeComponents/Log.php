@@ -4,6 +4,7 @@ namespace App\NativeComponents;
 
 use App\Devnull\Data\Commit;
 use App\Devnull\Data\Page;
+use App\Devnull\Data\User;
 use App\Devnull\LastVisit;
 use App\Devnull\ResponseCache;
 use App\Devnull\Timeline;
@@ -43,6 +44,18 @@ use Native\Mobile\Edge\NativeComponent;
  * under you in between: later answers only change the rows showing in place.
  * The pill offers the commits newer than the ranking, other than yours, and
  * puts them above it under "Just now".
+ *
+ * The three logs are pages you swipe between, as paged tabs go in native apps,
+ * and the tabs follow. Only the log you're on is live. The others show the
+ * first few commits kept for them, as they'll open, so there's something
+ * under your finger as you swipe. Each page has its own list. A log you leave
+ * starts again at the top of a fresh one, as a tab tap opens it, since a list
+ * kept while every row changed under its scroll offset drew blank on iOS.
+ *
+ * The pages beside the one you're on are kept small on purpose. EDGE writes
+ * each frame into a buffer of fixed size, and a frame that doesn't fit is
+ * dropped without a word; the frames after it then refer to rows the phone
+ * never got, which leaves holes in the list.
  */
 class Log extends NativeComponent
 {
@@ -65,7 +78,19 @@ class Log extends NativeComponent
      */
     public const string Ranked = 'trending';
 
+    /**
+     * How many kept commits a log you're not on shows, enough to fill the screen while you swipe to it.
+     */
+    public const int PreviewCommits = 5;
+
     public string $log = 'following';
+
+    /**
+     * The list key of each log you're not on. The log you're on uses $listKey.
+     *
+     * @var array<string, int>
+     */
+    public array $listKeys = [];
 
     /**
      * Trending's commits newer than its ranking, put above it by the pill, newest first.
@@ -165,13 +190,54 @@ class Log extends NativeComponent
         );
     }
 
+    /**
+     * A tab. The one you're on takes you back to its top.
+     */
     public function show(string $log): void
     {
         if (! in_array($log, self::Logs, true)) {
             return;
         }
 
+        if ($log === $this->log) {
+            $this->listKey++;
+
+            return;
+        }
+
+        $this->switchTo($log);
+    }
+
+    /**
+     * The pager settling on a log, from a swipe. It says so again for the log it's already on.
+     */
+    public function showPage(int $index): void
+    {
+        $log = self::Logs[$index] ?? null;
+
+        if ($log !== null && $log !== $this->log) {
+            $this->switchTo($log);
+        }
+    }
+
+    /**
+     * The log you go to keeps the list its first few commits were drawn in,
+     * which can't have been scrolled, and fills it. The log you leave starts
+     * again at the top of a fresh one.
+     */
+    private function switchTo(string $log): void
+    {
+        $this->listKeys[$this->log] = $this->listKey + 1;
         $this->log = $log;
+        $this->listKey = $this->listKeys[$log] ?? 0;
+        $this->openAfresh();
+    }
+
+    /**
+     * Opens the log afresh: what was kept for it, then asked again.
+     */
+    private function openAfresh(): void
+    {
         $this->commits = [];
         $this->threads = [];
         $this->latestCommits = [];
@@ -180,10 +246,36 @@ class Log extends NativeComponent
         $this->nextCursor = null;
         $this->loaded = false;
         $this->error = null;
+        $this->refreshFailed = false;
         $this->forgetNewCommits();
         $this->lastVisitAt = $this->lastVisitSeenAt();
         $this->showKept();
         $this->open();
+    }
+
+    /**
+     * A log you're not on: the first few commits kept for it, as it will
+     * open, or skeleton rows with nothing kept.
+     *
+     * @return array<string, mixed>
+     */
+    private function previewState(string $log): array
+    {
+        $json = $this->cached('log/'.$log);
+        $kept = is_array($json['data'] ?? null) ? $json['data'] : [];
+        $page = $json === null ? null : Page::fromArray(['data' => array_slice($kept, 0, self::PreviewCommits)] + $json, Commit::fromArray(...));
+
+        return [
+            'commits' => $page->items ?? [],
+            // Rows past the preview are left out, with a skeleton row for them, as for the next page.
+            'nextCursor' => count($kept) > self::PreviewCommits ? 'preview' : $page?->nextCursor,
+            'threads' => [],
+            'latestCommits' => [],
+            'suggestions' => array_values(array_map(Commit::fromArray(...), array_filter(is_array($json['suggestions'] ?? null) ? $json['suggestions'] : [], is_array(...)))),
+            'loaded' => $page !== null,
+            'lastVisitAt' => $this->lastVisitSeenAt($log),
+            'error' => null,
+        ];
     }
 
     public function isRanked(): bool
@@ -423,7 +515,9 @@ class Log extends NativeComponent
     }
 
     /**
-     * A fresh ranking for Trending, which replaces what's showing.
+     * A fresh ranking for Trending, which replaces what's showing. A ranking
+     * that was showing goes, in a fresh list at the top. Skeleton rows, or the
+     * kept ranking a swipe brought in, stay in theirs, still at the top.
      *
      * @param  array<string, mixed>  $json
      */
@@ -431,6 +525,10 @@ class Log extends NativeComponent
     {
         if ($log !== $this->log) {
             return;
+        }
+
+        if ($this->loaded) {
+            $this->listKey++;
         }
 
         $page = Page::fromArray($json, Commit::fromArray(...));
@@ -442,7 +540,6 @@ class Log extends NativeComponent
         $this->rankedSince = is_string($json['newest_commit_id'] ?? null) ? $json['newest_commit_id'] : null;
         $this->forgetNewCommits();
         $this->loaded = true;
-        $this->listKey++;
     }
 
     /**
@@ -563,18 +660,31 @@ class Log extends NativeComponent
         }
     }
 
-    private function lastVisitSeenAt(): ?string
+    private function lastVisitSeenAt(?string $log = null): ?string
     {
         $viewer = $this->me();
 
-        return $viewer === null ? null : app(LastVisit::class)->seenAt($viewer->id, $this->log);
+        return $viewer === null ? null : app(LastVisit::class)->seenAt($viewer->id, $log ?? $this->log);
     }
 
     public function render(): View
     {
         $viewer = $this->me();
 
-        $latest = array_flip(array_map(fn (Commit $commit): string => $commit->id, $this->latestCommits));
+        $pages = array_map(fn (string $log): array => $log === $this->log
+            ? $this->page($log, [
+                'commits' => $this->commits,
+                'latestCommits' => $this->latestCommits,
+                'threads' => $this->threads,
+                'suggestions' => $this->suggestions,
+                'nextCursor' => $this->nextCursor,
+                'loaded' => $this->loaded,
+                'lastVisitAt' => $this->lastVisitAt,
+                'error' => $this->error,
+            ], $viewer, $this->listKey)
+            : $this->page($log, $this->previewState($log), $viewer, $this->listKeys[$log] ?? 0), self::Logs);
+
+        $showing = $pages[array_search($this->log, self::Logs, true)];
 
         return view('native.log', [
             'viewer' => $viewer,
@@ -582,18 +692,47 @@ class Log extends NativeComponent
             'remaining' => $this->remaining(),
             'canCommit' => $this->canCommit(),
             'newCommitsLabel' => $this->newCommitsLabel(),
-            'isEmpty' => $this->commits === [] && $this->latestCommits === [],
-            'lastCommit' => $this->commits[array_key_last($this->commits) ?? -1] ?? $this->latestCommits[array_key_last($this->latestCommits) ?? -1] ?? null,
-            'rows' => $this->isRanked()
+            'pages' => $pages,
+            'pageIndex' => array_search($this->log, self::Logs, true),
+            'rows' => $showing['rows'],
+        ]);
+    }
+
+    /**
+     * What a log's page shows, from the state it's in.
+     *
+     * @param  array<string, mixed>  $state
+     * @return array<string, mixed>
+     */
+    private function page(string $log, array $state, ?User $viewer, int $listKey): array
+    {
+        /** @var list<Commit> $commits */
+        $commits = $state['commits'];
+        /** @var list<Commit> $latestCommits */
+        $latestCommits = $state['latestCommits'];
+        $latest = array_flip(array_map(fn (Commit $commit): string => $commit->id, $latestCommits));
+
+        return [
+            'log' => $log,
+            'showing' => $log === $this->log,
+            'listKey' => $listKey,
+            'loaded' => $state['loaded'],
+            'error' => $state['error'],
+            'threads' => $state['threads'],
+            'suggestions' => $state['suggestions'],
+            'nextCursor' => $state['nextCursor'],
+            'isEmpty' => $commits === [] && $latestCommits === [],
+            'lastCommit' => $commits[array_key_last($commits) ?? -1] ?? $latestCommits[array_key_last($latestCommits) ?? -1] ?? null,
+            'rows' => $log === self::Ranked
                 ? Timeline::ranked(
-                    $this->latestCommits,
+                    $latestCommits,
                     // The web lists a commit put above the ranking only there.
-                    array_values(array_filter($this->commits, fn (Commit $commit): bool => ! isset($latest[$commit->id]))),
+                    array_values(array_filter($commits, fn (Commit $commit): bool => ! isset($latest[$commit->id]))),
                 )
                 : Timeline::feed(
-                    $this->commits,
-                    firstSeenId: LastVisit::firstSeenId($this->commits, $this->lastVisitAt, $viewer?->id),
+                    $commits,
+                    firstSeenId: LastVisit::firstSeenId($commits, $state['lastVisitAt'], $viewer?->id),
                 ),
-        ]);
+        ];
     }
 }
