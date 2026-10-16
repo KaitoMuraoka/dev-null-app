@@ -7,8 +7,7 @@ use App\Devnull\DeviceKey;
 use App\Devnull\GitHub;
 use App\Devnull\GitHubToken;
 use App\Devnull\KeyStore;
-use App\Devnull\KeyStores\EncryptedFile;
-use App\Devnull\KeyStores\Keychain;
+use App\Devnull\KeyStoreChoice;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Support\Facades\Date;
@@ -30,9 +29,7 @@ class AppServiceProvider extends ServiceProvider
 
         $this->app->bind(GitHub::class, fn (): GitHub => new GitHub((string) config('devnull.github_client_id')));
 
-        $this->app->bind(KeyStore::class, fn (Application $app): KeyStore => config('devnull.key_store') === 'file'
-            ? $app->make(EncryptedFile::class)
-            : $app->make(Keychain::class));
+        $this->app->bind(KeyStore::class, fn (Application $app): KeyStore => $app->make(KeyStoreChoice::here()->store()));
 
         $this->app->singleton(GitHubToken::class);
     }

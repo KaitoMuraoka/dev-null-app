@@ -38,7 +38,7 @@ Build the same way, since `native:run` runs its own `composer install` on a copy
 COMPOSER=composer.free.json php artisan native:run ios
 ```
 
-Without the plugin, the app keeps its key in a file encrypted with `APP_KEY` instead of in the Keychain. That's fine for a simulator, but don't ship it. `DEVNULL_KEY_STORE` (`keychain` or `file`) overrides the choice.
+Without the plugin, the app keeps its key in a file encrypted with `APP_KEY` instead of in the Keychain. That's fine for a simulator, but don't ship it. On a real phone the app works this out for itself and refuses to make a key. `DEVNULL_KEY_STORE` (`keychain` or `file`) overrides the choice, so `file` makes it use the file on a phone too.
 
 These can be set in `.env`:
 

@@ -13,8 +13,10 @@ use Native\Mobile\SecureStorageStatus;
  * A file in the app's storage, encrypted with APP_KEY.
  *
  * For builds without the Secure Storage plugin, so anyone can run the app in a
- * simulator. APP_KEY ships inside the app, so this is no Keychain: it keeps
- * the seed out of plain sight and nothing more.
+ * simulator. On a phone NativePHP makes APP_KEY per install, but the file still
+ * goes wherever the app's data goes, so this is no Keychain: it keeps the seed
+ * out of plain sight and nothing more. KeyStoreChoice only picks it on a real
+ * phone when DEVNULL_KEY_STORE asks for it.
  */
 final class EncryptedFile implements KeyStore
 {
