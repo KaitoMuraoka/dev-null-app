@@ -69,6 +69,18 @@ it('leaves the cursor off the first page', function () {
     Http::assertSent(fn (Request $request): bool => $request->url() === 'http://devnull.test/api/v1/notifications');
 });
 
+it('asks for a profile\'s replies with ?replies=1 and signs it', function () {
+    Http::fake(['devnull.test/*' => Http::response(pageJson([]))]);
+
+    app(Client::class)->userCommits('ada', 'replies', 'older');
+    app(Client::class)->userCommits('ada');
+
+    Http::assertSent(fn (Request $request): bool => $request->url() === 'http://devnull.test/api/v1/users/ada/commits?replies=1&cursor=older'
+        && str_ends_with(receivedMessage($request), "\nGET\n/api/v1/users/ada/commits?replies=1&cursor=older\n"));
+    Http::assertSent(fn (Request $request): bool => $request->url() === 'http://devnull.test/api/v1/users/ada/commits');
+    Http::assertNotSent(fn (Request $request): bool => str_contains($request->url(), 'tab='));
+});
+
 it('sends the JSON body as the exact bytes it signed', function () {
     Http::fake(['devnull.test/*' => Http::response(['data' => commitJson(['status' => 'pending'])], 201)]);
 

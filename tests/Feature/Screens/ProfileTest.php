@@ -176,13 +176,14 @@ it('shows a profile with only a pinned commit without the empty state', function
 });
 
 it('switches between commits and replies like the web profile', function () {
+    // Like devnull, this answers ?replies=1 with replies and ignores anything else, such as the old ?tab=replies.
     Http::fake(function (Request $request) {
         $path = parse_url($request->url(), PHP_URL_PATH);
         parse_str((string) parse_url($request->url(), PHP_URL_QUERY), $query);
 
         return match (true) {
             $path === '/api/v1/users/ada' => Http::response(profileJson(extra: ['pinned_commit' => adaCommitJson(['id' => 'p1', 'body' => 'Pinned thought'])])),
-            ($query['tab'] ?? null) === 'replies' => Http::response(pageJson([adaCommitJson([
+            ($query['replies'] ?? null) === '1' => Http::response(pageJson([adaCommitJson([
                 'id' => 'r1',
                 'parent_id' => 'c9',
                 'body' => 'Agreed',
@@ -206,7 +207,7 @@ it('switches between commits and replies like the web profile', function () {
         ->assertDontSee('Pinned thought')
         ->assertSee("That's @ada's first reply.");
 
-    Http::assertSent(fn (Request $request): bool => $request->url() === 'http://devnull.test/api/v1/users/ada/commits?tab=replies');
+    Http::assertSent(fn (Request $request): bool => $request->url() === 'http://devnull.test/api/v1/users/ada/commits?replies=1');
     Http::assertSent(fn (Request $request): bool => $request->url() === 'http://devnull.test/api/v1/users/ada/commits');
 
     $screen->tap('replying-to-r1')->assertNavigatedTo('/log/commits/c9');
@@ -216,15 +217,15 @@ it('loads older replies on the replies tab', function () {
     Http::fake(function (Request $request) {
         return match (true) {
             str_ends_with(parse_url($request->url(), PHP_URL_PATH), '/users/ada') => Http::response(profileJson()),
-            str_contains($request->url(), 'cursor=older') => Http::response(pageJson([adaCommitJson(['id' => 'r1', 'body' => 'Older reply'])])),
-            str_contains($request->url(), 'tab=replies') => Http::response(pageJson([adaCommitJson(['id' => 'r2', 'body' => 'Newer reply'])], 'older')),
+            str_contains($request->url(), 'replies=1&cursor=older') => Http::response(pageJson([adaCommitJson(['id' => 'r1', 'body' => 'Older reply'])])),
+            str_contains($request->url(), 'replies=1') => Http::response(pageJson([adaCommitJson(['id' => 'r2', 'body' => 'Newer reply'])], 'older', 'http://devnull.test/api/v1/users/ada/commits', 'replies=1')),
             default => Http::response(pageJson([])),
         };
     });
 
     Native::visit('/log/users/ada')->tap('tab-replies')->call('loadMore')->assertSee('Older reply');
 
-    Http::assertSent(fn (Request $request): bool => $request->url() === 'http://devnull.test/api/v1/users/ada/commits?tab=replies&cursor=older');
+    Http::assertSent(fn (Request $request): bool => $request->url() === 'http://devnull.test/api/v1/users/ada/commits?replies=1&cursor=older');
 });
 
 it('speaks git when there are no replies yet', function () {

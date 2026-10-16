@@ -98,13 +98,14 @@ final readonly class Client
     }
 
     /**
-     * A tab of someone's profile: their commits, or their replies.
+     * A tab of someone's profile: their commits, or with ?replies=1 their replies.
+     * The server ignores anything else, so a wrong parameter would quietly show commits.
      *
      * @return Page<Commit>
      */
     public function userCommits(string $username, string $tab = 'commits', ?string $cursor = null): Page
     {
-        $query = ['tab' => $tab === 'replies' ? 'replies' : null, 'cursor' => $cursor];
+        $query = ['replies' => $tab === 'replies' ? '1' : null, 'cursor' => $cursor];
 
         return Page::fromArray($this->json($this->send('GET', 'users/'.rawurlencode($username).'/commits', $query)), Commit::fromArray(...));
     }
