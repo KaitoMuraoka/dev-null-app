@@ -11,6 +11,25 @@ use Carbon\CarbonInterface;
  */
 final class Display
 {
+    /**
+     * The commit page's reply bar with one line of draft: its hairline, the
+     * field and the padding around them, as drawn on an iPhone.
+     */
+    public const int ReplyBarHeight = 53;
+
+    public const int ReplyBarLineHeight = 21;
+
+    public const int ReplyBarMaxLines = 5;
+
+    public const int ReplyBarCharactersPerLine = 34;
+
+    /**
+     * The strip under the home indicator on Face ID iPhones. EDGE doesn't
+     * hand pushed screens the real inset (it's 0 inside a tab), so this errs
+     * long on phones without one.
+     */
+    public const int HomeIndicatorHeight = 34;
+
     public static function relativeTime(?CarbonInterface $date, ?CarbonInterface $now = null): string
     {
         if ($date === null) {
@@ -106,6 +125,27 @@ final class Display
             + ($commit->linkPreview === null ? 0 : 80);
 
         return min(250, (int) ceil($height / 7));
+    }
+
+    /**
+     * How far a commit page has to scroll past its last reply to clear the
+     * reply bar. A pushed screen is drawn under its bottom bar and the home
+     * indicator, with no inset for either, so the page pads its own end: the
+     * bar as the draft grows to its five lines, and the indicator below it.
+     * With the keyboard up the bar sits on the keyboard instead, which only
+     * leaves a little more room.
+     */
+    public static function replyBarClearance(string $draft): int
+    {
+        $lines = 0;
+
+        foreach (explode("\n", $draft) as $line) {
+            $lines += max(1, (int) ceil(mb_strlen($line) / self::ReplyBarCharactersPerLine));
+        }
+
+        return self::ReplyBarHeight
+            + (min(self::ReplyBarMaxLines, $lines) - 1) * self::ReplyBarLineHeight
+            + self::HomeIndicatorHeight;
     }
 
     public static function count(int $count, string $singular, string $plural): string

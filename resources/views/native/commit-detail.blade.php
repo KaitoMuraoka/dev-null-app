@@ -79,15 +79,23 @@
                 @endif
             @endif
 
+            {{--
+                A pushed screen runs under its bottom bar, so the page clears the reply bar itself (see
+                Display::replyBarClearance): the last reply and its actions end above the bar, keyboard up or down.
+            --}}
             @if ($commit)
-                <native:column class="w-full h-[24]" />
+                <native:column ref="reply-bar-clearance" class="w-full h-[{{ 24 + \App\Devnull\Display::replyBarClearance($reply) }}]" />
             @endif
         </native:column>
     </native:scroll-view>
 
     @if ($commit)
-        <native:bottom-bar class="w-full bg-theme-surface">
-            <native:column class="w-full">
+        {{--
+            The bar is painted from its first child's background: native:bottom-bar takes no classes of its own, so
+            the surface and the hairline above it belong to this column, or the replies show through.
+        --}}
+        <native:bottom-bar>
+            <native:column ref="reply-bar" class="w-full bg-theme-surface">
                 <native:column class="w-full h-[1] bg-theme-hairline" />
                 <native:row class="w-full px-4 py-2 gap-3 items-center">
                     <native:bare-text-input

@@ -346,3 +346,35 @@ it('lets a drag that starts on an ancestor or a reply scroll the thread', functi
 
     expect(pressFeedbackInScroller($screen))->toBe([]);
 });
+
+it('paints the reply bar solid, with its hairline, so the replies never show through', function () {
+    fakeThread();
+
+    $screen = Native::visit('/log/commits/c2', platform: 'ios');
+    $bar = findNode($screen->tree(), fn (array $node): bool => ($node['type'] ?? null) === 'bottom_bar');
+
+    expect($bar['children'][0]['ref'] ?? null)->toBe('reply-bar')
+        ->and($bar['children'][0]['style']['bg_color'] ?? null)->toBe(config('native-ui.theme.light.surface'))
+        ->and($bar['children'][0]['props']['dark_bg_color'] ?? null)->toBe(config('native-ui.theme.dark.surface'))
+        ->and($bar['children'][0]['children'][0]['style']['bg_color'] ?? null)->toBe(config('native-ui.theme.light.hairline'));
+});
+
+it('ends the page above the reply bar, and further as the draft grows', function () {
+    fakeThread(replies: [replyJson(['id' => 'r1', 'parent_id' => 'c2', 'body' => 'The last reply'])]);
+
+    $screen = Native::visit('/log/commits/c2', platform: 'ios');
+    $scroller = findNode($screen->tree(), fn (array $node): bool => ($node['type'] ?? null) === 'scroll_view');
+    $page = $scroller['children'][0]['children'];
+
+    // The clearance is the last thing on the page, under the last reply: the bar's line and the home indicator.
+    expect(end($page)['ref'] ?? null)->toBe('reply-bar-clearance')
+        ->and(nodeByRef($screen, 'reply-bar-clearance')['layout']['height'])->toEqual(24 + 53 + 34);
+
+    $screen->input('reply-input', "Three lines\nof a\ndraft");
+
+    expect(nodeByRef($screen, 'reply-bar-clearance')['layout']['height'])->toEqual(24 + 53 + 2 * 21 + 34);
+
+    $screen->input('reply-input', str_repeat("A line\n", 12));
+
+    expect(nodeByRef($screen, 'reply-bar-clearance')['layout']['height'])->toEqual(24 + 53 + 4 * 21 + 34);
+});
