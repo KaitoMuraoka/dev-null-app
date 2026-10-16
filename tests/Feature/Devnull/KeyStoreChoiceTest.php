@@ -72,7 +72,7 @@ it('shows onboarding the refusal instead of a key', function () {
 
     Native::visit('/onboarding')
         ->assertSee(NoSecureStorage::Message)
-        ->assertSet('publicKey', '');
+        ->assertSet('fingerprint', '');
 
     $bridge->assertNotCalled('SecureStorage.Set');
 });

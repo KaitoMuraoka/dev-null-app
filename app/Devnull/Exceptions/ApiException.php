@@ -14,8 +14,9 @@ class ApiException extends RuntimeException
     /**
      * @param  array<string, list<string>>  $errors
      * @param  int|null  $retryAfter  How many seconds the server asked to wait before trying again.
+     * @param  string|null  $errorCode  The machine-readable code devnull sends next to the message, such as "device_not_approved".
      */
-    public function __construct(string $message, public readonly int $status = 0, public readonly array $errors = [], public readonly ?int $retryAfter = null)
+    public function __construct(string $message, public readonly int $status = 0, public readonly array $errors = [], public readonly ?int $retryAfter = null, public readonly ?string $errorCode = null)
     {
         parent::__construct($message, $status);
     }
@@ -30,11 +31,13 @@ class ApiException extends RuntimeException
 
         $errors = $response->json('errors');
         $errors = is_array($errors) ? array_map(fn (mixed $messages): array => array_values(array_filter((array) $messages, 'is_string')), $errors) : [];
+        $code = $response->json('code');
+        $code = is_string($code) && $code !== '' ? $code : null;
 
         return match ($response->status()) {
-            401 => new Unauthenticated($message, 401),
-            422 => new ApiException($message, 422, $errors),
-            default => new ApiException($message, $response->status(), retryAfter: self::retryAfter($response)),
+            401 => new Unauthenticated($message, 401, errorCode: $code),
+            422 => new ApiException($message, 422, $errors, errorCode: $code),
+            default => new ApiException($message, $response->status(), retryAfter: self::retryAfter($response), errorCode: $code),
         };
     }
 

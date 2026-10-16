@@ -10,7 +10,7 @@ use Native\Mobile\SecureStorageResult;
  * Stands in on a real phone built without the Secure Storage plugin.
  *
  * It keeps nothing and says why, so the app never makes a key it would hold
- * in a weaker place than the Keychain, or add to someone's GitHub from there.
+ * in a weaker place than the Keychain, or get devnull to approve from there.
  */
 final class NoSecureStorage implements KeyStore
 {

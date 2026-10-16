@@ -48,16 +48,19 @@ class ThisDevice extends NativeComponent
         Share::file('', $this->publicKey, '');
     }
 
-    public function openGitHubKeys(): void
+    /**
+     * The devices page on dev-null.sh, where this phone is listed once approved.
+     */
+    public function openDevices(): void
     {
-        Browser::inApp('https://github.com/settings/keys');
+        Browser::inApp(rtrim((string) config('devnull.url'), '/').'/settings/devices');
     }
 
     public function confirmForget(): void
     {
         Dialog::alert(
             'Forget this device?',
-            'This deletes the device key from the Keychain and signs you out. The public key stays on GitHub until you remove it there. Connecting again makes a new key.',
+            'This deletes the device key from the Keychain and signs you out. The phone stays listed on dev-null.sh until you remove it there. Signing in again makes a new key.',
             [
                 ['label' => 'Cancel', 'style' => 'cancel'],
                 ['label' => 'Forget', 'style' => 'destructive'],

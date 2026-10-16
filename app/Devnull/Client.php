@@ -7,7 +7,6 @@ use App\Devnull\Data\CommitThread;
 use App\Devnull\Data\CurrentUser;
 use App\Devnull\Data\Notification;
 use App\Devnull\Data\Page;
-use App\Devnull\Data\PairingCode;
 use App\Devnull\Data\Profile;
 use App\Devnull\Data\User;
 use App\Devnull\Exceptions\ApiException;
@@ -23,34 +22,21 @@ use SensitiveParameter;
  */
 final readonly class Client
 {
+    /**
+     * The one place the sign-in's redeem endpoint lives.
+     */
+    public const string SignInPath = 'devices';
+
     public function __construct(private DeviceKey $deviceKey, private string $baseUrl) {}
 
     /**
-     * Asks the server to re-read the user's GitHub keys, find this one among
-     * them, and say whether this phone is approved. A GitHub token for their
-     * account approves it on the spot. Without one, a phone that isn't approved
-     * yet gets a code to enter on the web, and asking again finds out when it was.
+     * Trades the code dev-null.sh sent back, with the PKCE verifier only this
+     * phone knows, for the user it approved this phone for. It's signed like
+     * every request, so the code only works for the key it was made for.
      */
-    public function syncKey(string $username, #[SensitiveParameter] ?string $githubToken = null, ?string $deviceName = null): User|PairingCode
+    public function redeemSignIn(string $code, #[SensitiveParameter] string $verifier): User
     {
-        $payload = ['username' => $username];
-
-        if ($githubToken !== null && $githubToken !== '') {
-            $payload['github_token'] = $githubToken;
-        }
-
-        if ($deviceName !== null && $deviceName !== '') {
-            $payload['device_name'] = $deviceName;
-        }
-
-        $response = $this->send('POST', 'key-syncs', payload: $payload);
-
-        if ($response->status() === 202) {
-            return PairingCode::fromArray($this->json($response))
-                ?? throw new ApiException('fatal: devnull sent a pairing code this app could not read.', 202);
-        }
-
-        return User::fromArray($this->data($response));
+        return User::fromArray($this->data($this->send('POST', self::SignInPath, payload: ['code' => $code, 'code_verifier' => $verifier])));
     }
 
     public function me(): CurrentUser

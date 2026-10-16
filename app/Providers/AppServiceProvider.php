@@ -4,10 +4,9 @@ namespace App\Providers;
 
 use App\Devnull\Client;
 use App\Devnull\DeviceKey;
-use App\Devnull\GitHub;
-use App\Devnull\GitHubToken;
 use App\Devnull\KeyStore;
 use App\Devnull\KeyStoreChoice;
+use App\Devnull\SignIn;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Support\Facades\Date;
@@ -27,11 +26,9 @@ class AppServiceProvider extends ServiceProvider
             (string) config('devnull.url'),
         ));
 
-        $this->app->bind(GitHub::class, fn (): GitHub => new GitHub((string) config('devnull.github_client_id')));
-
         $this->app->bind(KeyStore::class, fn (Application $app): KeyStore => $app->make(KeyStoreChoice::here()->store()));
 
-        $this->app->singleton(GitHubToken::class);
+        $this->app->singleton(SignIn::class);
     }
 
     /**

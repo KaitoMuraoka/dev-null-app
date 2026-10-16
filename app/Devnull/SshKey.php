@@ -56,7 +56,7 @@ final readonly class SshKey
     }
 
     /**
-     * The public key as a line for GitHub or `authorized_keys`.
+     * The public key as an OpenSSH line, as in `authorized_keys`.
      */
     public function openSsh(string $comment = 'devnull-mobile'): string
     {

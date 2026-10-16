@@ -17,7 +17,7 @@ final class DeviceKey
      * Loads the key, making one the first time it's asked for.
      *
      * A locked or failing Keychain is an error, never a reason to make a new
-     * key: that would orphan the key the user already added to GitHub.
+     * key: that would orphan the key devnull already approved for this phone.
      */
     public function current(): SshKey
     {

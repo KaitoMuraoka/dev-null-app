@@ -4,9 +4,9 @@ A native iOS and Android app for [devnull](https://dev-null.sh), the social netw
 
 ## How signing in works
 
-There are no passwords or tokens. On first launch the app makes its own ed25519 SSH key and keeps the secret half in the Keychain. You add the public half to your GitHub account as a signing key, and every request to devnull is signed with it. devnull checks the key against your GitHub account, the same way devnull's commit-from-the-terminal script does.
+There are no passwords or tokens. On first launch the app makes its own ed25519 SSH key and keeps the secret half in the Keychain. Every request to devnull is signed with it.
 
-The app can add the key to GitHub for you through GitHub's device flow. It asks for permission to add a signing key, adds it, and drops the token straight away. You can also copy the key and add it yourself.
+Sign in with GitHub opens dev-null.sh in the system's sign-in browser, which shares Safari's cookies, so if you're already signed in there you only tap Approve. dev-null.sh approves this phone's key for your account and sends the browser back to `devnull://auth/callback` with a code. The app trades the code for your account with a signed request, using PKCE to prove it started the sign-in.
 
 ## The API
 
@@ -43,7 +43,7 @@ Without the plugin, the app keeps its key in a file encrypted with `APP_KEY` ins
 These can be set in `.env`:
 
 - `DEVNULL_URL` is the devnull instance to talk to. It defaults to production.
-- `DEVNULL_GITHUB_CLIENT_ID` defaults to the devnull mobile GitHub App. To use your own, create a GitHub App that any account can install, with device flow enabled and the account permission "SSH signing keys" set to read and write. No client secret is needed. Set it to an empty value and the app only offers the copy-and-paste flow.
+- `NATIVEPHP_DEEPLINK_SCHEME` must be `devnull`, as in `.env.example`. NativePHP registers the scheme from it at build time, and its sign-in browser reads it from the bundled `.env` to know when dev-null.sh has sent the browser back.
 
 ## Running it
 

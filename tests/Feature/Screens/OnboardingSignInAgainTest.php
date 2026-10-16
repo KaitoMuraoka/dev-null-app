@@ -3,6 +3,7 @@
 use App\Devnull\Account;
 use App\Devnull\DeviceKey;
 use App\NativeComponents\Launch;
+use App\NativeComponents\Onboarding;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Native\Mobile\Testing\Native;
@@ -17,7 +18,7 @@ it('signs straight back in when the stored sign-in is gone but the key is still 
     fakeApi(['GET /api/v1/me' => [['data' => userWithCountsJson(), 'unread_notifications_count' => 4]]]);
 
     $screen = Native::visit('/')->assertReplacedWith('/onboarding');
-    $screen = Native::visit('/onboarding')->assertSet('publicKey', testKey()->openSsh());
+    $screen = Native::visit('/onboarding')->assertSet('fingerprint', testKey()->fingerprint());
 
     Http::assertNothingSent();
 
@@ -47,7 +48,7 @@ it('asks only once, and says nothing, when devnull does not know the key', funct
 
     $screen->assertNoNavigation()
         ->assertSet('error', null)
-        ->assertSee('Connect');
+        ->assertSee('Sign in with GitHub');
 
     Http::assertSentCount(1);
     expect(app(Account::class)->user())->toBeNull();
@@ -75,5 +76,5 @@ it('does not ask when another screen sent the phone here', function (array $data
     Http::assertNotSent(fn (Request $request): bool => str_ends_with($request->url(), '/api/v1/me'));
 })->with([
     'signed out with a reason' => [['message' => Launch::KeyGone]],
-    'to approve the phone' => [['approve' => 'local_dev']],
+    'to approve the phone' => [['message' => Onboarding::NeedsApproval]],
 ]);

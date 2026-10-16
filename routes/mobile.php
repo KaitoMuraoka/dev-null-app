@@ -1,5 +1,6 @@
 <?php
 
+use App\NativeComponents\AuthCallback;
 use App\NativeComponents\CommitDetail;
 use App\NativeComponents\Launch;
 use App\NativeComponents\Layouts\TabsLayout;
@@ -12,6 +13,7 @@ use Illuminate\Support\Facades\Route;
 
 Route::native('/', Launch::class);
 Route::native('/onboarding', Onboarding::class);
+Route::native('/auth/callback', AuthCallback::class);
 
 Route::nativeGroup(TabsLayout::class, function (): void {
     Route::native('/log', Log::class);

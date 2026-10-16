@@ -327,39 +327,6 @@ function pageJson(array $items, ?string $nextCursor = null, string $path = 'http
 }
 
 /**
- * GitHub's answer to `POST /login/device/code`, as its docs show it.
- *
- * @param  array<string, mixed>  $overrides
- * @return array<string, mixed>
- */
-function gitHubDeviceCodeJson(array $overrides = []): array
-{
-    return [
-        'device_code' => '3584d83530557fdd1f46af8289938c8ef79f9dc5',
-        'user_code' => 'WDJB-MJHT',
-        'verification_uri' => 'https://github.com/login/device',
-        'expires_in' => 900,
-        'interval' => 5,
-        ...$overrides,
-    ];
-}
-
-/**
- * GitHub's 422 when the signing key is already on the account.
- *
- * @return array<string, mixed>
- */
-function gitHubKeyInUseJson(): array
-{
-    return [
-        'message' => 'Validation Failed',
-        'errors' => [['resource' => 'SshSigningKey', 'code' => 'custom', 'field' => 'key', 'message' => 'key is already in use']],
-        'documentation_url' => 'https://docs.github.com/rest/users/ssh-signing-keys#create-a-ssh-signing-key-for-the-authenticated-user',
-        'status' => '422',
-    ];
-}
-
-/**
  * The runs of the first paragraph whose text contains $text, as [text, style]:
  * 'mention' for a pressable run, 'code' for one on a wash, or nothing for prose.
  *

@@ -33,7 +33,7 @@
 
         <native:column class="w-full px-4 pt-4 gap-3">
             <native:button ref="share-key" variant="secondary" :ios-icon="Ios::SquareAndArrowUp" :android-icon="Android::Share" @press="shareKey" class="w-full">Share public key</native:button>
-            <native:button ref="github-keys" variant="secondary" :ios-icon="Ios::Key" :android-icon="Android::Key" @press="openGitHubKeys" class="w-full">Your keys on GitHub</native:button>
+            <native:button ref="devices" variant="secondary" :ios-icon="Ios::Iphone" :android-icon="Android::Smartphone" @press="openDevices" class="w-full">Your devices on dev-null.sh</native:button>
         </native:column>
 
         <native:column class="w-full px-4 pt-8 gap-2">

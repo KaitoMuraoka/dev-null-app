@@ -25,14 +25,14 @@ it('shows this device key and where it talks to, pushed onto the Profile tab', f
         ->assertSee('Forget this device');
 });
 
-it('shares the public key and opens your keys on GitHub', function () {
+it('shares the public key and opens your devices on dev-null.sh', function () {
     signIn();
 
     Native::visit('/profile/device')
         ->tap('share-key')
         ->assertNativeCalled('Share.File', fn (array $params): bool => $params['message'] === testKey()->openSsh())
-        ->tap('github-keys')
-        ->assertNativeCalled('Browser.OpenInApp', fn (array $params): bool => $params['url'] === 'https://github.com/settings/keys');
+        ->tap('devices')
+        ->assertNativeCalled('Browser.OpenInApp', fn (array $params): bool => $params['url'] === 'http://devnull.test/settings/devices');
 });
 
 it('forgets the device only after a confirm', function () {

@@ -5,6 +5,7 @@ use App\Devnull\Data\Commit;
 use App\Devnull\LastVisit;
 use App\NativeComponents\Layouts\TabsLayout;
 use App\NativeComponents\Log;
+use App\NativeComponents\Onboarding;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Native\Mobile\System;
@@ -130,11 +131,21 @@ it('opens commits and profiles', function () {
 });
 
 it('sends you back to onboarding with the server message on a 401', function () {
-    Http::fake(['devnull.test/*' => Http::response(['message' => 'This key is not on any devnull account.'], 401)]);
+    Http::fake(['devnull.test/*' => Http::response(['message' => 'This key is not on any devnull account.', 'code' => 'key_not_on_github'], 401)]);
 
-    Native::visit('/log')->assertReplacedWith('/onboarding');
+    $screen = Native::visit('/log')->assertReplacedWith('/onboarding');
 
-    expect(app(Account::class)->user())->toBeNull();
+    expect($screen->navigationIntent()->data)->toBe(['message' => 'This key is not on any devnull account.'])
+        ->and(app(Account::class)->user())->toBeNull();
+});
+
+it('sends an unapproved phone back to onboarding to sign in and approve it', function () {
+    Http::fake(['devnull.test/*' => Http::response(['message' => "This key isn't approved for the devnull app yet.", 'code' => 'device_not_approved'], 401)]);
+
+    $screen = Native::visit('/log')->assertReplacedWith('/onboarding');
+
+    expect($screen->navigationIntent()->data)->toBe(['message' => Onboarding::NeedsApproval])
+        ->and(app(Account::class)->user())->toBeNull();
 });
 
 it('prints other errors and keeps the screen', function () {
