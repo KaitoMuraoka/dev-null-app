@@ -4,8 +4,8 @@
     author's lane, as upstream's #121 draws it: the first reply on an elbow from the rail ($lane is the commit's), each
     later one on a short link from the reply above ($previousLane), and a line on down from its avatar when another
     reply, or "Show more", follows ($hasNext). $railLane runs the commit's own rail on past, solid, when its author's
-    run goes on below the thread. A deleted reply keeps its place with a dashed ring. The $last closes the commit's row
-    with its hairline.
+    run goes on below the thread. A deleted reply keeps its place with a dashed ring. In a feed the $last closes the
+    commit's row with its hairline. On a commit page nothing follows the thread, so there's no hairline.
 
     On a commit page a deleted reply's own replies open in place ($tombstones), since it has no page of their own,
     one level in ($indent 32), hanging off a dashed spine from its ring as the web nests them. $spine carries the
@@ -51,8 +51,8 @@
             @if ($more !== null)
                 @include('native.partials.thread-more', ['commit' => $thread ?? $reply])
             @endif
-            @if ($last)
-                <native:column class="w-full h-[1] bg-theme-hairline" />
+            @if ($last && ! $muted)
+                <native:column ref="thread-end-{{ $reply->id }}" class="w-full h-[1] bg-theme-hairline" />
             @endif
         </native:column>
         @include('native.partials.thread-links')
@@ -88,8 +88,8 @@
                 @if ($more !== null)
                     @include('native.partials.thread-more', ['commit' => $thread ?? $reply])
                 @endif
-                @if ($last)
-                    <native:column class="w-full h-[1] bg-theme-hairline" />
+                @if ($last && ! $muted)
+                    <native:column ref="thread-end-{{ $reply->id }}" class="w-full h-[1] bg-theme-hairline" />
                 @endif
             </native:column>
             @include('native.partials.thread-links')

@@ -173,3 +173,13 @@ it('ends a commit alone in its run with a dot, and joins a run of one author', f
         ->and($endDot('commit-c2'))->toBeFalse()
         ->and($endDot('commit-c1'))->toBeTrue();
 });
+
+it("closes a commit's row in the log with a hairline after its last previewed reply", function () {
+    Http::fake(['devnull.test/*' => Http::response(pageJson([previewedJson([
+        replyJson(['id' => 'r9', 'parent_id' => 'c1', 'body' => 'The newest reply', 'author' => grace()]),
+    ])]))]);
+
+    $screen = Native::visit('/log', platform: 'ios');
+
+    expect(findNode($screen->tree(), fn (array $node): bool => ($node['ref'] ?? null) === 'thread-end-r9'))->not->toBeNull();
+});
