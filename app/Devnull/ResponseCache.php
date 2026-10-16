@@ -101,7 +101,7 @@ final class ResponseCache
             return;
         }
 
-        $this->write($userId, $path, $query, $json, CarbonImmutable::now()->getTimestamp());
+        $this->write($userId, $path, $query, $path === 'notifications' ? self::read($json) : $json, CarbonImmutable::now()->getTimestamp());
     }
 
     /**
@@ -462,6 +462,26 @@ final class ResponseCache
         }
 
         return $isList ? array_values($changed) : $changed;
+    }
+
+    /**
+     * devnull marks notifications read as it sends them, and you've seen them
+     * by the time they're shown again, so they're kept as read.
+     *
+     * @param  array<string, mixed>  $json
+     * @return array<string, mixed>
+     */
+    private static function read(array $json): array
+    {
+        if (! is_array($json['data'] ?? null)) {
+            return $json;
+        }
+
+        $json['data'] = array_map(fn (mixed $group): mixed => is_array($group)
+            ? [...$group, 'unread_count' => 0, 'read_at' => $group['read_at'] ?? CarbonImmutable::now()->toIso8601ZuluString()]
+            : $group, $json['data']);
+
+        return $json;
     }
 
     /**

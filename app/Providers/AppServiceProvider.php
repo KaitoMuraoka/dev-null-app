@@ -7,6 +7,7 @@ use App\Devnull\Client;
 use App\Devnull\DeviceKey;
 use App\Devnull\KeyStore;
 use App\Devnull\KeyStoreChoice;
+use App\Devnull\ResponseCache;
 use App\Devnull\SignIn;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Foundation\Application;
@@ -25,6 +26,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(Client::class, fn (Application $app): Client => new Client(
             $app->make(DeviceKey::class),
             (string) config('devnull.url'),
+            $app->make(ResponseCache::class),
         ));
 
         $this->app->bind(KeyStore::class, fn (Application $app): KeyStore => $app->make(KeyStoreChoice::here()->store()));

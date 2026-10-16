@@ -4,10 +4,17 @@ use App\Devnull\Account;
 use App\Devnull\AppleSignIn;
 use App\Devnull\Data\User;
 use App\Devnull\DeviceKey;
+use App\Devnull\ResponseCache;
 use App\Devnull\SshKey;
 use Codingwithrk\NativephpSocialAuth\Events\AppleSignInCompleted;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
+use Native\Mobile\AsyncTask;
+use Native\Mobile\Events\Async\AsyncTaskFailed;
+use Native\Mobile\Events\Async\AsyncTaskFinished;
+use Native\Mobile\Support\AsyncTaskRunner;
+use Native\Mobile\Support\AsyncTaskTransport;
 use Native\Mobile\Testing\FakeBridge;
 use Native\Mobile\Testing\Native;
 use Native\Mobile\Testing\TestableComponent;
@@ -71,6 +78,145 @@ function fakeApi(array $routes): void
 
         return Http::response($routes[$route][0], $routes[$route][1] ?? 200);
     });
+}
+
+/**
+ * Fakes the devnull API like fakeApi(), but a later call swaps what it
+ * answers, as devnull moving on between two refreshes. A closure answers
+ * every request itself.
+ *
+ * @param  array<string, array{0: mixed, 1?: int}>|Closure(Request): mixed  $routes
+ */
+function serveApi(array|Closure $routes): void
+{
+    $installed = app()->bound('test.api');
+    app()->instance('test.api', $routes);
+
+    if ($installed) {
+        return;
+    }
+
+    Http::fake(function (Request $request) {
+        $routes = app('test.api');
+
+        if ($routes instanceof Closure) {
+            return $routes($request);
+        }
+
+        $route = $request->method().' '.parse_url($request->url(), PHP_URL_PATH);
+
+        if (! array_key_exists($route, $routes)) {
+            return Http::response(['message' => "No fake for {$route}."], 404);
+        }
+
+        return Http::response($routes[$route][0], $routes[$route][1] ?? 200);
+    });
+}
+
+/**
+ * devnull can't be reached: every request fails to connect, as offline.
+ */
+function fakeOffline(): void
+{
+    serveApi(fn () => throw new ConnectionException('cURL error 6: Could not resolve host: devnull.test'));
+}
+
+/**
+ * Keeps an answer in the response cache, as a visit before this one would have.
+ *
+ * @param  array<string, mixed>  $json
+ * @param  array<string, string|null>  $query
+ */
+function keep(string $path, array $json, array $query = []): void
+{
+    app(ResponseCache::class)->put($path, $query, $json);
+}
+
+/**
+ * The answer kept for a GET.
+ *
+ * @param  array<string, string|null>  $query
+ * @return array<string, mixed>|null
+ */
+function kept(string $path, array $query = []): ?array
+{
+    return app(ResponseCache::class)->get($path, $query);
+}
+
+/**
+ * Background refreshes wait, as on a phone, until finishRefreshes() runs them,
+ * so a test sees the frame a screen paints before devnull answers.
+ */
+function holdRefreshes(): FakeBridge
+{
+    AsyncTask::clearFake();
+
+    return Native::fakeBridge()->respondTo('AsyncTask.Dispatch', ['success' => true]);
+}
+
+/**
+ * Runs every held background refresh, and any it leads to, and hands each
+ * answer to the screen the way the background lane does.
+ */
+function finishRefreshes(TestableComponent $screen): TestableComponent
+{
+    do {
+        $ran = false;
+
+        foreach ($screen->bridge()->callsTo('AsyncTask.Dispatch') as $call) {
+            // A screen that has navigated away has stopped listening.
+            if ($screen->navigationIntent() !== null) {
+                return $screen;
+            }
+
+            $id = $call['params']['id'];
+            $payload = AsyncTaskTransport::readPayload($id);
+
+            if ($payload === null) {
+                continue;
+            }
+
+            $ran = true;
+
+            try {
+                $result = AsyncTaskRunner::normalizeResult(AsyncTaskRunner::invoke(unserialize($payload)));
+                $screen->emitNative(AsyncTaskFinished::class, ['id' => $id, 'result' => $result]);
+            } catch (Throwable $exception) {
+                $screen->emitNative(AsyncTaskFailed::class, ['id' => $id, 'exceptionClass' => $exception::class, 'message' => $exception->getMessage()]);
+            }
+        }
+    } while ($ran);
+
+    return $screen;
+}
+
+/**
+ * How many background refreshes a screen has sent so far, held or not.
+ */
+function refreshesSent(TestableComponent $screen): int
+{
+    return count($screen->bridge()->callsTo('AsyncTask.Dispatch'));
+}
+
+/**
+ * Whether a tree shows a spinner or skeleton rows anywhere.
+ *
+ * @param  array<string, mixed>  $tree
+ */
+function showsLoading(array $tree): bool
+{
+    return findNode($tree, fn (array $node): bool => ($node['type'] ?? null) === 'activity_indicator'
+        || str_starts_with((string) ($node['ref'] ?? ''), 'loading-')) !== null;
+}
+
+/**
+ * Whether a tree shows some text.
+ *
+ * @param  array<string, mixed>  $tree
+ */
+function treeShows(array $tree, string $text): bool
+{
+    return str_contains(json_encode($tree, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), $text);
 }
 
 /**

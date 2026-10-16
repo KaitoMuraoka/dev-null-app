@@ -23,30 +23,48 @@ class ApiException extends RuntimeException
 
     public static function fromResponse(Response $response): self
     {
-        $message = $response->json('message');
+        return self::fromParts($response->status(), $response->json(), $response->header('Retry-After'));
+    }
+
+    /**
+     * The error devnull answered with, from its status, decoded body and Retry-After
+     * header. A background refresh only has these, not the response itself.
+     */
+    public static function fromParts(int $status, mixed $json, string $retryAfter = ''): self
+    {
+        $json = is_array($json) ? $json : [];
+        $message = $json['message'] ?? null;
 
         if (! is_string($message) || $message === '') {
-            $message = "fatal: the remote end hung up unexpectedly (HTTP {$response->status()})";
+            $message = "fatal: the remote end hung up unexpectedly (HTTP {$status})";
         }
 
-        $errors = $response->json('errors');
-        $errors = is_array($errors) ? array_map(fn (mixed $messages): array => array_values(array_filter((array) $messages, 'is_string')), $errors) : [];
-        $code = $response->json('code');
+        $errors = is_array($json['errors'] ?? null) ? $json['errors'] : [];
+        $errors = array_map(fn (mixed $messages): array => array_values(array_filter((array) $messages, 'is_string')), $errors);
+        $code = $json['code'] ?? null;
         $code = is_string($code) && $code !== '' ? $code : null;
 
-        return match ($response->status()) {
+        return match ($status) {
             401 => new Unauthenticated($message, 401, errorCode: $code),
             422 => new ApiException($message, 422, $errors, errorCode: $code),
-            default => new ApiException($message, $response->status(), retryAfter: self::retryAfter($response), errorCode: $code),
+            default => new ApiException($message, $status, retryAfter: self::retryAfter($retryAfter), errorCode: $code),
         };
+    }
+
+    /**
+     * What a request that never reached devnull says.
+     */
+    public static function couldNotConnect(string $baseUrl): self
+    {
+        return new self("fatal: unable to access '{$baseUrl}': could not connect to the server");
     }
 
     /**
      * The Retry-After header, which may be a number of seconds or a date.
      */
-    private static function retryAfter(Response $response): ?int
+    private static function retryAfter(string $header): ?int
     {
-        $header = trim($response->header('Retry-After'));
+        $header = trim($header);
 
         if ($header === '') {
             return null;
