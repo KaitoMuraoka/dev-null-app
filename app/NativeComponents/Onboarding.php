@@ -15,6 +15,7 @@ use App\Devnull\Exceptions\GitHubUnreachable;
 use App\Devnull\Exceptions\KeychainUnavailable;
 use App\Devnull\GitHub;
 use App\Devnull\GitHubStep;
+use App\Devnull\GitHubToken;
 use Illuminate\Support\Facades\Log;
 use Illuminate\View\View;
 use Native\Mobile\Attributes\Poll;
@@ -110,6 +111,7 @@ class Onboarding extends NativeComponent
     public function mount(DeviceKey $deviceKey): void
     {
         $this->notice = $this->data('message');
+        $this->registerCleanup(fn () => app(GitHubToken::class)->forget());
 
         try {
             $key = $deviceKey->current();
@@ -303,8 +305,10 @@ class Onboarding extends NativeComponent
     }
 
     /**
-     * The token is used for the two calls that add the key and is gone when
-     * this returns. It's never put on the screen, in the Keychain or on disk.
+     * The token adds the key, then goes to devnull with the key sync, which
+     * checks it's for the same account and approves the phone in the same tap.
+     * It's held in memory until devnull answers for good, never on the
+     * screen, in the Keychain or on disk.
      */
     private function addKeyToGitHub(#[SensitiveParameter] string $token): void
     {
@@ -319,23 +323,25 @@ class Onboarding extends NativeComponent
         $this->startOver();
         $this->step = GitHubStep::Listing;
         $this->login = $login;
+        app(GitHubToken::class)->hold($token);
         $this->syncKeyWithDevnull();
     }
 
     /**
-     * Asks devnull to find the key on GitHub. A new key can take a moment to
-     * show up in GitHub's public list, so a 403 (the key isn't on their
-     * GitHub yet) is tried again a few times. A 404 means they've never
-     * signed in to devnull, which waiting can't fix, so it stops at once.
+     * Asks devnull to find the key on GitHub and approve the phone with the
+     * token. A new key can take a moment to show up in GitHub's public list,
+     * so a 403 for that is tried again a few times. A 403 about the token, or
+     * a 404 for someone who never signed in to devnull, can't be waited out,
+     * so those stop at once. Whatever the end, the token is dropped.
      */
     private function syncKeyWithDevnull(): void
     {
         $this->keySyncAttempts++;
 
         try {
-            $answer = app(Client::class)->syncKey($this->login, deviceName: $this->keyTitle());
+            $answer = app(Client::class)->syncKey($this->login, app(GitHubToken::class)->get(), $this->keyTitle());
         } catch (ApiException $exception) {
-            if ($exception->status === self::KeyNotListedYet && $this->keySyncAttempts <= self::KeySyncRetries) {
+            if ($this->isKeyNotListedYet($exception) && $this->keySyncAttempts <= self::KeySyncRetries) {
                 $this->waitSeconds(self::KeySyncRetrySeconds);
 
                 return;
@@ -354,6 +360,17 @@ class Onboarding extends NativeComponent
         $this->username = $this->login;
         $this->startOver();
         $this->signInOrShowCode($answer);
+    }
+
+    /**
+     * key-syncs answers 403 both while GitHub hasn't listed the key yet and
+     * when the GitHub token is for another account or GitHub refused it. Only
+     * the token ones mention the token.
+     */
+    private function isKeyNotListedYet(ApiException $exception): bool
+    {
+        return $exception->status === self::KeyNotListedYet
+            && ! str_contains(strtolower($exception->getMessage()), 'token');
     }
 
     /**
@@ -446,6 +463,7 @@ class Onboarding extends NativeComponent
 
     private function startOver(?string $error = null, ?string $notice = null): void
     {
+        app(GitHubToken::class)->forget();
         $this->step = GitHubStep::Start;
         $this->deviceCode = '';
         $this->devicePage = '';

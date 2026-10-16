@@ -95,7 +95,7 @@
                         <native:text class="text-xs leading-relaxed text-theme-ink-muted">The key is on {{ '@'.$login }}'s GitHub account. GitHub can take a few seconds to show it to devnull.</native:text>
                     @else
                         <native:text class="text-[15px] leading-relaxed text-theme-ink">
-                            devnull asks GitHub for one thing: permission to add this phone's signing key. The token is dropped as soon as the key is added.
+                            devnull asks GitHub for one thing: permission to add this phone's signing key. The same token shows devnull it's you, then it's dropped.
                         </native:text>
                         @if ($githubNotice)
                             <native:text ref="github-notice" class="text-sm leading-relaxed text-theme-ink-muted">{{ $githubNotice }}</native:text>

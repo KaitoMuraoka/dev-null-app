@@ -3,6 +3,7 @@
 use App\Devnull\Account;
 use App\Devnull\DeviceKey;
 use App\Devnull\GitHubStep;
+use App\Devnull\GitHubToken;
 use App\NativeComponents\Onboarding;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Request;
@@ -83,7 +84,7 @@ it('offers GitHub first and keeps adding the key by hand below', function () {
     gitHubKeychain();
 
     Native::visit('/onboarding')
-        ->assertSee("devnull asks GitHub for one thing: permission to add this phone's signing key. The token is dropped as soon as the key is added.")
+        ->assertSee("devnull asks GitHub for one thing: permission to add this phone's signing key. The same token shows devnull it's you, then it's dropped.")
         ->assertSee('Connect GitHub')
         ->assertSee('Add the key yourself')
         ->assertSee(testKey()->openSsh())
@@ -145,9 +146,10 @@ it('adds the key through GitHub, forgets the token and signs in', function () {
         ->and($signingKey->header('Authorization'))->toBe(['Bearer '.GitHubToken]);
 
     $keySync = requestsTo('http://devnull.test/api/v1/key-syncs')[0];
-    expect($keySync->body())->toBe('{"username":"local_dev","device_name":"devnull on iPhone"}')
+    expect($keySync->body())->toBe('{"username":"local_dev","github_token":"'.GitHubToken.'","device_name":"devnull on iPhone"}')
         ->and($keySync->hasHeader('X-SSH-Signature'))->toBeTrue()
-        ->and($keySync->hasHeader('Authorization'))->toBeFalse();
+        ->and($keySync->hasHeader('Authorization'))->toBeFalse()
+        ->and(app(GitHubToken::class)->get())->toBeNull();
 });
 
 it('opens the page with the code filled in when GitHub sends one', function () {
@@ -374,7 +376,13 @@ it('waits for GitHub to list the key, then signs in', function () {
 
     expect(requestsTo('http://devnull.test/api/v1/key-syncs'))->toHaveCount(3)
         ->and(requestsTo('https://api.github.com/user/ssh_signing_keys'))->toHaveCount(1)
-        ->and(app(Account::class)->user()?->username)->toBe('local_dev');
+        ->and(app(Account::class)->user()?->username)->toBe('local_dev')
+        ->and(app(GitHubToken::class)->get())->toBeNull();
+
+    // Every try carries the token, so the phone is still approved in one tap.
+    foreach (requestsTo('http://devnull.test/api/v1/key-syncs') as $keySync) {
+        expect($keySync->data())->toBe(['username' => 'local_dev', 'github_token' => GitHubToken, 'device_name' => 'devnull on iPhone']);
+    }
 });
 
 it('shows the server message after three retries', function () {
@@ -399,7 +407,8 @@ it('shows the server message after three retries', function () {
     $screen->firePoll('tick');
 
     expect(requestsTo('http://devnull.test/api/v1/key-syncs'))->toHaveCount(4)
-        ->and(app(Account::class)->user())->toBeNull();
+        ->and(app(Account::class)->user())->toBeNull()
+        ->and(app(GitHubToken::class)->get())->toBeNull();
 });
 
 it('stops at once when the person has never signed in to devnull', function () {
@@ -420,6 +429,61 @@ it('stops at once when the person has never signed in to devnull', function () {
 
     expect(requestsTo('http://devnull.test/api/v1/key-syncs'))->toHaveCount(1)
         ->and(app(Account::class)->user())->toBeNull();
+});
+
+it('shows the server message at once when devnull will not take the token', function (string $message) {
+    gitHubKeychain();
+    fakeGitHub(keySyncAnswers: [[['message' => $message], 403]]);
+
+    $screen = startDeviceFlow()
+        ->firePoll('tick')
+        ->assertNoNavigation()
+        ->assertSet('step', GitHubStep::Start)
+        ->assertSee($message)
+        ->assertSet('username', 'local_dev')
+        ->assertDontSee('Waiting for GitHub to list the key…');
+
+    $this->travel(11)->seconds();
+    $screen->firePoll('tick');
+
+    expect(requestsTo('http://devnull.test/api/v1/key-syncs'))->toHaveCount(1)
+        ->and(app(Account::class)->user())->toBeNull()
+        ->and(app(GitHubToken::class)->get())->toBeNull();
+})->with([
+    'a token for another account' => "This GitHub token isn't for @local_dev. Sign in with GitHub as @local_dev, then try again.",
+    'a token GitHub refused' => "GitHub didn't accept this token. Sign in with GitHub again, then try again.",
+]);
+
+it('drops the token if the screen goes away while GitHub lists the key', function () {
+    gitHubKeychain();
+    fakeGitHub(keySyncAnswers: [[['message' => "This SSH key isn't on @local_dev's GitHub account yet."], 403]]);
+
+    $screen = startDeviceFlow()->firePoll('tick')->assertSet('step', GitHubStep::Listing);
+
+    expect(app(GitHubToken::class)->get())->toBe(GitHubToken);
+
+    $screen->instance()->unmount();
+
+    expect(app(GitHubToken::class)->get())->toBeNull();
+});
+
+it('falls back to a pairing code if devnull asks for one after the device flow', function () {
+    gitHubKeychain();
+    fakeGitHub(keySyncAnswers: [[[
+        'message' => 'Enter ABCD-2345 on http://devnull.test/settings/devices to approve this device.',
+        'pairing_code' => 'ABCD-2345',
+        'approval_url' => 'http://devnull.test/settings/devices',
+        'expires_at' => now()->addMinutes(15)->toIso8601ZuluString(),
+    ], 202]]);
+
+    startDeviceFlow()
+        ->firePoll('tick')
+        ->assertNoNavigation()
+        ->assertSet('step', GitHubStep::Approving)
+        ->assertSet('username', 'local_dev')
+        ->assertSee('ABCD-2345');
+
+    expect(app(GitHubToken::class)->get())->toBeNull();
 });
 
 it('does not retry other key-sync errors', function () {
@@ -473,6 +537,16 @@ it('never keeps the token anywhere', function () {
 
     expect($state)->toContain('local_dev')->not->toContain(GitHubToken);
 
-    Http::assertNotSent(fn (Request $request): bool => ! str_contains($request->url(), 'api.github.com')
-        && str_contains($request->body().json_encode($request->headers()), GitHubToken));
+    expect(app(GitHubToken::class)->get())->toBeNull();
+
+    // devnull gets the token once, in the signed body of the key sync, to approve the phone.
+    $keySyncs = requestsTo('http://devnull.test/api/v1/key-syncs');
+    expect($keySyncs)->toHaveCount(1)
+        ->and($keySyncs[0]->data())->toBe(['username' => 'local_dev', 'github_token' => GitHubToken, 'device_name' => 'devnull on iPhone'])
+        ->and(json_encode($keySyncs[0]->headers()))->not->toContain(GitHubToken);
+
+    // Nothing else hears of it: only GitHub's API and that one key sync.
+    Http::assertNotSent(fn (Request $request): bool => ! str_starts_with($request->url(), 'https://api.github.com/')
+        && $request->url() !== 'http://devnull.test/api/v1/key-syncs'
+        && str_contains($request->url().$request->body().json_encode($request->headers()), GitHubToken));
 });

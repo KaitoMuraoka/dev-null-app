@@ -5,6 +5,7 @@ namespace App\Providers;
 use App\Devnull\Client;
 use App\Devnull\DeviceKey;
 use App\Devnull\GitHub;
+use App\Devnull\GitHubToken;
 use App\Devnull\KeyStore;
 use App\Devnull\KeyStores\EncryptedFile;
 use App\Devnull\KeyStores\Keychain;
@@ -32,6 +33,8 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(KeyStore::class, fn (Application $app): KeyStore => config('devnull.key_store') === 'file'
             ? $app->make(EncryptedFile::class)
             : $app->make(Keychain::class));
+
+        $this->app->singleton(GitHubToken::class);
     }
 
     /**
