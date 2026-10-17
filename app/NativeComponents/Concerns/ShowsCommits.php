@@ -180,6 +180,16 @@ trait ShowsCommits
     #[On(ButtonPressed::class)]
     public function onAlertButton(string $label = '', ?string $id = null): void
     {
+        $this->answerDeleteAlert($label, $id);
+    }
+
+    /**
+     * Deletes the commit the delete alert asked about, once you pick Delete. A
+     * screen with alerts of its own answers them in its own onAlertButton(),
+     * and passes the delete alert on to this.
+     */
+    protected function answerDeleteAlert(string $label, ?string $id): void
+    {
         if ($id !== self::DeleteAlert || $this->deleting === null) {
             return;
         }
