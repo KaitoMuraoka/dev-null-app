@@ -7,6 +7,7 @@ use App\Devnull\Data\Page;
 use App\Devnull\Data\User;
 use App\Devnull\LastVisit;
 use App\Devnull\ResponseCache;
+use App\Devnull\ShownTabs;
 use App\Devnull\Timeline;
 use App\Icons\Android;
 use App\Icons\Ios;
@@ -154,6 +155,7 @@ class Log extends NativeComponent
 
     public function mount(): void
     {
+        $this->log = app(ShownTabs::class)->get($this->me()?->id, 'log', self::Logs, 'following');
         $this->lastVisitAt = $this->lastVisitSeenAt();
         $this->showKept();
         $this->open();
@@ -235,6 +237,7 @@ class Log extends NativeComponent
      */
     private function switchTo(string $log): void
     {
+        app(ShownTabs::class)->remember($this->me()?->id, 'log', $log);
         $this->listKeys[$this->log] = $this->listKey + 1;
         $this->log = $log;
         $this->listKey = $this->listKeys[$log] ?? 0;

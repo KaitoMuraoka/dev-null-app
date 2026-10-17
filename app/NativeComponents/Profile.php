@@ -7,6 +7,7 @@ use App\Devnull\Data\Profile as ProfileData;
 use App\Devnull\Data\User;
 use App\Devnull\ErrorCode;
 use App\Devnull\Exceptions\ApiException;
+use App\Devnull\ShownTabs;
 use App\Devnull\Timeline;
 use App\Icons\Lucide;
 use App\NativeComponents\Concerns\ExpandsThreads;
@@ -80,6 +81,10 @@ class Profile extends NativeComponent
             $this->username = $this->me()?->username ?? '';
         }
 
+        if ($this->isMe()) {
+            $this->tab = app(ShownTabs::class)->get($this->me()?->id, 'profile', self::Tabs, 'commits');
+        }
+
         $this->showKept();
         $this->revalidate();
     }
@@ -128,6 +133,11 @@ class Profile extends NativeComponent
         }
 
         $this->tab = $tab;
+
+        if ($this->isMe()) {
+            app(ShownTabs::class)->remember($this->me()?->id, 'profile', $tab);
+        }
+
         $this->commits = [];
         $this->threads = [];
         $this->nextCursor = null;

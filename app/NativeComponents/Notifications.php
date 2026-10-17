@@ -8,6 +8,7 @@ use App\Devnull\Data\Page;
 use App\Devnull\Exceptions\ApiException;
 use App\Devnull\Exceptions\KeychainUnavailable;
 use App\Devnull\Exceptions\Unauthenticated;
+use App\Devnull\ShownTabs;
 use App\NativeComponents\Concerns\OpensInTab;
 use App\NativeComponents\Concerns\RefreshesInBackground;
 use App\NativeComponents\Concerns\TalksToDevnull;
@@ -113,6 +114,7 @@ class Notifications extends NativeComponent
 
     public function mount(): void
     {
+        $this->type = app(ShownTabs::class)->get($this->me()?->id, 'notifications', array_keys(self::Types), 'all');
         $this->showKept();
         $this->revalidate();
     }
@@ -166,6 +168,7 @@ class Notifications extends NativeComponent
      */
     private function switchTo(string $type): void
     {
+        app(ShownTabs::class)->remember($this->me()?->id, 'notifications', $type);
         $this->listKeys[$this->type] = $this->listKey + 1;
         $this->listKey = $this->listKeys[$type] ?? 0;
         $this->type = $type;
