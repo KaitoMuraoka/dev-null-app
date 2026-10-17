@@ -32,10 +32,9 @@ it('offers Sign in with Apple under GitHub on iOS, as big as it and in Apple\'s 
     expect(array_column($buttons, 'ref'))->toBe(['sign-in', 'sign-in-apple'])
         ->and(childRefs($screen, 'actions'))->toBe(['sign-in', 'sign-in-apple'])
         ->and(shownText($screen))->toBe([])
-        ->and($buttons[1]['props'])->toMatchArray(['label' => 'Sign in with Apple', 'variant' => 'accent', 'leading_icon' => 'apple.logo'])
+        ->and($buttons[1]['props'])->toMatchArray(['label' => 'Sign in with Apple', 'variant' => 'accent', 'size' => 'lg', 'leading_icon' => 'apple.logo'])
+        ->and($buttons[0]['props'])->toMatchArray(['variant' => 'accent', 'size' => 'lg', 'leading_icon' => 'custom:github'])
         ->and($buttons[1]['layout'])->toEqual($buttons[0]['layout'])->toEqual(['width' => 'fill'])
-        ->and($buttons[1]['props'])->not->toHaveKey('size')
-        ->and($buttons[0]['props'])->not->toHaveKey('size')
         ->and(array_map(strtolower(...), config('native-ui.theme.light')))->toMatchArray(['accent' => '#000000', 'on-accent' => '#ffffff'])
         ->and(array_map(strtolower(...), config('native-ui.theme.dark')))->toMatchArray(['accent' => '#ffffff', 'on-accent' => '#000000']);
 });

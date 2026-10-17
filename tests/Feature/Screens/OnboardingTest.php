@@ -101,9 +101,11 @@ it('makes a key on first launch and shows only the logo and the button', functio
 
     $screen->assertDontSee('This phone makes its own key')
         ->assertSet('fingerprint', app(DeviceKey::class)->current()->fingerprint())
+        // Large, in the theme's accent: black in light mode, white in dark. Its GitHub mark is checked on iOS.
         ->assertElement('button', fn (array $node): bool => ($node['ref'] ?? null) === 'sign-in'
             && $node['props']['label'] === 'Sign in with GitHub'
-            && ($node['props']['variant'] ?? null) === 'primary');
+            && ($node['props']['variant'] ?? null) === 'accent'
+            && ($node['props']['size'] ?? null) === 'lg');
 
     expect(findNodes($screen->tree(), fn (array $node): bool => ($node['type'] ?? null) === 'button'))->toHaveCount(1)
         ->and(findNodes($screen->tree(), fn (array $node): bool => str_contains((string) ($node['type'] ?? ''), 'input')))->toBe([]);
