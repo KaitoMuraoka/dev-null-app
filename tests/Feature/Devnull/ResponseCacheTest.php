@@ -305,6 +305,16 @@ it('takes a fresh you into the kept you, and your profile into every other kept 
         ->and($this->cache->get('notifications'))->toBe($before);
 });
 
+it('leaves the other kept copies alone when only what the settings show changed', function () {
+    $this->cache->put('me', [], currentUserJson(['name' => 'Local Dev']));
+    $this->cache->put('users/local_dev', [], ['data' => userWithCountsJson(['name' => 'Stale Name']), 'is_following' => false]);
+
+    $this->cache->meChanged(currentUserJson(['name' => 'Local Dev', 'github_synced_at' => '2026-10-17T12:00:00Z']));
+
+    expect($this->cache->get('me')['data']['github_synced_at'])->toBe('2026-10-17T12:00:00Z')
+        ->and($this->cache->get('users/local_dev')['data']['name'])->toBe('Stale Name');
+});
+
 it('leaves the kept copies alone for anyone but you', function () {
     $this->cache->put('users/local_dev', [], ['data' => userWithCountsJson(), 'is_following' => false]);
 

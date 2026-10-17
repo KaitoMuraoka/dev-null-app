@@ -348,9 +348,9 @@ final class ResponseCache
     /**
      * devnull sent you afresh, after a sync from GitHub or a new colour, as
      * `GET /me` sends you. The kept `me` takes all of it and keeps whether
-     * Apple is linked. Every other kept copy of you takes your profile: your
-     * profile's header, and you as the author of a commit or the actor of a
-     * notification. Only what a copy already has changes.
+     * Apple is linked. When your profile changed, every other kept copy of you
+     * takes it too: your profile's header, and you as the author of a commit or
+     * the actor of a notification. Only what a copy already has changes.
      *
      * @param  array<string, mixed>  $json
      */
@@ -364,15 +364,23 @@ final class ResponseCache
         }
 
         $profile = array_intersect_key($data, array_flip(self::ProfileFields));
+        $before = $this->get('me');
+
+        $this->patch('me', [], fn (array $kept): array => [...$kept, ...$json]);
+
+        // Reading every answer kept is only worth it when there's something to change in them.
+        if (is_array($before['data'] ?? null) && array_intersect_key($before['data'], $profile) == $profile) {
+            return;
+        }
 
         foreach ($this->index($userId) as $meta) {
-            $entry = $this->entry($meta['path'], $meta['query']);
+            $entry = $meta['path'] === 'me' ? null : $this->entry($meta['path'], $meta['query']);
 
             if ($entry === null) {
                 continue;
             }
 
-            $changed = $meta['path'] === 'me' ? [...$entry['json'], ...$json] : self::changeUser($entry['json'], $userId, $profile);
+            $changed = self::changeUser($entry['json'], $userId, $profile);
 
             if ($changed !== $entry['json']) {
                 $this->write($userId, $meta['path'], $meta['query'], $changed, $entry['fetched_at']);
