@@ -30,11 +30,8 @@ it('shows the following log in tab chrome with a compose action', function () {
         ->assertHasTab('Profile')
         // The bar wears the logo; the title names it for VoiceOver and the back menu.
         ->assertNavTitle('devnull')
-        // The web's page tabs: Following, Latest and Trending.
-        ->assertElement('pressable', fn (array $node): bool => ($node['ref'] ?? null) === 'tab-following' && ($node['props']['a11y_label'] ?? null) === 'Following, selected')
-        ->assertElement('pressable', fn (array $node): bool => ($node['ref'] ?? null) === 'tab-latest' && ($node['props']['a11y_label'] ?? null) === 'Latest')
-        ->assertElement('pressable', fn (array $node): bool => ($node['ref'] ?? null) === 'tab-trending' && ($node['props']['a11y_label'] ?? null) === 'Trending')
-        ->assertMissingElement('pressable', fn (array $node): bool => ($node['ref'] ?? null) === 'tab-everyone')
+        // The web's page tabs, which the pager draws: Following, Latest and Trending, on Following.
+        ->assertElement('pager', fn (array $node): bool => ($node['props']['tabs'] ?? null) === ['Following', 'Latest', 'Trending'] && ($node['props']['page'] ?? null) === 0)
         ->assertSee('Second commit')
         ->assertSee('First commit')
         ->assertSee('@ada')
@@ -77,9 +74,7 @@ it('switches to Latest', function () {
         'devnull.test/api/v1/log/latest' => Http::response(pageJson([commitJson(['body' => 'Hello from everyone'])])),
     ]);
 
-    Native::visit('/log')
-        ->assertSee('fatal: your log does not have any commits yet')
-        ->tap('tab-latest')
+    tapLogTab(Native::visit('/log')->assertSee('fatal: your log does not have any commits yet'), 'latest')
         ->assertSet('log', 'latest')
         ->assertSee('Hello from everyone');
 });

@@ -6,6 +6,8 @@ use App\Devnull\Data\User;
 use App\Devnull\DeviceKey;
 use App\Devnull\ResponseCache;
 use App\Devnull\SshKey;
+use App\NativeComponents\Log;
+use App\NativeComponents\Notifications;
 use Codingwithrk\NativephpSocialAuth\Events\AppleSignInCompleted;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Request;
@@ -229,6 +231,25 @@ function showingLog(TestableComponent $screen): array
 function showingNotifications(TestableComponent $screen): array
 {
     return nodeByRef($screen, 'notifications');
+}
+
+/**
+ * A tap on one of the Log's tabs. The pager draws them and scrolls itself to
+ * the log, so PHP hears of it as the pager settling there. A tap on the log
+ * you're on comes as a reselect instead.
+ */
+function tapLogTab(TestableComponent $screen, string $log): TestableComponent
+{
+    return $screen->changeTab($screen->get('log') === $log ? 'backToTop' : 'showPage', (int) array_search($log, Log::Logs, true));
+}
+
+/**
+ * A tap on one of the notifications filters along the top, which the pager
+ * draws, as for the Log's tabs (see tapLogTab).
+ */
+function tapFilter(TestableComponent $screen, string $type): TestableComponent
+{
+    return $screen->changeTab($screen->get('type') === $type ? 'backToTop' : 'showPage', (int) array_search($type, array_keys(Notifications::Types), true));
 }
 
 /**

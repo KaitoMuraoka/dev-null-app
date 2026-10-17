@@ -29,7 +29,7 @@ function shownTabsProfileJson(string $username): array
 it('opens the Log on the tab you last had open, after switching away from it at the bottom', function () {
     Http::fake(['devnull.test/*' => Http::response(pageJson([]))]);
 
-    Native::visit('/log')->assertSet('log', 'following')->tap('tab-latest')->assertSet('log', 'latest');
+    tapLogTab(Native::visit('/log')->assertSet('log', 'following'), 'latest')->assertSet('log', 'latest');
 
     Http::fake(['devnull.test/*' => Http::response(pageJson([]))]);
 
@@ -42,7 +42,7 @@ it('opens the Log on the tab you last had open, after switching away from it at 
 it('opens Notifications on the filter you last had open', function () {
     Http::fake(['devnull.test/*' => Http::response(['data' => [], 'next_cursor' => null, 'read_at' => null, 'filters' => ['type' => 'all']])]);
 
-    Native::visit('/notifications')->tap('filter-mentions')->assertSet('type', 'mentions');
+    tapFilter(Native::visit('/notifications'), 'mentions')->assertSet('type', 'mentions');
 
     Native::visit('/notifications')->assertSet('type', 'mentions');
 });

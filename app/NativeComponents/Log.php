@@ -46,12 +46,14 @@ use Native\Mobile\Edge\NativeComponent;
  * The pill offers the commits newer than the ranking, other than yours, and
  * puts them above it under "Just now".
  *
- * The three logs are pages you swipe between, as paged tabs go in native apps,
- * and the tabs follow. Only the log you're on is live. The others show the
- * first few commits kept for them, as they'll open, so there's something
- * under your finger as you swipe. Each page has its own list. A log you leave
- * starts again at the top of a fresh one, as a tab tap opens it, since a list
- * kept while every row changed under its scroll offset drew blank on iOS.
+ * The three logs are pages you swipe between, as paged tabs go in native apps.
+ * The pager draws the tabs and moves them with your finger, and only says
+ * which log it settled on once the swipe is over. Only the log you're on is
+ * live. The others show the first few commits kept for them, as they'll open,
+ * so there's something under your finger as you swipe. Each page has its own
+ * list. A log you leave starts again at the top of a fresh one, as a tab tap
+ * opens it, since a list kept while every row changed under its scroll offset
+ * drew blank on iOS.
  *
  * The pages beside the one you're on are kept small on purpose. EDGE writes
  * each frame into a buffer of fixed size, and a frame that doesn't fit is
@@ -201,7 +203,8 @@ class Log extends NativeComponent
     }
 
     /**
-     * A tab. The one you're on takes you back to its top.
+     * Shows a log, from a link such as the empty Following log's Trending, and
+     * the pager follows. The log you're on goes back to its top.
      */
     public function show(string $log): void
     {
@@ -219,7 +222,7 @@ class Log extends NativeComponent
     }
 
     /**
-     * The pager settling on a log, from a swipe. It says so again for the log it's already on.
+     * The pager settling on a log, after a swipe or a tab tap. The log it's already on changes nothing.
      */
     public function showPage(int $index): void
     {
@@ -228,6 +231,14 @@ class Log extends NativeComponent
         if ($log !== null && $log !== $this->log) {
             $this->switchTo($log);
         }
+    }
+
+    /**
+     * A tap on the tab of the log you're on, which the pager sends instead of moving: back to the top of it.
+     */
+    public function backToTop(int $index): void
+    {
+        $this->show(self::Logs[$index] ?? '');
     }
 
     /**
@@ -713,6 +724,7 @@ class Log extends NativeComponent
             'newCommitsLabel' => $this->newCommitsLabel(),
             'pages' => $pages,
             'pageIndex' => array_search($this->log, self::Logs, true),
+            'tabs' => array_map(fn (string $log): string => self::Labels[$log], self::Logs),
             'rows' => $showing['rows'],
         ]);
     }

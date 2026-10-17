@@ -3009,12 +3009,12 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/NativePHP/mobile-ui.git",
-                "reference": "f5a64890983138bf8efb51d1b9311085acf20677"
+                "reference": "f197a0a2ae19d4f25b08faa88e77b31c6d5baf7a"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/NativePHP/mobile-ui/zipball/f5a64890983138bf8efb51d1b9311085acf20677",
-                "reference": "f5a64890983138bf8efb51d1b9311085acf20677",
+                "url": "https://api.github.com/repos/NativePHP/mobile-ui/zipball/f197a0a2ae19d4f25b08faa88e77b31c6d5baf7a",
+                "reference": "f197a0a2ae19d4f25b08faa88e77b31c6d5baf7a",
                 "shasum": ""
             },
             "require": {
@@ -3073,7 +3073,7 @@
                     "url": "https://nativephp.com/sponsor"
                 }
             ],
-            "time": "2026-10-16T23:50:52+00:00"
+            "time": "2026-10-17T00:59:46+00:00"
         },
         {
             "name": "nesbot/carbon",

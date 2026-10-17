@@ -252,7 +252,7 @@ it('opens the other log at once when it was kept', function () {
     keep('log/following', pageJson([commitJson(['id' => 'c1', 'body' => 'From following'])]));
     keep('log/latest', pageJson([commitJson(['id' => 'c2', 'body' => 'From everyone'])]));
 
-    $screen = Native::visit('/log')->tap('tab-latest');
+    $screen = tapLogTab(Native::visit('/log'), 'latest');
 
     expect(treeShows(showingLog($screen), 'From everyone'))->toBeTrue()
         ->and(treeShows(showingLog($screen), 'From following'))->toBeFalse()
@@ -267,7 +267,7 @@ it('ignores an answer for the log you have since left', function () {
         'GET /api/v1/log/latest' => [pageJson([commitJson(['id' => 'c2', 'body' => 'From everyone'])])],
     ]);
 
-    $screen = finishRefreshes(Native::visit('/log')->tap('tab-latest'))->assertSet('error', null);
+    $screen = finishRefreshes(tapLogTab(Native::visit('/log'), 'latest'))->assertSet('error', null);
 
     expect(treeShows(showingLog($screen), 'From everyone'))->toBeTrue()
         ->and(treeShows(showingLog($screen), 'From following'))->toBeFalse();

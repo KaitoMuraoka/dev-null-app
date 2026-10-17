@@ -31,9 +31,10 @@ use Native\Mobile\Edge\NativeComponent;
  * at the top quietly, since a group's id moves on as people join it.
  *
  * The filters are pages you swipe between, as on the Log (see Log), and the
- * filters along the top follow. The filters either side of the one you're on
- * show the first few groups kept for them, ready for a swipe. Each has its
- * own list, and a filter you leave starts again at the top of a fresh one.
+ * pager draws the filters along the top and moves them with your finger. The
+ * filters either side of the one you're on show the first few groups kept
+ * for them, ready for a swipe. Each has its own list, and a filter you leave
+ * starts again at the top of a fresh one.
  */
 class Notifications extends NativeComponent
 {
@@ -131,8 +132,9 @@ class Notifications extends NativeComponent
     }
 
     /**
-     * A filter along the top: its own list, from what was kept for it, then
-     * asked again. The one you're on takes you back to its top.
+     * Shows a filter, from a link such as an empty filter's Show all, and the
+     * pager follows: its own list, from what was kept for it, then asked again.
+     * The one you're on goes back to its top.
      */
     public function show(string $type): void
     {
@@ -150,7 +152,7 @@ class Notifications extends NativeComponent
     }
 
     /**
-     * The pager settling on a filter, from a swipe. It says so again for the one it's already on.
+     * The pager settling on a filter, after a swipe or a tap along the top. The one it's already on changes nothing.
      */
     public function showPage(int $index): void
     {
@@ -159,6 +161,14 @@ class Notifications extends NativeComponent
         if ($type !== null && $type !== $this->type) {
             $this->switchTo($type);
         }
+    }
+
+    /**
+     * A tap on the filter you're on, which the pager sends instead of moving: back to the top of it.
+     */
+    public function backToTop(int $index): void
+    {
+        $this->show(array_keys(self::Types)[$index] ?? '');
     }
 
     /**

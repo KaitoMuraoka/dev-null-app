@@ -69,17 +69,17 @@ it('has the web\'s three logs, each asked for by name, and no Everyone', functio
 
     $screen = Native::visit('/log')->assertSee('From following');
 
-    $screen->tap('tab-latest')->assertSet('log', 'latest');
+    tapLogTab($screen, 'latest')->assertSet('log', 'latest');
 
     expect(treeShows(showingLog($screen), 'From latest'))->toBeTrue()
         ->and(treeShows(showingLog($screen), 'From following'))->toBeFalse();
 
-    $screen->tap('tab-trending')->assertSet('log', 'trending');
+    tapLogTab($screen, 'trending')->assertSet('log', 'trending');
 
     expect(treeShows(showingLog($screen), 'From trending'))->toBeTrue()
         ->and(treeShows(showingLog($screen), 'From latest'))->toBeFalse();
 
-    $screen->tap('tab-following')->assertSet('log', 'following');
+    tapLogTab($screen, 'following')->assertSet('log', 'following');
 
     expect(treeShows(showingLog($screen), 'From following'))->toBeTrue();
 
@@ -106,7 +106,7 @@ it('gives each log its own list, showing what was kept with no spinner', functio
         ->and(array_unique($lists()))->toHaveCount(3);
 
     foreach (['latest' => 'Kept on Latest', 'trending' => 'Kept on Trending', 'following' => 'Kept on Following'] as $log => $kept) {
-        $screen->tap('tab-'.$log);
+        tapLogTab($screen, $log);
 
         expect(treeShows(showingLog($screen), $kept))->toBeTrue()
             ->and(showsLoading(showingLog($screen)))->toBeFalse()
@@ -114,7 +114,7 @@ it('gives each log its own list, showing what was kept with no spinner', functio
     }
 });
 
-it('swipes between the logs both ways, with the tabs following, and stops at the ends', function () {
+it('swipes between the logs both ways under the tabs the pager draws, and stops at the ends', function () {
     holdRefreshes();
     keep('log/following', pageJson([commitJson(['id' => 'f1', 'body' => 'Kept on Following'])]));
     keep('log/latest', pageJson([commitJson(['id' => 'l1', 'body' => 'Kept on Latest'])]));
@@ -122,20 +122,25 @@ it('swipes between the logs both ways, with the tabs following, and stops at the
 
     $screen = Native::visit('/log');
     $pager = fn (): array => nodeByRef($screen, 'log-pager');
-    $selected = fn (): array => array_values(array_filter(Log::Logs, fn (string $log): bool => str_ends_with(nodeByRef($screen, 'tab-'.$log)['props']['a11y_label'] ?? '', ', selected')));
 
-    expect($pager()['props'])->toMatchArray(['horizontal' => true, 'count' => 3, 'page' => 0]);
+    // The pager draws the tabs, and says where it is once a swipe has settled.
+    expect($pager()['props'])->toMatchArray([
+        'horizontal' => true,
+        'count' => 3,
+        'page' => 0,
+        'tabs' => ['Following', 'Latest', 'Trending'],
+        'report_on_settle' => true,
+    ])->and($pager()['props'])->toHaveKey('on_tab_reselect');
 
     // A swipe to the left, then another.
     $screen->changeTab('showPage', 1)->assertSet('log', 'latest');
 
-    expect($selected())->toBe(['latest'])
-        ->and($pager()['props']['page'])->toBe(1)
+    expect($pager()['props']['page'])->toBe(1)
         ->and(treeShows(showingLog($screen), 'Kept on Latest'))->toBeTrue();
 
     $screen->changeTab('showPage', 2)->assertSet('log', 'trending');
 
-    expect($selected())->toBe(['trending'])
+    expect($pager()['props']['page'])->toBe(2)
         ->and(treeShows(showingLog($screen), 'Kept on Trending'))->toBeTrue();
 
     // Past the last log there's nothing, and it doesn't wrap round to the first.
@@ -145,14 +150,13 @@ it('swipes between the logs both ways, with the tabs following, and stops at the
     $screen->changeTab('showPage', 1)->assertSet('log', 'latest');
     $screen->changeTab('showPage', 0)->assertSet('log', 'following');
 
-    expect($selected())->toBe(['following'])
-        ->and($pager()['props']['page'])->toBe(0)
+    expect($pager()['props']['page'])->toBe(0)
         ->and(treeShows(showingLog($screen), 'Kept on Following'))->toBeTrue();
 
     $screen->changeTab('showPage', -1)->assertSet('log', 'following');
 });
 
-it('moves the pager for a tab tap, and takes the tab you are on back to its top', function () {
+it('moves the pager when a link shows another log, and takes the log you are on back to its top when its tab is tapped', function () {
     holdRefreshes();
     keep('log/following', pageJson([commitJson(['id' => 'f1'])]));
 
@@ -160,14 +164,16 @@ it('moves the pager for a tab tap, and takes the tab you are on back to its top'
     $pager = fn (): array => nodeByRef($screen, 'log-pager');
     $first = $pager()['id'];
 
-    $screen->changeTab('showPage', 1)->tap('tab-trending')->assertSet('log', 'trending');
+    // The empty Following log's Trending link, say.
+    $screen->call('show', 'trending')->assertSet('log', 'trending');
 
     expect($pager()['id'])->toBe($first)
         ->and($pager()['props']['page'])->toBe(2);
 
     $list = showingLog($screen)['id'];
 
-    $screen->tap('tab-trending');
+    // The pager sends a tap on the tab you're on rather than moving.
+    $screen->changeTab('backToTop', 2)->assertSet('log', 'trending');
 
     expect($pager()['id'])->toBe($first)
         ->and(showingLog($screen)['id'])->not->toBe($list);
@@ -326,7 +332,7 @@ it('asks Following and Latest what came in since the newest commit showing, and 
         'GET /api/v1/me' => [['data' => userWithCountsJson(), 'unread_notifications_count' => 0]],
     ]);
 
-    $screen = finishRefreshes(Native::visit('/log')->tap('tab-latest'))
+    $screen = finishRefreshes(tapLogTab(Native::visit('/log'), 'latest'))
         ->assertSee('Seen before')
         ->assertSee('25 new commits')
         ->assertDontSee('20+');
@@ -406,7 +412,7 @@ it('ranks Trending afresh when it opens, over the ranking kept last time', funct
         'GET /api/v1/me' => [['data' => userWithCountsJson(), 'unread_notifications_count' => 0]],
     ]);
 
-    $screen = Native::visit('/log')->tap('tab-trending');
+    $screen = tapLogTab(Native::visit('/log'), 'trending');
 
     // The kept ranking paints at once, with no spinner.
     expect(shownLogIds($screen))->toBe(['old-top', 'c2'])
@@ -428,7 +434,7 @@ it('never re-ranks Trending under you: later answers only change rows in place, 
         'GET /api/v1/me' => [['data' => userWithCountsJson(), 'unread_notifications_count' => 0]],
     ]);
 
-    $screen = finishRefreshes(Native::visit('/log')->tap('tab-trending'));
+    $screen = finishRefreshes(tapLogTab(Native::visit('/log'), 'trending'));
 
     expect(shownLogIds($screen))->toBe(['a', 'b']);
 
@@ -480,7 +486,7 @@ it('ranks Trending again on pull to refresh, which clears what was put above it'
         'GET /api/v1/me' => [['data' => userWithCountsJson(), 'unread_notifications_count' => 0]],
     ]);
 
-    $screen = finishRefreshes(Native::visit('/log')->tap('tab-trending'));
+    $screen = finishRefreshes(tapLogTab(Native::visit('/log'), 'trending'));
     finishRefreshes($screen->call('checkForNewCommits'))->tap('new-commits');
 
     expect(shownLogIds($screen))->toBe(['n1', 'a']);
@@ -519,7 +525,7 @@ it('puts a commit made on Trending above the ranking, under Just now', function 
         'GET /api/v1/me' => [['data' => userWithCountsJson(), 'unread_notifications_count' => 0]],
     ]);
 
-    $screen = Native::visit('/log')->tap('tab-trending')
+    $screen = tapLogTab(Native::visit('/log'), 'trending')
         ->pressUp('composer-field')
         ->input('body', 'Fresh from the composer')
         ->tap('commit');
@@ -549,7 +555,7 @@ it('drops a commit you deleted from Trending when you come back to it', function
         'GET /api/v1/me' => [['data' => userWithCountsJson(), 'unread_notifications_count' => 0]],
     ]);
 
-    $screen = Native::visit('/log')->tap('tab-trending');
+    $screen = tapLogTab(Native::visit('/log'), 'trending');
     app(Client::class)->deleteCommit('mine');
 
     $screen->call('onResume');

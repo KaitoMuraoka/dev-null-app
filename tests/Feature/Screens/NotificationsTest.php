@@ -216,10 +216,14 @@ it("has the web's filters, each asked for by its type, with All asked for plainl
 
     $screen = Native::visit('/notifications')->assertSee('followed you');
 
-    expect(array_map(fn (array $tab): string => $tab['props']['a11y_label'] ?? '', findNodes(nodeByRef($screen, 'filters'), fn (array $node): bool => str_starts_with((string) ($node['ref'] ?? ''), 'filter-'))))
-        ->toBe(['All, selected', 'Replies', 'Quotes', 'Stars', 'Mentions', 'Follows', 'Moderation']);
+    // The pager draws the filters along the top, in a row that scrolls, on All.
+    expect(nodeByRef($screen, 'notifications-pager')['props'])->toMatchArray([
+        'tabs' => ['All', 'Replies', 'Quotes', 'Stars', 'Mentions', 'Follows', 'Moderation'],
+        'tabs_scrollable' => true,
+        'page' => 0,
+    ]);
 
-    $screen->tap('filter-stars')
+    tapFilter($screen, 'stars')
         ->assertSet('type', 'stars')
         ->assertSee('starred your commit')
         ->assertDontSee('followed you');
@@ -250,7 +254,7 @@ it('keeps each filter on its own, and opens one kept before at once', function (
     $screen = Native::visit('/notifications')->assertSee('followed you');
     $requests = count(Http::recorded());
 
-    $screen->tap('filter-mentions')
+    tapFilter($screen, 'mentions')
         ->assertSee('mentioned you')
         ->assertDontSee('followed you');
 
@@ -260,7 +264,7 @@ it('keeps each filter on its own, and opens one kept before at once', function (
         ->and(kept('notifications', ['type' => 'stars']))->toBeNull();
 });
 
-it('swipes between the filters both ways, with the filters along the top following, and stops at the ends', function () {
+it('swipes between the filters both ways under the filters the pager draws, and stops at the ends', function () {
     holdRefreshes();
     keep('notifications', inboxJson([notificationJson('followed')]), ['type' => null]);
     keep('notifications', inboxJson([notificationJson('replied')], 'replies'), ['type' => 'replies']);
@@ -268,22 +272,21 @@ it('swipes between the filters both ways, with the filters along the top followi
 
     $screen = Native::visit('/notifications');
     $pager = fn (): array => nodeByRef($screen, 'notifications-pager');
-    $selected = fn (): array => array_values(array_filter(array_keys(Notifications::Types), fn (string $type): bool => str_ends_with(nodeByRef($screen, 'filter-'.$type)['props']['a11y_label'] ?? '', ', selected')));
 
-    // All is first: it and Replies are shipped, nothing before it.
-    expect($pager()['props'])->toMatchArray(['horizontal' => true, 'count' => 7, 'page' => 0, 'window_from' => 0, 'window_to' => 1])
+    // All is first: it and Replies are shipped, nothing before it. The pager says where it is once a swipe has settled.
+    expect($pager()['props'])->toMatchArray(['horizontal' => true, 'count' => 7, 'page' => 0, 'window_from' => 0, 'window_to' => 1, 'report_on_settle' => true])
+        ->and($pager()['props'])->toHaveKey('on_tab_reselect')
         ->and(treeShows(nodeByRef($screen, 'notifications-replies'), 'replied'))->toBeTrue();
 
     $screen->changeTab('showPage', 1)->assertSet('type', 'replies');
 
-    expect($selected())->toBe(['replies'])
-        ->and($pager()['props'])->toMatchArray(['page' => 1, 'window_from' => 0, 'window_to' => 2])
+    expect($pager()['props'])->toMatchArray(['page' => 1, 'window_from' => 0, 'window_to' => 2])
         ->and(treeShows(showingNotifications($screen), 'replied'))->toBeTrue()
         ->and(showsLoading(showingNotifications($screen)))->toBeFalse();
 
     $screen->changeTab('showPage', 0)->assertSet('type', 'all');
 
-    expect($selected())->toBe(['all']);
+    expect($pager()['props']['page'])->toBe(0);
 
     // Nothing before All, and no wrapping round from Moderation to All.
     $screen->changeTab('showPage', -1)->assertSet('type', 'all');
@@ -318,7 +321,7 @@ it('gives each filter its own list, starts the one you leave again in a fresh on
         ->and(nodeByRef($screen, 'notifications-all')['id'])->not->toBe($all);
 
     // The filter you're on takes you back to its top.
-    $screen->tap('filter-replies');
+    tapFilter($screen, 'replies');
 
     expect(showingNotifications($screen)['id'])->not->toBe($replies['id']);
 });
