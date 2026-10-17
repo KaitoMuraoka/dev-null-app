@@ -1,4 +1,4 @@
-# devnull mobile
+# /dev/null mobile
 
 A native iOS and Android app for [devnull](https://dev-null.sh), the social network for developers drawn as a git log. It's built with [NativePHP Mobile](https://nativephp.com) v4, so the UI is fully native and the app logic is Laravel.
 
@@ -8,21 +8,24 @@ There are no passwords or tokens. On first launch the app makes its own ed25519 
 
 Sign in with GitHub opens dev-null.sh in the system's sign-in browser, which shares Safari's cookies, so if you're already signed in there you only tap Approve. dev-null.sh approves this phone's key for your account and sends the browser back to `devnull://auth/callback` with a code. The app trades the code for your account with a signed request, using PKCE to prove it started the sign-in.
 
-On iOS you can also link an Apple ID from This device, under your profile. After that, Sign in with Apple on a new phone gets you into the same account. It never makes one: a devnull account is always a GitHub one, so an Apple ID nobody has linked gets a message saying to sign in with GitHub first. It comes from [codingwithrk/nativephp-social-auth](https://github.com/codingwithrk/nativephp-social-auth), which hashes the app's nonce for Apple, and the app asks Apple for no name or email.
+On iOS you can also link an Apple ID from this device, under your profile. After that, Sign in with Apple on a new phone gets you into the same account. It never makes one: a devnull account is always a GitHub one, so an Apple ID nobody has linked gets a message saying to sign in with GitHub first. It comes from [codingwithrk/nativephp-social-auth](https://github.com/codingwithrk/nativephp-social-auth), which hashes the app's nonce for Apple, and the app asks Apple for no name or email.
 
 ## The API
 
 The app talks to the signed `/api/v1` from [nunomaduro/dev-null.sh#130](https://github.com/nunomaduro/dev-null.sh/pull/130), which isn't merged yet. Until it is, point the app at a devnull instance running that branch.
 
+To make that instance work with the app on your phone, create a tunnel (ngrok, Cloudflare etc) and set the `DEVNULL_URL` .env key to that URL before compiling the app.
+
 ## Setup
 
+Clone the repo and:
+
 ```sh
-composer install
-cp .env.example .env
-php artisan key:generate
+cd dev-null-app
+composer setup
 ```
 
-`nativephp/mobile-secure-storage` is a paid plugin from `plugins.nativephp.com`, so `composer install` needs your NativePHP plugin licence.
+`nativephp/mobile-secure-storage` is a paid plugin from `plugins.nativephp.com`, so `composer install` needs your NativePHP plugin credentials. See below if you don't have access to the plugin.
 
 For now the app tracks unreleased branches, which Composer pulls straight from GitHub:
 
@@ -31,7 +34,7 @@ For now the app tracks unreleased branches, which Composer pulls straight from G
 
 Once those are released, the app goes back to tagged versions and the combined branch can be deleted.
 
-### Without a plugin licence
+### Without plugin credentials
 
 ```sh
 composer setup:free
@@ -53,12 +56,12 @@ These can be set in `.env`:
 - `NATIVEPHP_DEEPLINK_SCHEME` must be `devnull`, as in `.env.example`. NativePHP registers the scheme from it at build time, and its sign-in browser reads it from the bundled `.env` to know when dev-null.sh has sent the browser back.
 - `GOOGLE_SERVER_CLIENT_ID`, `GOOGLE_IOS_CLIENT_ID` and `GOOGLE_IOS_REVERSED_CLIENT_ID` belong to the social-auth plugin's Google Sign-In, which the app doesn't use. NativePHP won't build without the first, so keep the placeholders from `.env.example`.
 
-A build for a real iPhone needs an explicit App ID (`com.simonhamp.devnull`) with the Sign in with Apple capability, since the plugin adds its entitlement. A wildcard provisioning profile can't carry it.
+A production build for a real iPhone needs an explicit App ID (`com.nativephp.devnull`) with the Sign in with Apple capability, since the plugin adds its entitlement. A wildcard provisioning profile can't carry it.
 
 ## Running it
 
 ```sh
-php artisan native:run ios
+php artisan native:run
 ```
 
 If CocoaPods fails with "Unicode Normalization not appropriate for ASCII-8BIT", run it with `LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8`.
@@ -68,8 +71,6 @@ If CocoaPods fails with "Unicode Normalization not appropriate for ASCII-8BIT", 
 ```sh
 php artisan test
 ```
-
-CI needs a `COMPOSER_AUTH` repository secret with your `plugins.nativephp.com` credentials.
 
 ## License
 
