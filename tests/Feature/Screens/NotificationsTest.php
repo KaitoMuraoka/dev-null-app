@@ -165,6 +165,10 @@ it('leaves out an empty reason', function () {
 });
 
 it('rings what arrived since your last visit in blue, above the last-visit marker, with day markers between days', function () {
+    // At midday, so a notification from a few hours ago is always today's.
+    $this->travelTo(now()->setTime(12, 0));
+    $this->freezeTime();
+
     $readAt = now()->subSecond();
 
     fakeApi(['GET /api/v1/notifications' => [inboxJson([
