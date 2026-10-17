@@ -32,6 +32,15 @@ it('has Log, Notifications and Profile tabs with the Lucide icons of the web pho
     ]);
 })->with(['ios', 'android']);
 
+it('picks out the tab you are on in the colour you chose for your lane', function (int $lane) {
+    signIn(['lane' => $lane]);
+    Http::fake(['devnull.test/*' => Http::response(pageJson([]))]);
+
+    $tabBar = findNode(Native::visit('/log', platform: 'ios')->tree(), fn (array $node): bool => isset($node['props']['active_color']));
+
+    expect(strtolower($tabBar['props']['active_color']))->toBe(strtolower(config("native-ui.theme.light.lane-{$lane}")));
+})->with([1, 4]);
+
 it('pushes commits and profiles onto the tab they were opened from, so they slide in', function () {
     // Native tabs only push a URI under the tab's own; anything else swaps the whole screen without a slide.
     Http::fake([

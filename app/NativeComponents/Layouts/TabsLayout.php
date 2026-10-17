@@ -14,8 +14,8 @@ use Native\Mobile\Edge\NativeComponent;
 
 /**
  * The three top-level sections: Log, Notifications and your Profile, with the
- * icons of the web's phone nav. Notifications wears a badge with the unread
- * count devnull last gave.
+ * icons of the web's phone nav, picked out in the colour you chose for your
+ * lane. Notifications wears a badge with the unread count devnull last gave.
  */
 class TabsLayout extends NativeLayout
 {
@@ -76,10 +76,22 @@ class TabsLayout extends NativeLayout
         }
 
         return TabBar::make()
-            ->activeColor((string) theme('primary', '#3b6fe0'))
+            ->activeColor(self::accent())
             ->labelVisibility('labeled')
             ->add(Tab::link('Log', '/log', ios: Lucide::GitCommitVertical->ios(), android: Lucide::GitCommitVertical->android()))
             ->add($notifications)
             ->add(Tab::link('Profile', '/profile', ios: Lucide::UserRound->ios(), android: Lucide::UserRound->android()));
+    }
+
+    /**
+     * Your lane's colour, in its light or dark lift, or Commit Blue before
+     * devnull has said who you are.
+     */
+    public static function accent(): string
+    {
+        $primary = (string) theme('primary', '#3b6fe0');
+        $me = app(Account::class)->user();
+
+        return $me === null ? $primary : (string) theme('lane-'.$me->lane(), $primary);
     }
 }
