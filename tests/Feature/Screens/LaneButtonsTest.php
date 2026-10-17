@@ -128,9 +128,10 @@ it('draws the underline under your profile\'s tabs in your lane too', function (
         'GET /api/v1/users/local_dev/commits' => [pageJson([])],
     ]);
 
-    $underline = findNode(nodeByRef(Native::visit('/profile'), 'tab-commits'), fn (array $node): bool => ($node['layout']['height'] ?? null) === 3.0);
+    $pager = nodeByRef(Native::visit('/profile'), 'profile-pager');
 
-    expect(strtolower($underline['style']['bg_color']))->toBe(strtolower(config('native-ui.theme.light.lane-5')));
+    expect(strtolower($pager['props']['tab_indicator_color']))->toBe(strtolower(config('native-ui.theme.light.lane-5')))
+        ->and(strtolower($pager['props']['dark_tab_indicator_color']))->toBe(strtolower(config('native-ui.theme.dark.lane-5')));
 });
 
 it('draws Save color in the colour you picked, before you save it', function () {
