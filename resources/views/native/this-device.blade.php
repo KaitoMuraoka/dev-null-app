@@ -50,6 +50,57 @@
                     @endif
                 </native:column>
             </native:column>
+
+            <native:column ref="color" class="w-full pt-10">
+                @include('native.partials.settings-heading', [
+                    'title' => 'Color',
+                    'description' => 'Your lane on the graph: the rail and nodes beside your commits, the ring around your avatar, and the dot before your handle. Automatic picks one from your account id.',
+                ])
+
+                {{-- You on the rail in the colour picked, as the web's preview draws you. --}}
+                <native:row ref="lane-preview" class="mx-4 mt-5 rounded-lg border border-theme-hairline bg-theme-surface">
+                    <native:column :width="64" />
+                    <native:column class="flex-1 min-h-[64] py-3 pr-4 gap-[2] justify-center">
+                        <native:text font="semibold" class="text-base text-theme-ink" :max-lines="1">{{ $user->name }}</native:text>
+                        <native:row class="w-full gap-[6] items-center">
+                            <native:column ref="preview-dot" :width="8" :height="8" class="rounded-full bg-theme-lane-{{ $previewLane }} flex-shrink-0" />
+                            <native:text font="mono" class="flex-1 text-sm text-theme-ink-muted" :max-lines="1">{{ $user->handle() }}</native:text>
+                        </native:row>
+                    </native:column>
+                    @include('native.partials.rail', ['previous' => $previewLane, 'tail' => $previewLane, 'node' => 'avatar', 'user' => $user, 'lane' => $previewLane])
+                </native:row>
+
+                {{--
+                    Automatic, then the six lanes. The one picked wears a ring in its colour. Automatic is a dashed ring
+                    round a dot, in the lane it gives you. No press-* feedback: it would keep the screen from scrolling.
+                --}}
+                <native:row ref="lanes" class="w-full px-2 pt-4">
+                    @foreach ($lanes as $option)
+                        <native:pressable ref="lane-{{ $option['key'] }}" @press="chooseLane('{{ $option['key'] }}')" class="flex-1 items-center" a11y-label="{{ $option['a11y'] }}{{ $option['chosen'] ? ', selected' : '' }}">
+                            <native:column class="w-full items-center gap-[6] py-2">
+                                <native:stack :width="38" :height="38" center class="rounded-full border-2 {{ $option['chosen'] ? 'border-theme-lane-'.$option['lane'] : 'border-transparent' }}">
+                                    @if ($option['auto'])
+                                        <native:column :width="28" :height="28">
+                                            @include('native.partials.dashed-ring', ['size' => 28, 'colour' => 'bg-theme-lane-'.$option['lane']])
+                                            <native:column class="absolute top-[9] left-[9] w-[10] h-[10] rounded-full bg-theme-lane-{{ $option['lane'] }}" />
+                                        </native:column>
+                                    @else
+                                        <native:column :width="28" :height="28" class="rounded-full bg-theme-lane-{{ $option['lane'] }}" />
+                                    @endif
+                                </native:stack>
+                                <native:text class="text-xs {{ $option['chosen'] ? 'text-theme-ink' : 'text-theme-ink-muted' }}">{{ $option['label'] }}</native:text>
+                            </native:column>
+                        </native:pressable>
+                    @endforeach
+                </native:row>
+
+                <native:column class="w-full px-4 pt-4 gap-2">
+                    <native:button ref="save-lane" variant="primary" :loading="$savingLane" :disabled="$savingLane || ! $laneChanged" @press="saveLane" class="w-full">Save color</native:button>
+                    @if ($laneError)
+                        <native:text ref="lane-error" class="text-sm text-theme-destructive">{{ $laneError }}</native:text>
+                    @endif
+                </native:column>
+            </native:column>
         @endif
 
         @if ($offersApple)

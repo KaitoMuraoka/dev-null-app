@@ -9,6 +9,7 @@ use App\Devnull\Data\CurrentUser;
 use App\Devnull\DeviceKey;
 use App\Devnull\Display;
 use App\Devnull\Exceptions\KeychainUnavailable;
+use App\Devnull\Lane;
 use App\Devnull\ResponseCache;
 use App\NativeComponents\Concerns\RefreshesInBackground;
 use App\NativeComponents\Concerns\SignsInWithApple;
@@ -24,13 +25,14 @@ use SensitiveParameter;
 
 /**
  * Your account, reached from your own profile, laid out like the web's profile
- * settings: your profile as devnull mirrors it from GitHub, with a sync, then
- * this phone's fingerprint, signing out and deleting the account.
+ * settings: your profile as devnull mirrors it from GitHub, with a sync, your
+ * colour, then this phone's fingerprint, signing out and deleting the account.
  * Where the app talks to only shows when it isn't dev-null.sh.
  *
  * It opens on you as devnull last said (or as this phone remembers you) and
- * asks again behind it. A sync updates the screen when devnull answers, and
- * this phone remembers you as it said, so your profile and the tab bar follow.
+ * asks again behind it. A sync or a new colour updates the screen when devnull
+ * answers, and this phone remembers you as it said, so your profile and the
+ * tab bar's colour follow.
  *
  * On iOS it also links an Apple ID to your account, as a second way in on a
  * new phone. The account stays the GitHub one: Apple only signs you into it.
@@ -53,6 +55,11 @@ class ThisDevice extends NativeComponent
      */
     public const string GitHubSettingsUrl = 'https://github.com/settings/profile';
 
+    /**
+     * The colours, as the web's lane picker names them, lanes 0 to 5.
+     */
+    public const array LaneNames = ['Orange', 'Green', 'Violet', 'Teal', 'Rose', 'Ochre'];
+
     public string $fingerprint = '';
 
     /**
@@ -60,9 +67,18 @@ class ThisDevice extends NativeComponent
      */
     public ?CurrentUser $current = null;
 
+    /**
+     * The colour picked on the screen, which the preview shows until it's saved: a lane, or null for Automatic.
+     */
+    public ?int $chosenLane = null;
+
     public bool $syncing = false;
 
     public ?string $syncError = null;
+
+    public bool $savingLane = false;
+
+    public ?string $laneError = null;
 
     /**
      * Whether devnull has an Apple ID linked to you, or null until it says.
@@ -76,6 +92,7 @@ class ThisDevice extends NativeComponent
             $this->appleLinked = CurrentUser::fromArray($kept)->appleLinked;
         } elseif (($me = $this->me()) !== null) {
             $this->current = CurrentUser::remembered($me);
+            $this->chosenLane = $this->current->preferredLane;
         }
 
         try {
@@ -135,6 +152,43 @@ class ThisDevice extends NativeComponent
         }, function (string $message): void {
             $this->syncing = false;
             $this->syncError = $message;
+        });
+    }
+
+    /**
+     * Previews a colour, 'auto' or a lane. Nothing changes on devnull until it's saved.
+     */
+    public function chooseLane(string $lane): void
+    {
+        $chosen = $lane === 'auto' ? null : Lane::from($lane);
+
+        if ($lane !== 'auto' && $chosen === null) {
+            return;
+        }
+
+        $this->chosenLane = $chosen;
+        $this->laneError = null;
+    }
+
+    /**
+     * Saves the colour picked. Once devnull has it, this phone remembers you
+     * with it, so the tab bar and your profile take it at once.
+     */
+    public function saveLane(): void
+    {
+        if ($this->savingLane || $this->current === null || $this->chosenLane === $this->current->preferredLane) {
+            return;
+        }
+
+        $this->savingLane = true;
+        $this->laneError = null;
+
+        $this->writeInBackground('PUT', Client::LanePath, ['lane' => $this->chosenLane], function (array $json): void {
+            $this->savingLane = false;
+            $this->takeMe($json);
+        }, function (string $message): void {
+            $this->savingLane = false;
+            $this->laneError = $message;
         });
     }
 
@@ -262,6 +316,9 @@ class ThisDevice extends NativeComponent
             'fields' => $current === null ? [] : self::fields($current),
             'syncedAt' => $current?->githubSyncedAt === null ? 'Last synced when you signed in' : 'Last synced '.Display::ago($current->githubSyncedAt),
             'savedLane' => $current?->user->lane(),
+            'previewLane' => $this->chosenLane ?? $current?->automaticLane,
+            'lanes' => $current === null ? [] : $this->laneOptions($current),
+            'laneChanged' => $current !== null && $this->chosenLane !== $current->preferredLane,
             'remote' => self::remote(),
             'offersApple' => AppleSignIn::isAvailable(),
             'appleStatus' => match ($this->appleLinked) {
@@ -293,8 +350,33 @@ class ThisDevice extends NativeComponent
     }
 
     /**
-     * Shows you as devnull sent you. Whether Apple is linked only comes with
-     * `GET /me`, so it's left to the refresh.
+     * Automatic, then the six lanes, as the web's picker offers them. Automatic
+     * shows the lane it gives you, and says which for VoiceOver.
+     *
+     * @return list<array{key: string, label: string, a11y: string, lane: int, auto: bool, chosen: bool}>
+     */
+    private function laneOptions(CurrentUser $current): array
+    {
+        $options = [[
+            'key' => 'auto',
+            'label' => 'Auto',
+            'a11y' => 'Automatic ('.strtolower(self::LaneNames[$current->automaticLane]).')',
+            'lane' => $current->automaticLane,
+            'auto' => true,
+            'chosen' => $this->chosenLane === null,
+        ]];
+
+        foreach (self::LaneNames as $lane => $name) {
+            $options[] = ['key' => (string) $lane, 'label' => $name, 'a11y' => $name, 'lane' => $lane, 'auto' => false, 'chosen' => $this->chosenLane === $lane];
+        }
+
+        return $options;
+    }
+
+    /**
+     * Shows you as devnull sent you. A colour picked and not saved yet stays
+     * picked; otherwise the picker follows the one devnull has. Whether Apple
+     * is linked only comes with `GET /me`, so it's left to the refresh.
      *
      * @param  array<string, mixed>  $json
      */
@@ -304,6 +386,10 @@ class ThisDevice extends NativeComponent
 
         if ($current->user->username === '') {
             return null;
+        }
+
+        if ($this->current === null || $this->chosenLane === $this->current->preferredLane) {
+            $this->chosenLane = $current->preferredLane;
         }
 
         return $this->current = $current;

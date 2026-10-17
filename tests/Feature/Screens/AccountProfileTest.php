@@ -49,13 +49,14 @@ it('lays out the sections of the web\'s profile settings, in its order', functio
         ->assertNavTitle('Account')
         ->assertTabActive('Profile')
         ->assertSee('Mirrored from GitHub when you sign in. To change any of it, change it on GitHub, then sync it here.')
+        ->assertSee('Your lane on the graph: the rail and nodes beside your commits, the ring around your avatar, and the dot before your handle. Automatic picks one from your account id.')
         ->assertSee("Removes your /dev/null account, every commit and reply you've made, and everyone you follow. Replies others left under your commits go too. Replies under your replies stay, hanging off a [deleted] tombstone. Your GitHub account is not touched.")
         ->assertDontSee('Embed your activity graph')
         ->assertDontSee('Export your data');
 
-    $headings = array_values(array_intersect(shownText($screen), ['Profile information', 'Apple ID', 'This phone', 'Deletes the key from this phone and signs you out.', 'Delete account']));
+    $headings = array_values(array_intersect(shownText($screen), ['Profile information', 'Color', 'Apple ID', 'This phone', 'Deletes the key from this phone and signs you out.', 'Delete account']));
 
-    expect($headings)->toBe(['Profile information', 'Apple ID', 'This phone', 'Deletes the key from this phone and signs you out.', 'Delete account'])
+    expect($headings)->toBe(['Profile information', 'Color', 'Apple ID', 'This phone', 'Deletes the key from this phone and signs you out.', 'Delete account'])
         ->and(nodeByRef($screen, 'delete-account')['props'])->toMatchArray(['label' => 'Delete account', 'variant' => 'destructive']);
 });
 
