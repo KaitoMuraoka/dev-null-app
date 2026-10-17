@@ -41,6 +41,17 @@ final readonly class Client
      */
     public const string ApplePath = 'me/apple';
 
+    /**
+     * Where the signed-in account's profile is synced from GitHub again, as
+     * Sync from GitHub does on the web.
+     */
+    public const string GitHubPath = 'me/github';
+
+    /**
+     * Where the signed-in account's colour, its lane on the graph, is saved.
+     */
+    public const string LanePath = 'me/lane';
+
     public function __construct(private DeviceKey $deviceKey, private string $baseUrl, private ResponseCache $cache) {}
 
     /**
@@ -256,18 +267,35 @@ final readonly class Client
     }
 
     /**
-     * Sends a GET signed elsewhere, exactly as signed and without the Content-Type
-     * a body would need. Returns the response whatever its status.
+     * Signs a write without sending it, for the background to send while the
+     * screen says it's under way. The body is the exact JSON that was signed.
+     *
+     * @param  array<string, mixed>|null  $payload
+     */
+    public function signedWrite(string $method, string $path, ?array $payload = null): SignedRequest
+    {
+        $target = $this->target($path, []);
+        $body = self::body($payload);
+
+        return new SignedRequest($this->origin().$target, $this->sign($method, $target, $body), $method, $body);
+    }
+
+    /**
+     * Sends a request signed elsewhere, exactly as signed: the body as the
+     * bytes that were signed, or no body and no Content-Type when there was
+     * none. Returns the response whatever its status.
      *
      * @throws ConnectionException
      */
     public static function sendSigned(SignedRequest $request): Response
     {
-        return Http::acceptJson()
-            ->withHeaders($request->headers)
-            ->timeout(20)
-            ->withRequestMiddleware(fn (RequestInterface $request): RequestInterface => $request->withoutHeader('Content-Type'))
-            ->send('GET', $request->url);
+        $pending = Http::acceptJson()->withHeaders($request->headers)->timeout(20);
+
+        $pending = $request->body === ''
+            ? $pending->withRequestMiddleware(fn (RequestInterface $request): RequestInterface => $request->withoutHeader('Content-Type'))
+            : $pending->withBody($request->body, 'application/json');
+
+        return $pending->send($request->method, $request->url);
     }
 
     /**
@@ -305,7 +333,7 @@ final readonly class Client
     private function send(string $method, string $path, array $query = [], ?array $payload = null): Response
     {
         $target = $this->target($path, $query);
-        $body = $payload === null ? '' : json_encode($payload, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        $body = self::body($payload);
         $headers = $this->sign($method, $target, $body);
 
         $request = Http::acceptJson()->withHeaders($headers)->timeout(20);
@@ -325,6 +353,16 @@ final readonly class Client
         }
 
         return $response;
+    }
+
+    /**
+     * A request's JSON body, or nothing for a request without one.
+     *
+     * @param  array<string, mixed>|null  $payload
+     */
+    private static function body(?array $payload): string
+    {
+        return $payload === null ? '' : json_encode($payload, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
     }
 
     /**
