@@ -7,10 +7,13 @@ use App\Devnull\AppleSignIn;
 use App\Devnull\Client;
 use App\Devnull\Data\CurrentUser;
 use App\Devnull\DeviceKey;
+use App\Devnull\Display;
 use App\Devnull\Exceptions\KeychainUnavailable;
+use App\Devnull\ResponseCache;
 use App\NativeComponents\Concerns\RefreshesInBackground;
 use App\NativeComponents\Concerns\SignsInWithApple;
 use App\NativeComponents\Concerns\TalksToDevnull;
+use App\NativeComponents\Concerns\WritesInBackground;
 use Illuminate\View\View;
 use Native\Mobile\Attributes\On;
 use Native\Mobile\Edge\NativeComponent;
@@ -20,19 +23,24 @@ use Native\Mobile\Facades\Dialog;
 use SensitiveParameter;
 
 /**
- * Your account, reached from your own profile: this phone's fingerprint, as
- * your devices on dev-null.sh list it, signing out, and deleting the account.
+ * Your account, reached from your own profile, laid out like the web's profile
+ * settings: your profile as devnull mirrors it from GitHub, with a sync, then
+ * this phone's fingerprint, signing out and deleting the account.
  * Where the app talks to only shows when it isn't dev-null.sh.
+ *
+ * It opens on you as devnull last said (or as this phone remembers you) and
+ * asks again behind it. A sync updates the screen when devnull answers, and
+ * this phone remembers you as it said, so your profile and the tab bar follow.
  *
  * On iOS it also links an Apple ID to your account, as a second way in on a
  * new phone. The account stays the GitHub one: Apple only signs you into it.
- * Whether one is linked shows as devnull last said, and is asked again behind it.
  */
 class ThisDevice extends NativeComponent
 {
     use RefreshesInBackground;
     use SignsInWithApple;
     use TalksToDevnull;
+    use WritesInBackground;
 
     public const string SignOutAlert = 'sign-out';
 
@@ -40,7 +48,21 @@ class ThisDevice extends NativeComponent
 
     public const string DeleteAccountAlert = 'delete-account';
 
+    /**
+     * Where Edit on GitHub goes, as on the web.
+     */
+    public const string GitHubSettingsUrl = 'https://github.com/settings/profile';
+
     public string $fingerprint = '';
+
+    /**
+     * You, as devnull last said, or as this phone remembers you until it does.
+     */
+    public ?CurrentUser $current = null;
+
+    public bool $syncing = false;
+
+    public ?string $syncError = null;
 
     /**
      * Whether devnull has an Apple ID linked to you, or null until it says.
@@ -49,6 +71,13 @@ class ThisDevice extends NativeComponent
 
     public function mount(): void
     {
+        if (($kept = $this->cached('me')) !== null) {
+            $this->showMe($kept);
+            $this->appleLinked = CurrentUser::fromArray($kept)->appleLinked;
+        } elseif (($me = $this->me()) !== null) {
+            $this->current = CurrentUser::remembered($me);
+        }
+
         try {
             $this->fingerprint = app(DeviceKey::class)->current()->fingerprint();
         } catch (KeychainUnavailable $exception) {
@@ -57,30 +86,56 @@ class ThisDevice extends NativeComponent
             return;
         }
 
-        if (($kept = $this->cached('me')) !== null) {
-            $this->appleLinked = CurrentUser::fromArray($kept)->appleLinked;
-        }
-
         $this->revalidate();
     }
 
     protected function revalidate(): void
     {
-        if (AppleSignIn::isAvailable()) {
-            $this->refresh('me', [], function (array $json): void {
+        $this->refresh('me', [], function (array $json): void {
+            $this->takeMe($json);
+
+            if (AppleSignIn::isAvailable()) {
                 $this->appleLinked = CurrentUser::fromArray($json)->appleLinked;
-            });
-        }
+            }
+        });
     }
 
     protected function showsContent(): bool
     {
-        return $this->appleLinked !== null;
+        return $this->current !== null;
     }
 
     public function navTitle(): string
     {
         return 'Account';
+    }
+
+    public function editOnGitHub(): void
+    {
+        Browser::inApp(self::GitHubSettingsUrl);
+    }
+
+    /**
+     * Asks devnull to sync your profile from GitHub again, which waits on
+     * GitHub, so the button spins until devnull answers. When it can't, the
+     * section says why.
+     */
+    public function syncProfile(): void
+    {
+        if ($this->syncing) {
+            return;
+        }
+
+        $this->syncing = true;
+        $this->syncError = null;
+
+        $this->writeInBackground('PUT', Client::GitHubPath, null, function (array $json): void {
+            $this->syncing = false;
+            $this->takeMe($json);
+        }, function (string $message): void {
+            $this->syncing = false;
+            $this->syncError = $message;
+        });
     }
 
     /**
@@ -200,7 +255,13 @@ class ThisDevice extends NativeComponent
 
     public function render(): View
     {
+        $current = $this->current;
+
         return view('native.this-device', [
+            'user' => $current?->user,
+            'fields' => $current === null ? [] : self::fields($current),
+            'syncedAt' => $current?->githubSyncedAt === null ? 'Last synced when you signed in' : 'Last synced '.Display::ago($current->githubSyncedAt),
+            'savedLane' => $current?->user->lane(),
             'remote' => self::remote(),
             'offersApple' => AppleSignIn::isAvailable(),
             'appleStatus' => match ($this->appleLinked) {
@@ -209,6 +270,60 @@ class ThisDevice extends NativeComponent
                 null => 'unknown',
             },
         ]);
+    }
+
+    /**
+     * What devnull mirrors from GitHub, in the web's order, with null for what GitHub doesn't have.
+     *
+     * @return list<array{label: string, value: ?string}>
+     */
+    private static function fields(CurrentUser $current): array
+    {
+        $user = $current->user;
+
+        return [
+            ['label' => 'name', 'value' => $user->name],
+            ['label' => 'username', 'value' => $user->handle()],
+            ['label' => 'bio', 'value' => $user->bio],
+            ['label' => 'company', 'value' => $user->company],
+            ['label' => 'location', 'value' => $user->location],
+            ['label' => 'website', 'value' => $user->website],
+            ['label' => 'sponsors', 'value' => $current->sponsorsLabel()],
+        ];
+    }
+
+    /**
+     * Shows you as devnull sent you. Whether Apple is linked only comes with
+     * `GET /me`, so it's left to the refresh.
+     *
+     * @param  array<string, mixed>  $json
+     */
+    private function showMe(array $json): ?CurrentUser
+    {
+        $current = CurrentUser::fromArray($json);
+
+        if ($current->user->username === '') {
+            return null;
+        }
+
+        return $this->current = $current;
+    }
+
+    /**
+     * Shows you as devnull just sent you, and remembers you so, for the tab bar
+     * and every other screen, giving every kept copy of you the change.
+     *
+     * @param  array<string, mixed>  $json
+     */
+    private function takeMe(array $json): void
+    {
+        if (($current = $this->showMe($json)) === null) {
+            return;
+        }
+
+        app(Account::class)->remember($current->user);
+        app(Account::class)->rememberUnreadNotifications($current->unreadNotificationsCount);
+        app(ResponseCache::class)->meChanged($json);
     }
 
     /**

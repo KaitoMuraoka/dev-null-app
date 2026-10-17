@@ -21,6 +21,7 @@ enum ErrorCode: string
     case AppleLinkedElsewhere = 'apple_linked_elsewhere';
     case OwnCommit = 'own_commit';
     case CommitUnavailable = 'commit_unavailable';
+    case GitHubSyncFailed = 'github_sync_failed';
 
     /**
      * What the app says for it, or null where devnull's own message says it
@@ -40,6 +41,7 @@ enum ErrorCode: string
             self::UserBlocked => 'fatal: you blocked this profile.',
             self::UserUnavailable => "fatal: this profile isn't available.",
             self::CommitUnavailable => "fatal: this commit isn't available.",
+            self::GitHubSyncFailed => 'Could not sync from GitHub. Try again in a minute.',
             self::RateLimited, self::OwnCommit => null,
         };
     }

@@ -11,7 +11,16 @@ use Native\Mobile\Testing\Native;
 
 beforeEach(function () {
     config(['devnull.url' => 'http://devnull.test']);
+    serveApi(['GET /api/v1/me' => [currentUserJson()], 'DELETE /api/v1/me' => [null, 204]]);
 });
+
+/**
+ * Whether the app asked devnull to delete the account.
+ */
+function deleteSent(): bool
+{
+    return collect(Http::recorded())->contains(fn (array $sent): bool => $sent[0]->method() === 'DELETE');
+}
 
 it('shows your account with this phone\'s fingerprint, pushed onto the Profile tab', function () {
     signIn();
@@ -81,7 +90,6 @@ it('signs out only after a confirm', function () {
 
 it('says what goes before deleting your account, and Cancel keeps it', function () {
     signIn();
-    fakeApi(['DELETE /api/v1/me' => [null, 204]]);
 
     Native::visit('/profile/device')
         ->tap('delete-account')
@@ -93,14 +101,12 @@ it('says what goes before deleting your account, and Cancel keeps it', function 
         ->assertNoNavigation()
         ->assertNativeNotCalled('SecureStorage.Delete');
 
-    Http::assertNothingSent();
-
-    expect(app(Account::class)->user())->not->toBeNull();
+    expect(deleteSent())->toBeFalse()
+        ->and(app(Account::class)->user())->not->toBeNull();
 });
 
 it('deletes your account on devnull, then signs out to onboarding', function () {
     signIn();
-    fakeApi(['DELETE /api/v1/me' => [null, 204]]);
 
     Native::visit('/profile/device')
         ->emitNative(ButtonPressed::class, ['index' => 1, 'label' => 'Delete', 'id' => 'delete-account'])
@@ -108,7 +114,6 @@ it('deletes your account on devnull, then signs out to onboarding', function () 
         ->assertNativeNotCalled('Dialog.Toast')
         ->assertReplacedWith('/onboarding');
 
-    Http::assertSentCount(1);
     Http::assertSent(fn (Request $request): bool => $request->method() === 'DELETE'
         && $request->url() === 'http://devnull.test/api/v1/me'
         && $request->body() === ''
@@ -132,6 +137,6 @@ it('keeps you signed in when devnull cannot delete your account', function (Clos
     expect(app(Account::class)->user())->not->toBeNull()
         ->and(app(DeviceKey::class)->current()->openSsh())->toBe(testKey()->openSsh());
 })->with([
-    'a server error' => [fn () => fakeApi(['DELETE /api/v1/me' => [['message' => 'Server Error'], 500]]), 'Server Error'],
+    'a server error' => [fn () => serveApi(['GET /api/v1/me' => [currentUserJson()], 'DELETE /api/v1/me' => [['message' => 'Server Error'], 500]]), 'Server Error'],
     'offline' => [fn () => fakeOffline(), "fatal: unable to access 'http://devnull.test': could not connect to the server"],
 ]);
