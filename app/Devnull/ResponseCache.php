@@ -66,6 +66,12 @@ final class ResponseCache
     private const int RememberedDeletions = 50;
 
     /**
+     * What every copy of a user has of their profile, as a commit's author, a
+     * notification's actor or a profile's header.
+     */
+    private const array ProfileFields = ['username', 'name', 'avatar_url', 'bio', 'company', 'location', 'website', 'github_url', 'html_url', 'feed_url', 'lane'];
+
+    /**
      * Whether a GET of $path with $query is kept: a known path, and a first page.
      *
      * @param  array<string, string|null>  $query
@@ -339,6 +345,41 @@ final class ResponseCache
         $this->patch('me', [], fn (array $json): array => [...$json, 'apple_linked' => $linked]);
     }
 
+    /**
+     * devnull sent you afresh, after a sync from GitHub or a new colour, as
+     * `GET /me` sends you. The kept `me` takes all of it and keeps whether
+     * Apple is linked. Every other kept copy of you takes your profile: your
+     * profile's header, and you as the author of a commit or the actor of a
+     * notification. Only what a copy already has changes.
+     *
+     * @param  array<string, mixed>  $json
+     */
+    public function meChanged(array $json): void
+    {
+        $userId = $this->userId();
+        $data = is_array($json['data'] ?? null) ? $json['data'] : [];
+
+        if ($userId === null || ($data['id'] ?? null) !== $userId) {
+            return;
+        }
+
+        $profile = array_intersect_key($data, array_flip(self::ProfileFields));
+
+        foreach ($this->index($userId) as $meta) {
+            $entry = $this->entry($meta['path'], $meta['query']);
+
+            if ($entry === null) {
+                continue;
+            }
+
+            $changed = $meta['path'] === 'me' ? [...$entry['json'], ...$json] : self::changeUser($entry['json'], $userId, $profile);
+
+            if ($changed !== $entry['json']) {
+                $this->write($userId, $meta['path'], $meta['query'], $changed, $entry['fetched_at']);
+            }
+        }
+    }
+
     // ── Storage ───────────────────────────────────
 
     /**
@@ -542,6 +583,31 @@ final class ResponseCache
         }
 
         return $isList ? array_values($changed) : $changed;
+    }
+
+    /**
+     * Gives every copy of the user with this id, anywhere in $node, the profile
+     * fields it has. Commits have no username, so they never match.
+     *
+     * @param  array<string, mixed>  $profile
+     */
+    private static function changeUser(mixed $node, string $id, array $profile): mixed
+    {
+        if (! is_array($node)) {
+            return $node;
+        }
+
+        if (($node['id'] ?? null) === $id && array_key_exists('username', $node)) {
+            $node = [...$node, ...array_intersect_key($profile, $node)];
+        }
+
+        foreach ($node as $key => $child) {
+            if (is_array($child)) {
+                $node[$key] = self::changeUser($child, $id, $profile);
+            }
+        }
+
+        return $node;
     }
 
     /**

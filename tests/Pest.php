@@ -395,6 +395,24 @@ function userWithCountsJson(array $overrides = [], int $commits = 1, int $follow
 }
 
 /**
+ * `GET /me` as devnull answers it: you with your counts, and what only you see
+ * in your profile settings. Your lane is the one Automatic gives you, until a
+ * test picks one.
+ *
+ * @param  array<string, mixed>  $overrides
+ * @param  array<string, mixed>  $extra
+ * @return array<string, mixed>
+ */
+function currentUserJson(array $overrides = [], array $extra = []): array
+{
+    return [
+        'data' => userWithCountsJson(['preferred_lane' => null, 'automatic_lane' => 3, 'sponsors_url' => null, 'github_synced_at' => null, ...$overrides]),
+        'unread_notifications_count' => 0,
+        ...$extra,
+    ];
+}
+
+/**
  * A commit as the API sends it to a signed request. The short hash and the link
  * follow the id and the author, and the body's segments follow the body, unless
  * a test sends its own, as the server always works them out from what it stores.

@@ -277,6 +277,43 @@ it('keeps the Apple link on the kept you', function () {
     expect($this->cache->get('me')['apple_linked'])->toBeTrue();
 });
 
+it('takes a fresh you into the kept you, and your profile into every other kept copy of you', function () {
+    $ada = userJson(['id' => 'u2', 'username' => 'ada', 'name' => 'Ada', 'lane' => 2]);
+    $this->cache->put('me', [], currentUserJson(['name' => 'Old Name', 'lane' => 3], ['apple_linked' => true, 'unread_notifications_count' => 2]));
+    $this->cache->put('users/local_dev', [], ['data' => userWithCountsJson(['name' => 'Old Name', 'lane' => 3], commits: 7), 'is_following' => false]);
+    $this->cache->put('log/following', [], pageJson([
+        commitJson(['id' => 'c1', 'author' => userJson(['name' => 'Old Name', 'lane' => 3])]),
+        commitJson(['id' => 'c2', 'author' => $ada]),
+    ]));
+    $this->cache->put('notifications', [], pageJson([notificationJson('followed', ['actor' => $ada, 'actors' => [$ada]])]));
+    $before = $this->cache->get('notifications');
+
+    $this->cache->meChanged(currentUserJson(['name' => 'Fresh Name', 'lane' => 5, 'preferred_lane' => 5, 'bio' => 'Fresh bio.']));
+
+    $me = $this->cache->get('me');
+    $profile = $this->cache->get('users/local_dev')['data'];
+    $log = $this->cache->get('log/following')['data'];
+
+    expect($me['data'])->toMatchArray(['name' => 'Fresh Name', 'lane' => 5, 'preferred_lane' => 5])
+        ->and($me['apple_linked'])->toBeTrue()
+        ->and($me['unread_notifications_count'])->toBe(0)
+        ->and($profile)->toMatchArray(['name' => 'Fresh Name', 'lane' => 5, 'bio' => 'Fresh bio.', 'commits_count' => 7])
+        ->and($profile)->not->toHaveKey('preferred_lane')
+        ->and($log[0]['author'])->toMatchArray(['name' => 'Fresh Name', 'lane' => 5])
+        ->and($log[0]['body'])->toBe('Shipped the mobile app.')
+        ->and($log[1]['author'])->toBe($ada)
+        ->and($this->cache->get('notifications'))->toBe($before);
+});
+
+it('leaves the kept copies alone for anyone but you', function () {
+    $this->cache->put('users/local_dev', [], ['data' => userWithCountsJson(), 'is_following' => false]);
+
+    $this->cache->meChanged(currentUserJson(['id' => 'someone-else', 'name' => 'Someone Else']));
+    $this->cache->meChanged(['message' => 'Not JSON devnull would send.']);
+
+    expect($this->cache->get('users/local_dev')['data']['name'])->toBe('Local Dev');
+});
+
 it('keeps a patched answer only as long as the one it came from', function () {
     $this->cache->put('me', [], ['data' => userJson(), 'apple_linked' => false]);
 
