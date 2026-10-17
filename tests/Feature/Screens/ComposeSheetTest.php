@@ -103,7 +103,7 @@ it('commits from the sheet and puts the commit at the top of the log, leaving th
     $screen->dismissSheet('sheet');
 
     expect($screen->instance())
-        ->sheetView->toBe('more')
+        ->sheetView->toBe('report')
         ->sheetBody->toBe('');
 });
 
@@ -160,7 +160,7 @@ it('only commits from a sheet that has a composer in it', function () {
     fakeApi(['GET /api/v1/log/following' => [pageJson([commitJson(['id' => 'c1', 'author' => userJson(['id' => 'u2', 'username' => 'ada'])])])]]);
 
     Native::visit('/log', platform: 'ios')
-        ->tap('more-c1')
+        ->tap('report-c1')
         ->set('sheetBody', 'Not a composer')
         ->call('commitFromSheet');
 
