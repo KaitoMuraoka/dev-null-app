@@ -51,6 +51,36 @@ it('signs a GET for the background to send, and the background sends it as signe
         && ! $sent->hasHeader('Content-Type'));
 });
 
+it('signs a write for the background to send, and the background sends its body as signed', function (?array $payload, string $body) {
+    $this->travelTo(now()->setTimestamp(1760000000));
+    serveApi(['PUT /api/v1/me/lane' => [currentUserJson(['preferred_lane' => 4])]]);
+
+    $request = $this->devnull->signedWrite('PUT', Client::LanePath, $payload);
+
+    expect($request->url)->toBe('http://devnull.test/api/v1/me/lane')
+        ->and($request->method)->toBe('PUT')
+        ->and($request->body)->toBe($body)
+        ->and($request->headers['X-SSH-Signature'])->toBe(testKey()->sign(RequestSigner::message('1760000000', $request->headers['X-Devnull-Nonce'], 'PUT', '/api/v1/me/lane', $body), 'devnull-api'));
+
+    Http::assertNothingSent();
+
+    $result = (new FetchInBackground)->handle($request->url, $request->headers, $request->method, $request->body);
+
+    expect($result['status'])->toBe(200)
+        ->and($result['json']['data']['preferred_lane'])->toBe(4)
+        // A write's answer isn't kept: the screen decides what it changes.
+        ->and(kept('me'))->toBeNull();
+
+    Http::assertSent(fn (Request $sent): bool => $sent->method() === 'PUT'
+        && $sent->body() === $body
+        && $sent->header('X-SSH-Signature') === [$request->headers['X-SSH-Signature']]
+        && $sent->hasHeader('Content-Type') === ($body !== ''));
+})->with([
+    'a lane' => [['lane' => 4], '{"lane":4}'],
+    'Automatic' => [['lane' => null], '{"lane":null}'],
+    'no body' => [null, ''],
+]);
+
 it('answers status 0 from the background when devnull cannot be reached', function () {
     fakeOffline();
 

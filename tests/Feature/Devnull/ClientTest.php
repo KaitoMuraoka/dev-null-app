@@ -2,6 +2,7 @@
 
 use App\Devnull\Client;
 use App\Devnull\Data\Commit;
+use App\Devnull\Data\CurrentUser;
 use App\Devnull\Data\User;
 use App\Devnull\DeviceKey;
 use App\Devnull\ErrorCode;
@@ -436,6 +437,39 @@ it('reads who you are and how many notifications are unread', function () {
         ->and($current->user->lane())->toBe(2)
         ->and($current->unreadNotificationsCount)->toBe(7);
 });
+
+it('reads what only you see in your profile settings from /me', function () {
+    Http::fake(['devnull.test/api/v1/me' => Http::response(currentUserJson([
+        'lane' => 1,
+        'preferred_lane' => 1,
+        'automatic_lane' => 4,
+        'sponsors_url' => 'https://github.com/sponsors/local_dev',
+        'github_synced_at' => '2026-10-01T09:30:00Z',
+    ]))]);
+
+    $current = app(Client::class)->me();
+
+    expect($current->preferredLane)->toBe(1)
+        ->and($current->automaticLane)->toBe(4)
+        ->and($current->sponsorsUrl)->toBe('https://github.com/sponsors/local_dev')
+        ->and($current->sponsorsLabel())->toBe('github.com/sponsors/local_dev')
+        ->and($current->githubSyncedAt?->toIso8601ZuluString())->toBe('2026-10-01T09:30:00Z');
+});
+
+it('reads Automatic as no lane, and works it out when devnull is too old to say', function (array $data, ?int $preferred, int $automatic) {
+    $current = CurrentUser::fromArray(['data' => [...userJson(['id' => '3a788e93-4cf7-4819-9377-94be2f329563']), ...$data]]);
+
+    expect($current->preferredLane)->toBe($preferred)
+        ->and($current->automaticLane)->toBe($automatic)
+        ->and($current->sponsorsUrl)->toBeNull()
+        ->and($current->githubSyncedAt)->toBeNull();
+})->with([
+    'Automatic' => [['lane' => 4, 'preferred_lane' => null, 'automatic_lane' => 4], null, 4],
+    'an older server, on the automatic lane' => [['lane' => 4], null, 4],
+    'an older server, on a lane you picked' => [['lane' => 1], 1, 4],
+    'a lane out of range' => [['lane' => 4, 'preferred_lane' => 9, 'automatic_lane' => 12], null, 4],
+    'a sponsors link that is not https' => [['lane' => 4, 'sponsors_url' => 'javascript:alert(1)'], null, 4],
+]);
 
 it('reads whether an Apple ID is linked from /me, and says no when devnull is silent', function (array $extra, bool $linked) {
     Http::fake(['devnull.test/api/v1/me' => Http::response(['data' => userWithCountsJson(), 'unread_notifications_count' => 0, ...$extra])]);

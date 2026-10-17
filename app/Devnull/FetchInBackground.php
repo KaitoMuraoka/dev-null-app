@@ -6,10 +6,11 @@ use Illuminate\Http\Client\ConnectionException;
 use Native\Mobile\AsyncTask;
 
 /**
- * Sends a GET, signed on the UI thread, from one of NativePHP's background PHP
- * threads, so a refresh never holds up a tap. It only carries bytes: the screen
- * that asked decides what the answer means and keeps it (see
- * Concerns\RefreshesInBackground). Nothing here touches the Keychain or the cache.
+ * Sends a request, signed on the UI thread, from one of NativePHP's background
+ * PHP threads, so a refresh never holds up a tap, and a slow write can say it's
+ * under way. It only carries bytes: the screen that asked decides what the
+ * answer means and keeps it (see Concerns\RefreshesInBackground and
+ * Concerns\WritesInBackground). Nothing here touches the Keychain or the cache.
  */
 final class FetchInBackground extends AsyncTask
 {
@@ -17,10 +18,10 @@ final class FetchInBackground extends AsyncTask
      * @param  array<string, string>  $headers
      * @return array{status: int, json: mixed, retry_after: string}
      */
-    public function handle(string $url, array $headers): array
+    public function handle(string $url, array $headers, string $method = 'GET', string $body = ''): array
     {
         try {
-            $response = Client::sendSigned(new SignedRequest($url, $headers));
+            $response = Client::sendSigned(new SignedRequest($url, $headers, $method, $body));
         } catch (ConnectionException) {
             return ['status' => 0, 'json' => null, 'retry_after' => ''];
         }

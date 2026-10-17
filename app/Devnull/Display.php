@@ -58,6 +58,30 @@ final class Display
     }
 
     /**
+     * How long ago something happened, in words, as the web's profile settings
+     * say when your profile was last synced: "just now", "5 minutes ago",
+     * "1 hour ago", "yesterday", "3 days ago".
+     */
+    public static function ago(CarbonInterface $date, ?CarbonInterface $now = null): string
+    {
+        $now ??= CarbonImmutable::now();
+        $seconds = (int) round($now->getTimestamp() - $date->getTimestamp());
+
+        [$value, $unit] = match (true) {
+            $seconds < 60 => [0, ''],
+            $seconds < 3600 => [intdiv($seconds, 60), 'minute'],
+            $seconds < 86400 => [intdiv($seconds, 3600), 'hour'],
+            default => [intdiv($seconds, 86400), 'day'],
+        };
+
+        return match (true) {
+            $unit === '' => 'just now',
+            $unit === 'day' && $value === 1 => 'yesterday',
+            default => self::count($value, $unit, $unit.'s').' ago',
+        };
+    }
+
+    /**
      * The label of a day marker in a feed, worded like the web: "Today", "Yesterday",
      * then "Tue, Oct 13", with the year once it isn't this year. Days are counted in
      * the app's time zone, since PHP can't see the device's.

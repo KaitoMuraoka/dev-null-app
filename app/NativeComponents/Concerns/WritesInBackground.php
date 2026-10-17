@@ -1,0 +1,67 @@
+<?php
+
+namespace App\NativeComponents\Concerns;
+
+use App\Devnull\Client;
+use App\Devnull\Exceptions\ApiException;
+use App\Devnull\Exceptions\KeychainUnavailable;
+use App\Devnull\Exceptions\Unauthenticated;
+use App\Devnull\FetchInBackground;
+use Closure;
+use Throwable;
+
+/**
+ * A write to devnull that takes long enough to show it's under way, such as a
+ * sync from GitHub, which waits on GitHub. It's signed here, on the UI thread,
+ * where the Keychain is, and sent from a background PHP thread, so the screen
+ * paints its spinner first (see FetchInBackground).
+ *
+ * A 401 signs the phone out, as any request does. Anything else that goes wrong
+ * reaches $failed worded for the screen, by its code when the app knows it.
+ * NativePHP drops the answer if the screen is no longer on top, and the next
+ * `GET /me` picks up what changed.
+ */
+trait WritesInBackground
+{
+    /**
+     * @param  array<string, mixed>|null  $payload
+     * @param  Closure(array<string, mixed>): void  $done
+     * @param  Closure(string): void  $failed
+     */
+    protected function writeInBackground(string $method, string $path, ?array $payload, Closure $done, Closure $failed): void
+    {
+        try {
+            $request = app(Client::class)->signedWrite($method, $path, $payload);
+        } catch (KeychainUnavailable $exception) {
+            $failed($exception->getMessage());
+
+            return;
+        }
+
+        FetchInBackground::dispatch($request->url, $request->headers, $request->method, $request->body)
+            ->timeout(30)
+            ->finished(function (mixed $result) use ($done, $failed): void {
+                $result = is_array($result) ? $result : [];
+                $status = (int) ($result['status'] ?? 0);
+
+                if ($status >= 200 && $status < 300) {
+                    $done(is_array($result['json'] ?? null) ? $result['json'] : []);
+
+                    return;
+                }
+
+                $exception = $status === 0
+                    ? ApiException::couldNotConnect((string) config('devnull.url'))
+                    : ApiException::fromParts($status, $result['json'] ?? null, (string) ($result['retry_after'] ?? ''));
+
+                if ($exception instanceof Unauthenticated) {
+                    $this->signOut($exception);
+
+                    return;
+                }
+
+                $failed($exception->firstError());
+            })
+            ->failed(fn (Throwable $exception) => $failed('fatal: '.$exception->getMessage()));
+    }
+}

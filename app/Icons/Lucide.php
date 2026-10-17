@@ -50,6 +50,7 @@ enum Lucide
     case Award;
     case Ellipsis;
     case Flag;
+    case RefreshCw;
 
     // The achievement badges, named as devnull names their icons (see forBadge()).
     case Terminal;
@@ -126,6 +127,7 @@ enum Lucide
             self::Award => 'award',
             self::Ellipsis => 'ellipsis',
             self::Flag => 'flag',
+            self::RefreshCw => 'refresh-cw',
             self::Terminal => 'terminal',
             self::FileCode => 'file-code',
             self::Flame => 'flame',

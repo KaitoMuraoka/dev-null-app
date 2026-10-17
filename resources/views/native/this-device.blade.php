@@ -1,33 +1,113 @@
 @use('App\Icons\Ios')
 @use('App\Icons\Android')
+@use('App\Icons\Lucide')
 
-<native:scroll-view class="w-full h-full bg-theme-background">
+{{-- Laid out like the web's profile settings: a section each, with its heading, on the surface. --}}
+<native:scroll-view class="w-full h-full bg-theme-surface">
     <native:column class="w-full pt-6 pb-10">
         @include('native.partials.error')
         @include('native.partials.refresh-failed')
 
-        {{-- dev-null.sh lists each phone by name and fingerprint, so this is how you tell which one is this phone. --}}
-        <native:column class="mx-4 rounded-lg border border-theme-hairline bg-theme-surface">
-            <native:row ref="fingerprint" class="w-full px-3 py-3 gap-3 select-text">
-                <native:text font="mono" class="w-[88] text-[13px] text-theme-ink-muted">fingerprint</native:text>
-                <native:text font="mono" class="flex-1 text-[13px] text-theme-ink">{{ $fingerprint ?: 'null' }}</native:text>
-            </native:row>
-            @if ($remote !== null)
-                <native:column class="w-full h-[1] bg-theme-hairline" />
-                <native:row ref="remote" class="w-full px-3 py-3 gap-3">
-                    <native:text font="mono" class="w-[88] text-[13px] text-theme-ink-muted">remote</native:text>
-                    <native:text font="mono" class="flex-1 text-[13px] text-theme-ink">{{ $remote }}</native:text>
-                </native:row>
-            @endif
-        </native:column>
+        @if ($user !== null)
+            <native:column ref="profile-information" class="w-full">
+                @include('native.partials.settings-heading', [
+                    'title' => 'Profile information',
+                    'description' => 'Mirrored from GitHub when you sign in. To change any of it, change it on GitHub, then sync it here.',
+                ])
 
-        <native:column class="w-full px-4 pt-4">
-            <native:button ref="devices" variant="secondary" :ios-icon="Ios::Iphone" :android-icon="Android::Smartphone" @press="openDevices" class="w-full">Your devices on dev-null.sh</native:button>
-        </native:column>
+                <native:row ref="profile-identity" class="w-full px-4 pt-5 gap-4 items-center">
+                    @include('native.partials.rail-avatar', ['user' => $user, 'lane' => $savedLane, 'size' => 56])
+                    <native:column class="flex-1 gap-[2]">
+                        <native:text font="semibold" class="text-base text-theme-ink" :max-lines="1">{{ $user->name }}</native:text>
+                        <native:text font="mono" class="text-sm text-theme-ink-muted" :max-lines="1">{{ $user->handle() }}</native:text>
+                    </native:column>
+                </native:row>
+
+                {{-- The web's hairline table: mono labels, and null in muted mono for what GitHub doesn't have. --}}
+                <native:column ref="profile-fields" class="mx-4 mt-5 rounded-lg border border-theme-hairline bg-theme-surface">
+                    @foreach ($fields as $field)
+                        @if (! $loop->first)
+                            <native:column class="w-full h-[1] bg-theme-hairline" />
+                        @endif
+                        <native:row ref="field-{{ $field['label'] }}" class="w-full px-3 py-3 gap-3">
+                            <native:text font="mono" class="w-[88] text-[13px] text-theme-ink-muted">{{ $field['label'] }}</native:text>
+                            @if ($field['value'] === null)
+                                <native:text font="mono" class="flex-1 text-[13px] text-theme-ink-muted">null</native:text>
+                            @else
+                                <native:text class="flex-1 text-sm text-theme-ink">{{ $field['value'] }}</native:text>
+                            @endif
+                        </native:row>
+                    @endforeach
+                </native:column>
+
+                <native:column class="w-full px-4 pt-5 gap-2">
+                    <native:button ref="edit-on-github" variant="primary" :ios-icon-trailing="Lucide::ArrowUpRight->ios()" :android-icon-trailing="Lucide::ArrowUpRight->android()" @press="editOnGitHub" class="w-full">Edit on GitHub</native:button>
+                    {{-- The label stays put while it spins, so the button keeps its size. --}}
+                    <native:button ref="sync-github" variant="secondary" :ios-icon="Lucide::RefreshCw->ios()" :android-icon="Lucide::RefreshCw->android()" :loading="$syncing" :disabled="$syncing" @press="syncProfile" class="w-full">Sync from GitHub</native:button>
+                    <native:text ref="synced-at" class="text-xs leading-relaxed text-theme-ink-muted">{{ $syncedAt }}</native:text>
+                    @if ($syncError)
+                        <native:text ref="sync-error" class="text-sm text-theme-destructive">{{ $syncError }}</native:text>
+                    @endif
+                </native:column>
+            </native:column>
+
+            <native:column ref="color" class="w-full pt-10">
+                @include('native.partials.settings-heading', [
+                    'title' => 'Color',
+                    'description' => 'Your lane on the graph: the rail and nodes beside your commits, the ring around your avatar, and the dot before your handle. Automatic picks one from your account id.',
+                ])
+
+                {{-- You on the rail in the colour picked, as the web's preview draws you. --}}
+                <native:row ref="lane-preview" class="mx-4 mt-5 rounded-lg border border-theme-hairline bg-theme-surface">
+                    <native:column :width="64" />
+                    <native:column class="flex-1 min-h-[64] py-3 pr-4 gap-[2] justify-center">
+                        <native:text font="semibold" class="text-base text-theme-ink" :max-lines="1">{{ $user->name }}</native:text>
+                        <native:row class="w-full gap-[6] items-center">
+                            <native:column ref="preview-dot" :width="8" :height="8" class="rounded-full bg-theme-lane-{{ $previewLane }} flex-shrink-0" />
+                            <native:text font="mono" class="flex-1 text-sm text-theme-ink-muted" :max-lines="1">{{ $user->handle() }}</native:text>
+                        </native:row>
+                    </native:column>
+                    @include('native.partials.rail', ['previous' => $previewLane, 'tail' => $previewLane, 'node' => 'avatar', 'user' => $user, 'lane' => $previewLane])
+                </native:row>
+
+                {{--
+                    Automatic, then the six lanes. The one picked wears a ring in its colour. Automatic is a dashed ring
+                    round a dot, in the lane it gives you. No press-* feedback: it would keep the screen from scrolling.
+                --}}
+                <native:row ref="lanes" class="w-full px-2 pt-4">
+                    @foreach ($lanes as $option)
+                        <native:pressable ref="lane-{{ $option['key'] }}" @press="chooseLane('{{ $option['key'] }}')" class="flex-1 items-center" a11y-label="{{ $option['a11y'] }}{{ $option['chosen'] ? ', selected' : '' }}">
+                            <native:column class="w-full items-center gap-[6] py-2">
+                                <native:stack :width="38" :height="38" center class="rounded-full border-2 {{ $option['chosen'] ? 'border-theme-lane-'.$option['lane'] : 'border-transparent' }}">
+                                    @if ($option['auto'])
+                                        <native:column :width="28" :height="28">
+                                            @include('native.partials.dashed-ring', ['size' => 28, 'colour' => 'bg-theme-lane-'.$option['lane']])
+                                            <native:column class="absolute top-[9] left-[9] w-[10] h-[10] rounded-full bg-theme-lane-{{ $option['lane'] }}" />
+                                        </native:column>
+                                    @else
+                                        <native:column :width="28" :height="28" class="rounded-full bg-theme-lane-{{ $option['lane'] }}" />
+                                    @endif
+                                </native:stack>
+                                <native:text class="text-xs {{ $option['chosen'] ? 'text-theme-ink' : 'text-theme-ink-muted' }}">{{ $option['label'] }}</native:text>
+                            </native:column>
+                        </native:pressable>
+                    @endforeach
+                </native:row>
+
+                <native:column class="w-full px-4 pt-4 gap-2">
+                    <native:button ref="save-lane" variant="primary" :loading="$savingLane" :disabled="$savingLane || ! $laneChanged" @press="saveLane" class="w-full">Save color</native:button>
+                    @if ($laneError)
+                        <native:text ref="lane-error" class="text-sm text-theme-destructive">{{ $laneError }}</native:text>
+                    @endif
+                </native:column>
+            </native:column>
+        @endif
 
         @if ($offersApple)
-            <native:column ref="apple" class="w-full pt-8">
-                <native:column class="mx-4 rounded-lg border border-theme-hairline bg-theme-surface">
+            <native:column ref="apple" class="w-full pt-10">
+                @include('native.partials.settings-heading', ['title' => 'Apple ID'])
+
+                <native:column class="mx-4 mt-4 rounded-lg border border-theme-hairline bg-theme-surface">
                     <native:row class="w-full px-3 py-3 gap-3">
                         <native:text font="mono" class="w-[88] text-[13px] text-theme-ink-muted">apple id</native:text>
                         <native:text ref="apple-status" font="mono" class="flex-1 text-[13px] text-theme-ink">{{ $appleStatus }}</native:text>
@@ -51,14 +131,46 @@
             </native:column>
         @endif
 
+        <native:column ref="this-phone" class="w-full pt-10">
+            @include('native.partials.settings-heading', [
+                'title' => 'This phone',
+                'description' => 'Signed in with a key that stays on this phone. dev-null.sh lists it by this fingerprint.',
+            ])
+
+            {{-- dev-null.sh lists each phone by name and fingerprint, so this is how you tell which one is this phone. --}}
+            <native:column class="mx-4 mt-4 rounded-lg border border-theme-hairline bg-theme-surface">
+                <native:row ref="fingerprint" class="w-full px-3 py-3 gap-3 select-text">
+                    <native:text font="mono" class="w-[88] text-[13px] text-theme-ink-muted">fingerprint</native:text>
+                    <native:text font="mono" class="flex-1 text-[13px] text-theme-ink">{{ $fingerprint ?: 'null' }}</native:text>
+                </native:row>
+                @if ($remote !== null)
+                    <native:column class="w-full h-[1] bg-theme-hairline" />
+                    <native:row ref="remote" class="w-full px-3 py-3 gap-3">
+                        <native:text font="mono" class="w-[88] text-[13px] text-theme-ink-muted">remote</native:text>
+                        <native:text font="mono" class="flex-1 text-[13px] text-theme-ink">{{ $remote }}</native:text>
+                    </native:row>
+                @endif
+            </native:column>
+
+            <native:column class="w-full px-4 pt-4">
+                <native:button ref="devices" variant="secondary" :ios-icon="Ios::Iphone" :android-icon="Android::Smartphone" @press="openDevices" class="w-full">Your devices on dev-null.sh</native:button>
+            </native:column>
+        </native:column>
+
         <native:column class="w-full px-4 pt-8 gap-2">
             <native:button ref="sign-out" variant="secondary" @press="confirmSignOut" class="w-full">Sign out</native:button>
             <native:text class="text-xs leading-relaxed text-theme-ink-muted">Deletes the key from this phone and signs you out.</native:text>
         </native:column>
 
-        <native:column class="w-full px-4 pt-12 gap-2">
-            <native:button ref="delete-account" variant="destructive" @press="confirmDeleteAccount" class="w-full">Delete account</native:button>
-            <native:text class="text-xs leading-relaxed text-theme-ink-muted">Removes your account and everything in it from /dev/null.</native:text>
+        <native:column ref="delete-section" class="w-full pt-12">
+            @include('native.partials.settings-heading', [
+                'title' => 'Delete account',
+                'description' => "Removes your /dev/null account, every commit and reply you've made, and everyone you follow. Replies others left under your commits go too. Replies under your replies stay, hanging off a [deleted] tombstone. Your GitHub account is not touched.",
+            ])
+
+            <native:column class="w-full px-4 pt-4">
+                <native:button ref="delete-account" variant="destructive" @press="confirmDeleteAccount" class="w-full">Delete account</native:button>
+            </native:column>
         </native:column>
     </native:column>
 </native:scroll-view>

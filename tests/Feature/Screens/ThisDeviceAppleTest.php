@@ -76,9 +76,10 @@ it("says it doesn't know, and offers nothing, when devnull can't be asked", func
     signedInAppleBridge();
     fakeApi(['GET /api/v1/me' => [['message' => 'GitHub is not answering right now.'], 503]]);
 
+    // The rest of the screen shows you as this phone remembers you, so it only says quietly that it couldn't refresh.
     Native::visit('/profile/device', platform: 'ios')
         ->assertSet('appleLinked', null)
-        ->assertSee('GitHub is not answering right now.')
+        ->assertSee("warning: couldn't refresh")
         ->assertSee('unknown')
         ->assertDontSee('Sign in with Apple')
         ->assertDontSee('Unlink Apple ID');
@@ -193,16 +194,18 @@ it('unlinks the Apple ID only after a confirm', function () {
 
 it('has no Apple section on Android, and never asks devnull about it', function () {
     $bridge = signedInAppleBridge();
-    fakeApi([]);
+    fakeApi(['GET /api/v1/me' => [currentUserJson()]]);
 
     Native::visit('/profile/device', platform: 'android')
+        ->assertDontSee('Apple ID')
         ->assertDontSee('apple id')
         ->assertDontSee('Sign in with Apple')
         ->assertDontSee('A quicker way back in')
         ->call('linkApple')
         ->call('unlinkApple')
+        ->assertSet('appleLinked', null)
         ->assertSee('Sign out');
 
-    Http::assertNothingSent();
+    Http::assertNotSent(fn (Request $request): bool => str_contains($request->url(), Client::ApplePath));
     $bridge->assertNotCalled('NativephpSocialAuth.AppleSignIn');
 });

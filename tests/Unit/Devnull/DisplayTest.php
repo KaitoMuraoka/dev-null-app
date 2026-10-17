@@ -16,6 +16,21 @@ it('prints relative times the way the web does', function (string $date, string 
     ['2025-12-31T12:00:00Z', 'Dec 31, 2025'],
 ]);
 
+it('says how long ago in words, the way the web says when it last synced', function (string $date, string $expected) {
+    $now = CarbonImmutable::parse('2026-10-15T12:00:00Z');
+
+    expect(Display::ago(CarbonImmutable::parse($date), $now))->toBe($expected);
+})->with([
+    ['2026-10-15T11:59:30Z', 'just now'],
+    ['2026-10-15T11:59:00Z', '1 minute ago'],
+    ['2026-10-15T11:45:00Z', '15 minutes ago'],
+    ['2026-10-15T11:00:00Z', '1 hour ago'],
+    ['2026-10-15T09:00:00Z', '3 hours ago'],
+    ['2026-10-14T11:00:00Z', 'yesterday'],
+    ['2026-10-12T12:00:00Z', '3 days ago'],
+    ['2026-07-17T12:00:00Z', '90 days ago'],
+]);
+
 it('shortens ids to the last seven characters without dashes', function () {
     expect(Display::shortHash('9b2f6c1e-1d3a-4e5f-8a7b-0c1d2e3f4a5b'))->toBe('e3f4a5b');
 });
