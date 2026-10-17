@@ -541,7 +541,10 @@ it('shows an author once per run, and starts a new run at each day', function ()
 });
 
 it('marks where your last visit ended, which also starts a new run', function () {
-    // The fixtures and the assertions both use now(), so it mustn't tick between them.
+    // At midday, so a commit from a couple of hours ago is always today's and no
+    // day marker splits the run. The fixtures and the assertions both use now(),
+    // so it mustn't tick between them.
+    $this->travelTo(now()->setTime(12, 0));
     $this->freezeSecond();
 
     $ada = userJson(['id' => 'u2', 'username' => 'ada', 'name' => 'Ada']);
