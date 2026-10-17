@@ -2,6 +2,7 @@
     @include('native.partials.error')
     @include('native.partials.refresh-failed')
     @include('native.partials.commit-sheet')
+    @include('native.partials.achievements-sheet')
 
     {{-- The list stays alone in here, so the banners above coming and going never add a node beside it. --}}
     <native:column class="w-full flex-1">
