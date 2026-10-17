@@ -44,7 +44,7 @@
 
                     <native:row class="w-full gap-3 items-center justify-end">
                         @include('native.partials.body-counter', ['body' => $sheetBody, 'ref' => 'sheet-budget'])
-                        <native:button ref="sheet-commit" variant="primary" :disabled="$sheetLength < \App\Devnull\Data\Commit::MinLength || $sheetLength > \App\Devnull\Data\Commit::MaxLength" @press="commitFromSheet">Commit</native:button>
+                        <native:button ref="sheet-commit" :variant="$myColour" :disabled="$sheetLength < \App\Devnull\Data\Commit::MinLength || $sheetLength > \App\Devnull\Data\Commit::MaxLength" @press="commitFromSheet">Commit</native:button>
                     </native:row>
                 </native:column>
             </native:scroll-view>
@@ -84,7 +84,7 @@
                         <native:text ref="sheet-error" class="w-full text-sm text-theme-destructive">{{ $sheetError }}</native:text>
                     @endif
 
-                    <native:button ref="send-report" variant="primary" :disabled="$reportReason === ''" @press="sendReport" class="w-full">Send report</native:button>
+                    <native:button ref="send-report" :variant="$myColour" size="lg" :disabled="$reportReason === ''" @press="sendReport" class="w-full">Send report</native:button>
                 </native:column>
             </native:scroll-view>
         @elseif ($sheetView === 'reported')
@@ -93,7 +93,7 @@
                     <native:icon :ios="\App\Icons\Lucide::Check->ios()" :android="\App\Icons\Lucide::Check->android()" :size="20" class="text-theme-primary" />
                     <native:text class="flex-1 text-base text-theme-ink">Report received. Moderators will review it privately.</native:text>
                 </native:row>
-                <native:button ref="report-done" variant="secondary" @press="hideCommitSheet" class="w-full">Done</native:button>
+                <native:button ref="report-done" variant="secondary" size="lg" @press="hideCommitSheet" class="w-full">Done</native:button>
             </native:column>
         @endif
     @endif
