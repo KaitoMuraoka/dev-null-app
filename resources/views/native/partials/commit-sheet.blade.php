@@ -2,7 +2,8 @@
     The sheet under a commit (see OpensCommitSheet). Quote opens it as a composer: the field, focused, with the commit
     being quoted under it as a static card, then the counter and Commit, which waits for a body long enough to make.
     If devnull says no, why shows here and the draft stays. The Log's compose button opens the same composer for a new
-    commit, without the card.
+    commit, without the card. A draft stashed last time comes back in it, with the web's stash@{0} and drop on the left
+    of Commit's row.
 
     Report commit, in someone else's published commit's More menu, opens it as the web's Report dialog: the private,
     not-hidden line, the commit's body clamped to three lines, the four reasons, optional details, and Send report,
@@ -43,6 +44,10 @@
                     @endif
 
                     <native:row class="w-full gap-3 items-center justify-end">
+                        @if ($sheetRestored)
+                            @include('native.partials.stash-label', ['ref' => 'sheet-stash', 'drop' => 'dropSheetStash'])
+                            <native:spacer />
+                        @endif
                         @include('native.partials.body-counter', ['body' => $sheetBody, 'ref' => 'sheet-budget'])
                         <native:button ref="sheet-commit" :variant="$myColour" :disabled="$sheetLength < \App\Devnull\Data\Commit::MinLength || $sheetLength > \App\Devnull\Data\Commit::MaxLength" @press="commitFromSheet">Commit</native:button>
                     </native:row>

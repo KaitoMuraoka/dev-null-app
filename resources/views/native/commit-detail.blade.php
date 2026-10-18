@@ -94,7 +94,7 @@
                 Display::replyBarClearance): the last reply and its actions end above the bar, keyboard up or down.
             --}}
             @if ($commit)
-                <native:column ref="reply-bar-clearance" class="w-full h-[{{ 24 + \App\Devnull\Display::replyBarClearance($reply) }}]" />
+                <native:column ref="reply-bar-clearance" class="w-full h-[{{ 24 + \App\Devnull\Display::replyBarClearance($reply, $replyRestored) }}]" />
             @endif
         </native:column>
     </native:scroll-view>
@@ -124,6 +124,12 @@
                     @include('native.partials.body-counter', ['body' => $reply, 'ref' => 'reply-budget'])
                     <native:button ref="send-reply" :variant="$myColour" size="sm" :disabled="$replyLength < 3 || $remaining < 0" @press="sendReply">Reply</native:button>
                 </native:row>
+                {{-- A reply stashed when you left the commit comes back with the web's stash@{0} and drop under it. --}}
+                @if ($replyRestored)
+                    <native:row class="w-full px-4 -mt-2">
+                        @include('native.partials.stash-label', ['ref' => 'reply-stash', 'drop' => 'dropReplyStash', 'size' => 'text-xs'])
+                    </native:row>
+                @endif
             </native:column>
         </native:bottom-bar>
     @endif

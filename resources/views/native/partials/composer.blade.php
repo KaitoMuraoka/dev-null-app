@@ -6,6 +6,8 @@
     The field is keyed, so a new $composerKey (or a new list key) mounts a fresh one, clean after a commit. A touch on
     it is how the screen learns you're in it, since a field reports neither focus nor, on iOS, a caret in an empty
     field. The nav bar's compose button opens a composer in the sheet instead (see OpensCommitSheet).
+
+    A draft stashed last time comes back in it, with the web's stash@{0} and drop on the left of Commit's row.
 --}}
 <native:row ref="composer" class="w-full bg-theme-surface">
     <native:column :width="64" />
@@ -29,6 +31,10 @@
 
             @if ($composerOpen)
                 <native:row class="w-full gap-3 items-center justify-end">
+                    @if ($draftRestored)
+                        @include('native.partials.stash-label', ['ref' => 'stash', 'drop' => 'dropStash'])
+                        <native:spacer />
+                    @endif
                     @include('native.partials.body-counter', ['body' => $body, 'ref' => 'budget'])
                     <native:button ref="commit" :variant="$myColour" :disabled="! $canCommit" @press="commit">Commit</native:button>
                 </native:row>

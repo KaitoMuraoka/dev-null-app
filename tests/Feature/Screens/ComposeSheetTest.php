@@ -120,8 +120,10 @@ it('shows why devnull said no in the sheet, keeping the draft', function () {
         ->and(array_map(fn (Commit $commit): string => $commit->id, $screen->instance()->commits))->toBe(['c1']);
 });
 
-it('forgets the draft when the sheet is swiped away', function () {
+it('keeps the draft when the sheet is swiped away, and opens on it again, marked as restored', function () {
     $screen = composeSheetOnLog()->input('sheet-body', 'Half a thought');
+
+    expect(findNode($screen->tree(), fn (array $node): bool => ($node['ref'] ?? null) === 'sheet-stash'))->toBeNull();
 
     $screen->dismissSheet('sheet');
 
@@ -130,30 +132,44 @@ it('forgets the draft when the sheet is swiped away', function () {
 
     $screen->press('composeInSheet');
 
-    expect(nodeByRef($screen, 'sheet-body')['props']['value'])->toBe('')
-        ->and(sheetCommitDisabled($screen))->toBeTrue();
+    expect(nodeByRef($screen, 'sheet-body')['props']['value'])->toBe('Half a thought')
+        ->and(nodeByRef($screen, 'sheet-stash'))->not->toBeEmpty()
+        ->and(sheetCommitDisabled($screen))->toBeFalse();
 
     Http::assertNotSent(fn (Request $request): bool => $request->method() === 'POST');
 });
 
-it('leaves a draft in the composer at the top of the log alone', function () {
+it('shares its draft with the composer at the top of the log, as the web dialog does', function () {
     fakeApi([
         'GET /api/v1/log/following' => [pageJson([])],
-        'POST /api/v1/commits' => [['data' => commitJson(['id' => 'mine', 'body' => 'Shipped from the sheet.'])], 201],
+        'POST /api/v1/commits' => [['data' => commitJson(['id' => 'mine', 'body' => 'Half a thought, shipped.'])], 201],
     ]);
 
     $screen = Native::visit('/log', platform: 'ios')
         ->input('body', 'Half a thought')
         ->press('composeInSheet');
 
-    expect(nodeByRef($screen, 'sheet-body')['props']['value'])->toBe('');
+    expect(nodeByRef($screen, 'sheet-body')['props']['value'])->toBe('Half a thought');
 
-    $screen->input('sheet-body', 'Shipped from the sheet.')
+    // Closed, the composer takes the draft as the sheet left it.
+    $screen->input('sheet-body', 'Half a thought, and more')
+        ->dismissSheet('sheet');
+
+    expect(nodeByRef($screen, 'body')['props']['value'])->toBe('Half a thought, and more')
+        ->and(nodeByRef($screen, 'stash'))->not->toBeEmpty();
+
+    // Sent from the sheet, it's gone from both.
+    $screen->press('composeInSheet')
+        ->input('sheet-body', 'Half a thought, shipped.')
         ->tap('sheet-commit')
-        ->assertSet('body', 'Half a thought');
+        ->dismissSheet('sheet')
+        ->assertSet('body', '');
 
-    expect(nodeByRef($screen, 'body')['props']['value'])->toBe('Half a thought')
-        ->and(nodeByRef($screen, 'commit')['props']['disabled'] ?? false)->toBeFalse();
+    expect(nodeByRef($screen, 'body')['props']['value'])->toBe('');
+
+    $screen->press('composeInSheet');
+
+    expect(nodeByRef($screen, 'sheet-body')['props']['value'])->toBe('');
 });
 
 it('only commits from a sheet that has a composer in it', function () {

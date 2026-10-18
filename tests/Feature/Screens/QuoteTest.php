@@ -165,7 +165,7 @@ it('shows why devnull said no in the sheet, keeping the draft', function () {
         ->and(array_map(fn (Commit $commit): string => $commit->id, $screen->instance()->commits))->toBe(['c1']);
 });
 
-it('forgets the draft when the sheet is swiped away', function () {
+it('keeps the draft when the sheet is swiped away, and opens on it again, marked as restored', function () {
     $screen = quoteSheetOnLog()->input('sheet-body', 'Half a thought');
 
     $screen->dismissSheet('sheet');
@@ -177,8 +177,9 @@ it('forgets the draft when the sheet is swiped away', function () {
 
     $screen->tap('quote-c1');
 
-    expect(nodeByRef($screen, 'sheet-body')['props']['value'])->toBe('')
-        ->and(quoteButtonDisabled($screen))->toBeTrue();
+    expect(nodeByRef($screen, 'sheet-body')['props']['value'])->toBe('Half a thought')
+        ->and(nodeByRef($screen, 'sheet-stash'))->not->toBeEmpty()
+        ->and(quoteButtonDisabled($screen))->toBeFalse();
 
     Http::assertNotSent(fn (Request $request): bool => $request->method() === 'POST');
 });

@@ -72,11 +72,13 @@ final class Account
     }
 
     /**
-     * Signs this phone out: who it was, the badge, its pastéis, and every answer kept for a quick start.
+     * Signs this phone out: who it was, the badge, its pastéis, every answer kept for a quick start, and your unsent
+     * drafts.
      */
     public function forget(): void
     {
         app(ResponseCache::class)->flush();
+        app(Stash::class)->forget($this->user()?->id);
 
         Cache::forget(self::CacheKey);
         Cache::forget(self::UnreadKey);

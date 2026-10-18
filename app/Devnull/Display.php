@@ -24,6 +24,11 @@ final class Display
     public const int ReplyBarCharactersPerLine = 34;
 
     /**
+     * The row under the reply bar's field that marks a restored draft (see partials/stash-label).
+     */
+    public const int ReplyBarStashLabelHeight = 28;
+
+    /**
      * The strip under the home indicator on Face ID iPhones. EDGE doesn't
      * hand pushed screens the real inset (it's 0 inside a tab), so this errs
      * long on phones without one.
@@ -206,9 +211,9 @@ final class Display
      * indicator, with no inset for either, so the page pads its own end: the
      * bar as the draft grows to its five lines, and the indicator below it.
      * With the keyboard up the bar sits on the keyboard instead, which only
-     * leaves a little more room.
+     * leaves a little more room. A restored draft adds the row that marks it.
      */
-    public static function replyBarClearance(string $draft): int
+    public static function replyBarClearance(string $draft, bool $restored = false): int
     {
         $lines = 0;
 
@@ -218,6 +223,7 @@ final class Display
 
         return self::ReplyBarHeight
             + (min(self::ReplyBarMaxLines, $lines) - 1) * self::ReplyBarLineHeight
+            + ($restored ? self::ReplyBarStashLabelHeight : 0)
             + self::HomeIndicatorHeight;
     }
 
