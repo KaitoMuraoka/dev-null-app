@@ -52,6 +52,9 @@ enum Lucide
     case Flag;
     case RefreshCw;
     case LockKeyhole;
+    case VolumeX;
+    case Volume2;
+    case Ban;
 
     // The achievement badges, named as devnull names their icons (see forBadge()).
     case Terminal;
@@ -130,6 +133,9 @@ enum Lucide
             self::Flag => 'flag',
             self::RefreshCw => 'refresh-cw',
             self::LockKeyhole => 'lock-keyhole',
+            self::VolumeX => 'volume-x',
+            self::Volume2 => 'volume-2',
+            self::Ban => 'ban',
             self::Terminal => 'terminal',
             self::FileCode => 'file-code',
             self::Flame => 'flame',
