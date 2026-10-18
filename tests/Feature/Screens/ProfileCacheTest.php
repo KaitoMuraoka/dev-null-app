@@ -57,7 +57,7 @@ it('opens on the profile kept last time, with no request and no spinner, then up
         ->assertSee('Analytical engine notes')
         ->assertSee('followers');
 
-    expect(showsLoading($screen->tree()))->toBeFalse()
+    expect(showsLoading(showingProfile($screen)))->toBeFalse()
         ->and(count(Http::recorded()))->toBe(0);
 
     finishRefreshes($screen);
@@ -85,8 +85,9 @@ it('opens on what a commit row knew of its author, then fills in the rest', func
     finishRefreshes($profile)
         ->assertElement('row', fn (array $node): bool => ($node['ref'] ?? null) === 'counts')
         ->assertElement('button', fn (array $node): bool => ($node['ref'] ?? null) === 'follow')
-        ->assertSee('Analytical engine notes')
-        ->assertMissingElement('row', fn (array $node): bool => ($node['ref'] ?? null) === 'loading-1');
+        ->assertSee('Analytical engine notes');
+
+    expect(showsLoading(showingProfile($profile)))->toBeFalse();
 });
 
 it('shows a spinner only the first time, when nothing is known of them', function () {
@@ -116,33 +117,25 @@ it('holds their new commits in the pill and puts them on top without a request',
     expect(count(Http::recorded()))->toBe($requests);
 });
 
-it('puts the pill in the list between the tabs and the commits, in a header that pins, there before it shows', function () {
+it('hangs the pill under the tabs in the pager, there before it shows', function () {
     holdRefreshes();
     keep('users/ada', adaProfile());
     keep('users/ada/commits', pageJson([adaCommit(['id' => 'a1', 'body' => 'Older'])]));
     serveAda([adaCommit(['id' => 'a2', 'body' => 'Brand new']), adaCommit(['id' => 'a1', 'body' => 'Older'])]);
 
     $screen = Native::visit('/log/users/ada');
-    $list = fn (): array => findNode($screen->tree(), fn (array $node): bool => ($node['type'] ?? null) === 'list');
-    $besideTheList = fn (): array => findNode($screen->tree(), fn (array $node): bool => in_array('list', array_column($node['children'] ?? [], 'type'), true))['children'];
-    $inTheList = fn (): array => array_slice(array_values(array_filter(array_map(
-        fn (array $node): ?string => findNode($node, fn (array $tab): bool => ($tab['ref'] ?? null) === 'tab-commits') !== null ? 'tabs' : $node['ref'] ?? null,
-        $list()['children'],
-    ), fn (?string $ref): bool => $ref !== null && ! str_starts_with($ref, 'day-'))), 0, 3);
+    $overlay = fn (): array => findNode(nodeByRef($screen, 'profile-pager'), fn (array $node): bool => ($node['type'] ?? null) === 'pager_overlay');
 
-    // Hidden and empty until there are new commits, but already in its place, so showing it never changes the list's shape.
-    expect($besideTheList())->toHaveCount(1)
-        ->and($inTheList())->toBe(['tabs', 'new-commits-slot', 'commit-a1'])
-        ->and(nodeByRef($screen, 'new-commits-slot')['type'])->toBe('sticky_header')
+    // Hidden and empty until there are new commits, but already in its place, outside the lists.
+    expect(findNode($overlay(), fn (array $node): bool => ($node['ref'] ?? null) === 'new-commits-slot'))->not->toBeNull()
         ->and(nodeByRef($screen, 'new-commits-slot')['layout']['display'] ?? null)->toBe(1)
-        ->and(nodeByRef($screen, 'new-commits-slot')['children'] ?? [])->toBe([]);
+        ->and(nodeByRef($screen, 'new-commits-slot')['children'] ?? [])->toBe([])
+        ->and(findNode(showingProfile($screen), fn (array $node): bool => ($node['ref'] ?? null) === 'new-commits-slot'))->toBeNull();
 
     finishRefreshes($screen)->assertSee('1 new commit');
 
-    expect($besideTheList())->toHaveCount(1)
-        ->and($inTheList())->toBe(['tabs', 'new-commits-slot', 'commit-a1'])
-        ->and(nodeByRef($screen, 'new-commits-slot')['layout']['display'] ?? null)->toBeNull()
-        ->and(findNode(nodeByRef($screen, 'new-commits-slot'), fn (array $node): bool => ($node['ref'] ?? null) === 'new-commits'))->not->toBeNull();
+    expect(nodeByRef($screen, 'new-commits-slot')['layout']['display'] ?? null)->toBeNull()
+        ->and(findNode($overlay(), fn (array $node): bool => ($node['ref'] ?? null) === 'new-commits'))->not->toBeNull();
 });
 
 it('keeps a follow, so their profile opens followed next time', function () {
@@ -180,16 +173,17 @@ it('opens the replies tab at once when it was kept', function () {
     keep('users/ada/commits', pageJson([adaCommit(['id' => 'a1', 'body' => 'A commit'])]));
     keep('users/ada/commits', pageJson([adaCommit(['id' => 'r1', 'parent_id' => 'c0', 'body' => 'A reply'])]), ['replies' => '1']);
 
-    $screen = Native::visit('/log/users/ada')->tap('tab-replies')->assertSee('A reply')->assertDontSee('A commit');
+    $screen = tapProfileTab(Native::visit('/log/users/ada'), 'replies')->assertSee('A reply');
 
-    expect(showsLoading($screen->tree()))->toBeFalse();
+    expect(treeShows(showingProfile($screen), 'A commit'))->toBeFalse()
+        ->and(showsLoading(showingProfile($screen)))->toBeFalse();
     Http::assertNothingSent();
 });
 
 it('asks for the replies tab with its own query', function () {
     serveAda([]);
 
-    Native::visit('/log/users/ada')->tap('tab-replies');
+    tapProfileTab(Native::visit('/log/users/ada'), 'replies');
 
     Http::assertSent(fn (Request $request): bool => $request->url() === 'http://devnull.test/api/v1/users/ada/commits?replies=1');
 });
