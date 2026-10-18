@@ -72,79 +72,19 @@ function stashLabel(TestableComponent $screen, string $ref): array
 
 // ── The Log's composer ─────────────────────────
 
-it("stashes the Log's composer as you type, and brings it back marked as restored when the Log opens again", function () {
-    serveStashLog();
-
-    $screen = Native::visit('/log', platform: 'ios')->input('body', 'Half a thought');
-
-    expect(stashed('commit'))->toBe('Half a thought')
-        ->and(showsRef($screen, 'stash'))->toBeFalse();
-
-    $screen = Native::visit('/log', platform: 'ios');
-
-    expect(nodeByRef($screen, 'body')['props']['value'])->toBe('Half a thought')
-        ->and(stashLabel($screen, 'stash'))->toBe(['stash@{0}', 'Discard the restored draft'])
-        ->and(nodeByRef($screen, 'commit')['props']['disabled'] ?? false)->toBeFalse();
-});
-
-it("forgets the composer's stash once the commit is made", function () {
-    serveStashLog();
-    stash('commit', 'Sent.');
-
-    $screen = Native::visit('/log', platform: 'ios')
-        ->tap('commit')
-        ->assertSet('body', '');
-
-    expect(stashed('commit'))->toBe('')
-        ->and(showsRef($screen, 'stash'))->toBeFalse();
-
-    expect(nodeByRef(Native::visit('/log', platform: 'ios'), 'body')['props']['value'])->toBe('');
-});
-
-it('forgets the stash when the field is emptied, and stops marking the draft as restored', function () {
-    serveStashLog();
-    stash('commit', 'Half a thought');
-
-    $screen = Native::visit('/log', platform: 'ios')->input('body', '');
-
-    expect(stashed('commit'))->toBe('')
-        ->and(showsRef($screen, 'stash'))->toBeFalse();
-
-    $screen->input('body', 'A new thought');
-
-    expect(stashed('commit'))->toBe('A new thought')
-        ->and(showsRef($screen, 'stash'))->toBeFalse();
-});
-
-it('drops a restored draft, leaving a fresh empty field', function () {
-    serveStashLog();
-    stash('commit', 'Half a thought');
-
-    $screen = Native::visit('/log', platform: 'ios')
-        ->tap('stash-drop')
-        ->assertSet('body', '')
-        ->assertSet('composerKey', 1);
-
-    expect(stashed('commit'))->toBe('')
-        ->and(nodeByRef($screen, 'body')['props']['value'])->toBe('')
-        ->and(showsRef($screen, 'stash'))->toBeFalse();
-
-    Http::assertNotSent(fn (Request $request): bool => $request->method() === 'POST');
-});
-
 it('keeps your drafts to you', function () {
     serveStashLog();
     app(Stash::class)->put('u2', 'commit', "Ada's draft");
 
-    $screen = Native::visit('/log', platform: 'ios');
+    $screen = Native::visit('/log', platform: 'ios')->press('composeInSheet');
 
-    expect(nodeByRef($screen, 'body')['props']['value'])->toBe('')
-        ->and(showsRef($screen, 'stash'))->toBeFalse();
+    expect(nodeByRef($screen, 'sheet-body')['props']['value'])->toBe('')
+        ->and(showsRef($screen, 'sheet-stash'))->toBeFalse();
 });
 
 // ── The compose sheet ──────────────────────────
 
-it("stashes the compose sheet as the composer's draft, and forgets it once it's committed", function () {
+it("stashes the compose sheet's draft, and forgets it once it's committed", function () {
     serveStashLog();
 
     $screen = Native::visit('/log', platform: 'ios')
@@ -153,21 +93,19 @@ it("stashes the compose sheet as the composer's draft, and forgets it once it's 
 
     expect(stashed('commit'))->toBe('Written in the sheet');
 
-    $screen->dismissSheet('sheet');
-
-    expect(nodeByRef($screen, 'body')['props']['value'])->toBe('Written in the sheet')
-        ->and(nodeByRef($screen, 'stash'))->not->toBeEmpty();
-
-    $screen->press('composeInSheet');
+    $screen->dismissSheet('sheet')->press('composeInSheet');
 
     expect(nodeByRef($screen, 'sheet-body')['props']['value'])->toBe('Written in the sheet')
         ->and(stashLabel($screen, 'sheet-stash'))->toBe(['stash@{0}', 'Discard the restored draft']);
 
     $screen->tap('sheet-commit')->dismissSheet('sheet');
 
-    expect(stashed('commit'))->toBe('')
-        ->and(nodeByRef($screen, 'body')['props']['value'])->toBe('')
-        ->and(showsRef($screen, 'stash'))->toBeFalse();
+    expect(stashed('commit'))->toBe('');
+
+    $screen->press('composeInSheet');
+
+    expect(nodeByRef($screen, 'sheet-body')['props']['value'])->toBe('')
+        ->and(showsRef($screen, 'sheet-stash'))->toBeFalse();
 });
 
 it("drops the sheet's restored draft", function () {
@@ -181,10 +119,6 @@ it("drops the sheet's restored draft", function () {
 
     expect(stashed('commit'))->toBe('')
         ->and(showsRef($screen, 'sheet-stash'))->toBeFalse();
-
-    $screen->dismissSheet('sheet');
-
-    expect(nodeByRef($screen, 'body')['props']['value'])->toBe('');
 });
 
 // ── Quotes ─────────────────────────────────────

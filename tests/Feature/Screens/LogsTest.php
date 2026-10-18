@@ -305,7 +305,7 @@ it('keys each row by what it shows, so a commit put on top leaves the rows under
     $screen = Native::visit('/log');
     $row = nodeByRef($screen, 'commit-c1')['id'];
 
-    $screen->pressUp('composer-field')->input('body', 'Fresh from the composer')->tap('commit');
+    $screen->press('composeInSheet')->input('sheet-body', 'Fresh from the composer')->tap('sheet-commit');
 
     expect(shownLogIds($screen))->toBe(['mine', 'c1'])
         ->and(nodeByRef($screen, 'commit-c1')['id'])->toBe($row);
@@ -527,9 +527,9 @@ it('puts a commit made on Trending above the ranking, under Just now', function 
     ]);
 
     $screen = tapLogTab(Native::visit('/log'), 'trending')
-        ->pressUp('composer-field')
-        ->input('body', 'Fresh from the composer')
-        ->tap('commit');
+        ->press('composeInSheet')
+        ->input('sheet-body', 'Fresh from the composer')
+        ->tap('sheet-commit');
 
     expect(shownLogIds($screen))->toBe(['mine', 'a'])
         ->and(dayMarkers($screen))->toBe([Timeline::JustNow, Timeline::TopCommits])

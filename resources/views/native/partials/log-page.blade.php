@@ -19,10 +19,6 @@
         :on-end-reached="$page['showing'] ? 'loadMore' : null"
         :end-reached-buffer="5"
     >
-        @if ($viewer)
-            @include('native.partials.composer', ['me' => $viewer])
-        @endif
-
         @include('native.partials.new-commits-pill', ['label' => $newCommitsLabel, 'press' => 'showNewCommits', 'shown' => $page['showing'] && $newCommits !== []])
 
         @if (! $page['loaded'] && $page['error'] === null)

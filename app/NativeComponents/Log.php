@@ -28,25 +28,19 @@ use Native\Mobile\Edge\NativeComponent;
 
 /**
  * The log: the web's three of them, Following (you and the people you follow),
- * Latest (everyone, newest first) and Trending (ranked by stars and replies),
- * under a composer you type into where it is, as on the web.
+ * Latest (everyone, newest first) and Trending (ranked by stars and replies).
  *
- * EDGE tells PHP nothing about focus, and gives PHP no way to focus a field
- * or scroll a list. So a touch on the field is taken as being in it, and a new
- * key on the list is how it gets back to the top.
+ * EDGE gives PHP no way to scroll a list, so a new key on the list is how it
+ * gets back to the top.
  *
- * Nor does it say where a list is scrolled, so the nav bar's compose button
- * can't tell whether the composer is on screen. It always opens the composer
- * in a sheet (see OpensCommitSheet), which leaves the log where you were in
- * it, and the commit goes on top as one from the composer does.
- *
- * The composer's draft is stashed as you type, as on the web (see Stash), so
- * it's there again when the Log opens, marked as restored. The sheet shares
- * it, as the web's dialog does, and the composer takes what the sheet left.
+ * The Log has no composer of its own. The nav bar's compose button opens one
+ * in a sheet (see OpensCommitSheet), which leaves the log where you were in it,
+ * and the commit goes on top. A field in the list was redrawn with the whole
+ * log every time it synced, and fast typing lost and reordered letters.
  *
  * It opens on the log as it was last time, then asks devnull again in the
  * background, and every 30 seconds while it's showing, as the web polls.
- * Commits newer than anything showing wait under the composer in the new
+ * Commits newer than anything showing wait at the top of the list in the new
  * commits pill (see HoldsNewCommits), which says how many devnull counted
  * since the newest one showing (?since=). Scrolled down, it pins under the tabs.
  *
@@ -144,31 +138,8 @@ class Log extends NativeComponent
      */
     public ?string $lastVisitAt = null;
 
-    /**
-     * The commit you're writing. It stays when the keyboard goes, until it's committed.
-     */
-    public string $body = '';
-
-    /**
-     * Whether the composer shows its budget and Commit button: from the moment you're
-     * in it until you commit, or leave it empty and the log reloads.
-     */
-    public bool $composing = false;
-
-    /**
-     * Mounts a fresh field when it changes, so a committed field starts clean.
-     */
-    public int $composerKey = 0;
-
-    /**
-     * Whether the draft in the composer was stashed when it opened, which it marks until you empty it or drop it.
-     */
-    public bool $draftRestored = false;
-
     public function mount(): void
     {
-        $this->body = app(Stash::class)->get($this->me()?->id, 'commit');
-        $this->draftRestored = $this->body !== '';
         $this->log = app(ShownTabs::class)->get($this->me()?->id, 'log', self::Logs, 'following');
         $this->lastVisitAt = $this->lastVisitSeenAt();
         $this->showKept();
@@ -181,7 +152,6 @@ class Log extends NativeComponent
     public function onResume(): void
     {
         $this->forgetRefreshes();
-        $this->closeEmptyComposer();
         $this->forgetDeleted();
         $this->forgetHidden();
         $this->showKept();
@@ -323,8 +293,6 @@ class Log extends NativeComponent
      */
     public function load(): void
     {
-        $this->closeEmptyComposer();
-
         if ($this->isRanked()) {
             $this->rank();
 
@@ -432,88 +400,7 @@ class Log extends NativeComponent
     }
 
     /**
-     * A touch on the composer's field puts you in it.
-     */
-    public function composerFocused(): void
-    {
-        $this->composing = true;
-    }
-
-    /**
-     * Stashes the draft as it changes. An empty field forgets it, and isn't restored any more.
-     */
-    public function updatedBody(): void
-    {
-        app(Stash::class)->put($this->me()?->id, 'commit', $this->body);
-
-        if ($this->body === '') {
-            $this->draftRestored = false;
-        }
-    }
-
-    /**
-     * The web's drop, beside a restored draft: it's thrown away, and a fresh field takes its place.
-     */
-    public function dropStash(): void
-    {
-        $this->body = '';
-        $this->updatedBody();
-        $this->composerKey++;
-    }
-
-    public function remaining(): int
-    {
-        return Commit::MaxLength - mb_strlen($this->body);
-    }
-
-    public function canCommit(): bool
-    {
-        $length = mb_strlen(trim($this->body));
-
-        return $length >= Commit::MinLength && $length <= Commit::MaxLength;
-    }
-
-    /**
-     * Commits the draft and puts it at the top of the log. Pressing Commit has
-     * already put the keyboard away. The draft stays if devnull says no.
-     */
-    public function commit(): void
-    {
-        if (! $this->canCommit()) {
-            return;
-        }
-
-        $commit = $this->attempt(fn ($devnull) => $devnull->createCommit(trim($this->body)));
-
-        if ($commit === null) {
-            return;
-        }
-
-        $this->body = '';
-        $this->updatedBody();
-        $this->composing = false;
-        $this->composerKey++;
-        $this->showCommitted($commit);
-    }
-
-    /**
-     * The sheet wrote to the composer's stash, so the composer takes the draft as the sheet left it, in a fresh field.
-     */
-    protected function composeSheetClosed(): void
-    {
-        $draft = app(Stash::class)->get($this->me()?->id, 'commit');
-
-        if ($draft === $this->body) {
-            return;
-        }
-
-        $this->body = $draft;
-        $this->draftRestored = $draft !== '';
-        $this->composerKey++;
-    }
-
-    /**
-     * Puts a commit you just made at the top of the log, from the composer or the sheet.
+     * Puts a commit you just made in the compose sheet at the top of the log.
      */
     protected function showCommitted(Commit $commit): void
     {
@@ -544,20 +431,6 @@ class Log extends NativeComponent
         $this->latestCommits = array_map($update, $this->latestCommits);
         $this->commits = array_map($update, $this->commits);
         $this->threads = array_map(fn (array $replies): array => array_map($update, $replies), $this->threads);
-    }
-
-    /**
-     * An empty composer you've left closes again. Nothing says when you leave it,
-     * so this waits for the log to reload: on returning to it, or pulling to refresh.
-     */
-    private function closeEmptyComposer(): void
-    {
-        if (! $this->composing || $this->body !== '') {
-            return;
-        }
-
-        $this->composing = false;
-        $this->composerKey++;
     }
 
     /**
@@ -772,9 +645,6 @@ class Log extends NativeComponent
             'myColour' => $this->myColour(),
             'viewer' => $viewer,
             'pasteis' => app(Account::class)->pasteis(),
-            'composerOpen' => $this->composing || $this->body !== '',
-            'remaining' => $this->remaining(),
-            'canCommit' => $this->canCommit(),
             'stashed' => app(Stash::class)->names($viewer?->id),
             'newCommitsLabel' => $this->newCommitsLabel(),
             'pages' => $pages,

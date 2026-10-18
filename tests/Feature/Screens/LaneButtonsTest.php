@@ -53,7 +53,6 @@ function laneLog(): TestableComponent
 }
 
 dataset('main buttons', [
-    'Commit, in the composer' => [fn (): TestableComponent => laneLog()->pressUp('composer-field'), 'commit'],
     'Commit, in the compose sheet' => [fn (): TestableComponent => laneLog()->press('composeInSheet'), 'sheet-commit'],
     'Commit, quoting a commit' => [fn (): TestableComponent => laneLog()->tap('quote-c1'), 'sheet-commit'],
     'Send report' => [fn (): TestableComponent => laneLog()->tap('report-c1'), 'send-report'],
@@ -180,8 +179,7 @@ it('makes the full-width buttons large, and leaves the ones in a row their size'
 
     expect(buttonProps($report, 'report-done')['size'] ?? null)->toBe('lg');
 
-    expect(buttonProps(laneLog()->pressUp('composer-field'), 'commit'))->not->toHaveKey('size')
-        ->and(buttonProps(laneLog()->tap('quote-c1'), 'sheet-commit'))->not->toHaveKey('size');
+    expect(buttonProps(laneLog()->tap('quote-c1'), 'sheet-commit'))->not->toHaveKey('size');
 });
 
 it('makes Unlink Apple ID large too', function () {

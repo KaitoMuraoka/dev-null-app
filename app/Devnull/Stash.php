@@ -7,8 +7,8 @@ use Illuminate\Support\Facades\Cache;
 /**
  * What you wrote and didn't send, per user, as the web's useStash keeps it.
  *
- * Drafts go by the web's names: 'commit' for the Log's composer, which its
- * sheet shares, 'quote-{id}' for a quote of a commit and 'reply-{id}' for a
+ * Drafts go by the web's names: 'commit' for a new commit, from the compose
+ * sheet, 'quote-{id}' for a quote of a commit and 'reply-{id}' for a
  * reply to one. A screen keeps a draft as its field changes, and forgets it
  * once it's sent or the field is emptied. Signing out forgets them all (see
  * Account::forget).

@@ -284,7 +284,7 @@ it('keeps your new commit, so the log opens with it next time', function () {
         'POST /api/v1/commits' => [['data' => commitJson(['id' => 'c9', 'body' => 'Just shipped'])], 201],
     ]);
 
-    Native::visit('/log')->pressUp('composer-field')->input('body', 'Just shipped')->tap('commit');
+    Native::visit('/log')->press('composeInSheet')->input('sheet-body', 'Just shipped')->tap('sheet-commit');
 
     holdRefreshes();
 
@@ -322,7 +322,7 @@ it('drops a commit deleted on its page as soon as you come back to the log', fun
     $commit->goBack()->assertDontSee('Delete me')->assertSee('Keep me');
 });
 
-it('puts the pill in the list between the composer and the commits, in a header that pins, there before it shows', function () {
+it('puts the pill at the top of the list, above the commits, in a header that pins, there before it shows', function () {
     holdRefreshes();
     keep('log/following', pageJson([commitJson(['id' => 'c1'])]));
     fakeFreshLog([commitJson(['id' => 'c2', 'body' => 'Newer']), commitJson(['id' => 'c1'])]);
@@ -334,11 +334,11 @@ it('puts the pill in the list between the composer and the commits, in a header 
         return array_map(fn (array $node): string => $node['ref'] ?? $node['type'], $parent['children']);
     };
 
-    $inTheList = fn (): array => array_slice(array_values(array_filter(childRefs($screen, 'log'), fn (?string $ref): bool => $ref !== null && ! str_starts_with($ref, 'day-'))), 0, 3);
+    $inTheList = fn (): array => array_slice(array_values(array_filter(childRefs($screen, 'log'), fn (?string $ref): bool => $ref !== null && ! str_starts_with($ref, 'day-'))), 0, 2);
 
     // Hidden and empty until there are new commits, but already in its place, so showing it never changes the list's shape.
     expect($besideTheList())->toBe(['log'])
-        ->and($inTheList())->toBe(['composer', 'new-commits-slot', 'commit-c1'])
+        ->and($inTheList())->toBe(['new-commits-slot', 'commit-c1'])
         ->and(nodeByRef($screen, 'new-commits-slot')['type'])->toBe('sticky_header')
         ->and(nodeByRef($screen, 'new-commits-slot')['layout']['display'] ?? null)->toBe(1)
         ->and(nodeByRef($screen, 'new-commits-slot')['children'] ?? [])->toBe([]);
@@ -346,7 +346,7 @@ it('puts the pill in the list between the composer and the commits, in a header 
     finishRefreshes($screen)->assertSee('1 new commit');
 
     expect($besideTheList())->toBe(['log'])
-        ->and($inTheList())->toBe(['composer', 'new-commits-slot', 'commit-c1'])
+        ->and($inTheList())->toBe(['new-commits-slot', 'commit-c1'])
         ->and(nodeByRef($screen, 'new-commits-slot')['layout']['display'] ?? null)->toBeNull()
         ->and(findNode(nodeByRef($screen, 'new-commits-slot'), fn (array $node): bool => ($node['ref'] ?? null) === 'new-commits'))->not->toBeNull();
 });

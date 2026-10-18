@@ -502,18 +502,6 @@ it('shares the commit link devnull sends through the share sheet, which has Copy
         ->assertNoNavigation();
 });
 
-it('starts the log with your avatar staged on the rail, like the web composer', function () {
-    Http::fake(['devnull.test/*' => Http::response(pageJson([commitJson()]))]);
-
-    $screen = Native::visit('/log')->assertSee('What did you ship?');
-
-    // A dashed ring in your lane: sixteen short dashes, each turned to follow the circle.
-    $dashes = findNodes(nodeByRef($screen, 'staged-avatar'), fn (array $node): bool => isset($node['props']['rotate']));
-
-    expect($dashes)->toHaveCount(16)
-        ->and(array_unique(array_map(fn (array $dash): ?string => $dash['style']['bg_color'] ?? null, $dashes)))->toBe([config('native-ui.theme.light.lane-3')]);
-});
-
 it('shows an author once per run, and starts a new run at each day', function () {
     $this->travelTo(now()->setDate(2026, 10, 15)->setTime(12, 0));
     $ada = userJson(['id' => 'u2', 'username' => 'ada', 'name' => 'Ada', 'lane' => 1]);

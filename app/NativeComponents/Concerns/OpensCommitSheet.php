@@ -20,9 +20,9 @@ use Closure;
  * your new commits puts it in place (see showCommitted()).
  *
  * What you write in it is stashed as you type, as on the web (see Stash): a
- * quote per commit quoted, and a new commit as the Log's composer's draft,
- * which the sheet shares, as the web's dialog does. Opened again, it starts
- * from the draft, marked as restored. It's forgotten once it's sent.
+ * quote per commit quoted, and a new commit under the web's composer draft.
+ * Opened again, it starts from the draft, marked as restored. It's forgotten
+ * once it's sent.
  *
  * The sheet keeps its commit while it slides away, so it doesn't empty on the
  * way down, and lets go of it once iOS says it's gone, however it was closed.
@@ -202,22 +202,7 @@ trait OpensCommitSheet
      */
     public function commitSheetClosed(): void
     {
-        $composed = $this->sheetView === 'compose';
-
         $this->forgetCommitSheet();
-
-        if ($composed) {
-            $this->composeSheetClosed();
-        }
-    }
-
-    /**
-     * The sheet's new commit has gone, sent or stashed. The Log's composer shares its draft, so it takes it as the
-     * sheet left it.
-     */
-    protected function composeSheetClosed(): void
-    {
-        //
     }
 
     /**
