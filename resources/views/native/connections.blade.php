@@ -18,7 +18,7 @@
         @else
             @foreach ($people as $person)
                 {{-- Everyone on your own Followers follows you, so it goes without saying there. --}}
-                @include('native.partials.connection', ['person' => $person, 'isMe' => $person->user->username === $viewer?->username, 'showsFollowsYou' => ! ($isOwn && $type === 'followers')])
+                @include('native.partials.connection', ['person' => $person, 'isMe' => $person->user->username === $viewer?->username, 'showsFollowsYou' => ! ($isOwn && $type === 'followers'), 'myColour' => $myColour])
             @endforeach
 
             @if ($nextCursor !== null)

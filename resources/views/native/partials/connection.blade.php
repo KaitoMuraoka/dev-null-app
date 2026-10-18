@@ -34,7 +34,7 @@
         @if (! $isMe)
             {{-- A button sizes to its label, so it fills a slot of its own. --}}
             <native:column :width="96" class="flex-shrink-0">
-                <native:button ref="follow-{{ $user->username }}" size="sm" :variant="$person->isFollowed ? 'secondary' : 'primary'" @press="toggleFollow('{{ $user->username }}')" class="w-full" a11y-hint="{{ $person->isFollowed ? 'Unfollows' : 'Follows' }} {{ $user->handle() }}">{{ $person->isFollowed ? 'Following' : 'Follow' }}</native:button>
+                <native:button ref="follow-{{ $user->username }}" size="sm" :variant="$person->isFollowed ? 'secondary' : $myColour" @press="toggleFollow('{{ $user->username }}')" class="w-full" a11y-hint="{{ $person->isFollowed ? 'Unfollows' : 'Follows' }} {{ $user->handle() }}">{{ $person->isFollowed ? 'Following' : 'Follow' }}</native:button>
             </native:column>
         @endif
     </native:row>

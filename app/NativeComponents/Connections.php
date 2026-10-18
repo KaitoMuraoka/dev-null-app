@@ -231,6 +231,7 @@ class Connections extends NativeComponent
             'isBlocked' => $this->unavailable === ErrorCode::UserBlocked->value,
             'isOwn' => $this->isMe($this->username),
             'viewer' => $this->me(),
+            'myColour' => $this->myColour(),
         ]);
     }
 }

@@ -80,6 +80,11 @@ dataset('main buttons', [
 
         return Native::visit('/log/users/ada');
     }, 'follow'],
+    'Follow, in a profile\'s followers' => [function (): TestableComponent {
+        serveApi(['GET /api/v1/users/ada/followers' => [pageJson([userJson(['id' => 'u3', 'username' => 'grace', 'name' => 'Grace', 'is_followed' => false, 'follows_you' => false])])]]);
+
+        return Native::visit('/log/users/ada/followers');
+    }, 'follow-grace'],
     'Reply' => [function (): TestableComponent {
         serveApi([
             'GET /api/v1/commits/c2' => [commitPageJson(commitJson(['id' => 'c2']))],
