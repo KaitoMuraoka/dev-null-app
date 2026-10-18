@@ -4,15 +4,20 @@
     @include('native.partials.commit-sheet')
 
     <native:list native:key="saved" ref="saved" class="w-full flex-1 bg-theme-surface" on-refresh="load" on-end-reached="loadMore" :end-reached-buffer="5">
-        {{-- What the web's Saved page says above the list: they're yours alone, last saved first. --}}
-        <native:column ref="saved-intro" class="w-full px-4 py-3 gap-1 bg-theme-surface">
-            <native:row class="gap-[6] items-center">
-                <native:icon :ios="\App\Icons\Lucide::LockKeyhole->ios()" :android="\App\Icons\Lucide::LockKeyhole->android()" :size="14" class="text-theme-ink-muted" />
-                <native:text class="text-sm text-theme-ink-muted">Only you</native:text>
-            </native:row>
-            <native:text class="w-full text-sm text-theme-ink-muted">Commits you want to come back to. Most recently saved first.</native:text>
+        {{--
+            What the web's Saved page says above the list: they're yours alone, last saved first. The hairline is in
+            the same row: as a list row of its own, iOS laid it out far taller than 1pt, with a gap either side.
+        --}}
+        <native:column ref="saved-intro" class="w-full bg-theme-surface">
+            <native:column class="w-full px-4 py-3 gap-1">
+                <native:row class="gap-[6] items-center">
+                    <native:icon :ios="\App\Icons\Lucide::LockKeyhole->ios()" :android="\App\Icons\Lucide::LockKeyhole->android()" :size="14" class="text-theme-ink-muted" />
+                    <native:text class="text-sm text-theme-ink-muted">Only you</native:text>
+                </native:row>
+                <native:text class="w-full text-sm text-theme-ink-muted">Commits you want to come back to. Most recently saved first.</native:text>
+            </native:column>
+            <native:column class="w-full h-[1] bg-theme-hairline" />
         </native:column>
-        <native:column class="w-full h-[1] bg-theme-hairline" />
 
         @if (! $loaded && $error === null)
             @foreach (range(1, 3) as $skeleton)
