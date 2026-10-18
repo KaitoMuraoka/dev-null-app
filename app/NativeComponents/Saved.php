@@ -236,6 +236,7 @@ class Saved extends NativeComponent
 
         return view('native.saved', [
             'viewer' => $this->me(),
+            'myColour' => $this->myColour(),
             'rows' => Timeline::feed($this->commits),
             'lastCommit' => $lastCommit,
         ]);

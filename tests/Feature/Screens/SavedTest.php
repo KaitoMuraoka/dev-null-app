@@ -1,7 +1,9 @@
 <?php
 
 use App\Devnull\ShownTabs;
+use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
+use Native\Mobile\Events\Alert\ButtonPressed;
 use Native\Mobile\Testing\Native;
 use Native\Mobile\Testing\TestableComponent;
 
@@ -51,10 +53,10 @@ it('lists the commits you saved, last saved first, in the rows of the log', func
         ->assertSee('Only you')
         ->assertSee('Commits you want to come back to. Most recently saved first.')
         ->assertSee('Saved s2')
-        ->assertElement('pressable', fn (array $node): bool => ($node['ref'] ?? null) === 'bookmark-s1')
         ->assertSee("You've reached the end of your saved commits.");
 
-    expect(savedIds($screen))->toBe(['s2', 's1']);
+    expect(savedIds($screen))->toBe(['s2', 's1'])
+        ->and(array_slice(menuItems($screen, 'more-s1')[0], 0, 2))->toBe(['save-s1', 'Unsave commit']);
 });
 
 it('opens on the saved commits kept last time, with no request and no skeleton, then refreshes behind them', function () {
@@ -106,7 +108,7 @@ it('takes a commit off the list once devnull says it is unsaved, and keeps it wh
         'DELETE /api/v1/commits/s2/bookmark' => [$status === 200 ? ['data' => savedCommit('s2', ['is_saved' => false])] : ['message' => 'Server Error'], $status],
     ]);
 
-    $screen = finishRefreshes(Native::visit('/saved'))->tap('bookmark-s2');
+    $screen = finishRefreshes(Native::visit('/saved'))->tap('save-s2');
 
     expect(savedIds($screen))->toBe($ids)
         ->and(array_column(kept('saved')['data'], 'id'))->toBe($ids)
@@ -136,7 +138,7 @@ it('starts again from the top when the last commit showing is unsaved and there 
         'GET /api/v1/saved' => [savedPage([savedCommit('s2'), savedCommit('s1')])],
     ]);
 
-    $screen = Native::visit('/saved')->tap('bookmark-s3')->assertDontSee('fatal: no saved commits yet');
+    $screen = Native::visit('/saved')->tap('save-s3')->assertDontSee('fatal: no saved commits yet');
 
     expect(showsLoading($screen->tree()))->toBeTrue();
 
@@ -196,13 +198,13 @@ it('shows a commit saved on another screen the next time it opens, and leaves ou
         'DELETE /api/v1/commits/s1/bookmark' => [['data' => savedCommit('s1', ['is_saved' => false])]],
     ]);
 
-    finishRefreshes(Native::visit('/log'))->tap('bookmark-c1');
+    finishRefreshes(Native::visit('/log'))->tap('save-c1');
 
     holdRefreshes();
     $saved = Native::visit('/saved')->assertSee('Worth keeping');
     expect(savedIds($saved))->toBe(['c1', 's1']);
 
-    Native::visit('/log')->tap('bookmark-s1');
+    Native::visit('/log')->tap('save-s1');
 
     holdRefreshes();
     expect(savedIds(Native::visit('/saved')))->toBe(['c1']);
@@ -221,7 +223,7 @@ it('drops a commit unsaved on its own page as soon as you come back, even past t
     $saved = Native::visit('/saved')->call('loadMore');
     expect(savedIds($saved))->toBe(['s2', 's1']);
 
-    $commit = $saved->tap('commit-s1')->assertNavigatedTo('/saved/commits/s1')->follow()->tap('bookmark-s1');
+    $commit = $saved->tap('commit-s1')->assertNavigatedTo('/saved/commits/s1')->follow()->tap('save-s1');
 
     expect(savedIds($commit->goBack()))->toBe(['s2']);
 });
@@ -236,11 +238,50 @@ it('keeps a commit saved again after it was unsaved', function () {
     ]);
 
     $commit = Native::visit('/saved/commits/s1');
-    $commit->tap('bookmark-s1')->tap('bookmark-s1');
+    $commit->tap('save-s1')->tap('save-s1');
 
     holdRefreshes();
     expect(savedIds(Native::visit('/saved')))->toBe(['s1']);
 });
+
+it('deletes your own saved commit from its menu, and lets its row go', function () {
+    $deleted = false;
+
+    serveApi(function (Request $request) use (&$deleted) {
+        if ($request->method() === 'DELETE') {
+            $deleted = true;
+
+            return Http::response(null, 204);
+        }
+
+        return Http::response(savedPage([
+            ...($deleted ? [] : [savedCommit('s2', ['body' => 'Delete me', 'author' => userJson()])]),
+            savedCommit('s1'),
+        ]));
+    });
+
+    $screen = finishRefreshes(Native::visit('/saved', platform: 'ios'))
+        ->tap('delete-s2')
+        ->emitNative(ButtonPressed::class, ['index' => 1, 'label' => 'Delete', 'id' => 'delete-commit'])
+        ->assertNativeCalled('Dialog.Toast', fn (array $params): bool => $params['message'] === 'rm s2 → /dev/null')
+        ->assertNoNavigation()
+        ->assertDontSee('Delete me');
+
+    expect(savedIds(finishRefreshes($screen)))->toBe(['s1'])
+        ->and(array_column(kept('saved')['data'], 'id'))->toBe(['s1']);
+});
+
+it('quotes and reports from Saved with your lane colour on the sheet', function (string $item, string $button) {
+    signIn(['lane' => 4]);
+    fakeApi(['GET /api/v1/saved' => [savedPage([savedCommit('s1')])]]);
+
+    $screen = finishRefreshes(Native::visit('/saved', platform: 'ios'))->tap("{$item}-s1");
+
+    expect(nodeByRef($screen, $button)['props']['variant'] ?? null)->toBe('lane-4');
+})->with([
+    'Quote' => ['quote', 'sheet-commit'],
+    'Report commit' => ['report', 'send-report'],
+]);
 
 it('opens commits and profiles on the Saved tab', function () {
     fakeApi(['GET /api/v1/saved' => [savedPage([savedCommit('s1')])]]);
