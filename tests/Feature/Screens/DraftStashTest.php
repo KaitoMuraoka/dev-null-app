@@ -1,8 +1,10 @@
 <?php
 
 use App\Devnull\Account;
+use App\Devnull\Data\Pasteis;
 use App\Devnull\Display;
 use App\Devnull\Stash;
+use Carbon\CarbonImmutable;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Native\Mobile\Events\Alert\ButtonPressed;
@@ -309,6 +311,38 @@ it('marks Reply on a commit with a stashed reply', function () {
         ->and(nodeByRef($screen, 'reply-to-c2')['props']['a11y_label'])->toBe('Reply, you have an unsent reply here')
         ->and(showsRef($screen, 'reply-stash-c1'))->toBeFalse()
         ->and(nodeByRef($screen, 'reply-to-c1')['props']['a11y_label'])->toBe('Reply');
+});
+
+it('marks Quote and Reply on a saved commit with a stashed draft', function () {
+    fakeApi(['GET /api/v1/saved' => [pageJson([commitJson(['id' => 'c1', 'is_saved' => true, 'author' => stashAda()])], path: 'http://devnull.test/api/v1/saved')]]);
+    stash('quote-c1', 'This, all of it.');
+    stash('reply-c1', 'A reply in progress');
+
+    $screen = finishRefreshes(Native::visit('/saved', platform: 'ios'));
+
+    expect(showsRef($screen, 'quote-stash-c1'))->toBeTrue()
+        ->and(showsRef($screen, 'reply-stash-c1'))->toBeTrue();
+});
+
+it('keeps the dots inside Quote and Reply in pastéis mode, beside the pastel, the Reply label and the replies link', function () {
+    app(Account::class)->rememberPasteis(new Pasteis(Pasteis::Daily, CarbonImmutable::parse('2026-10-18T00:00:00Z')));
+    fakeApi(['GET /api/v1/log/following' => [pageJson([
+        commitJson(['id' => 'c2', 'replies_count' => 3, 'author' => stashAda()]),
+        commitJson(['id' => 'c1', 'author' => stashAda()]),
+    ])]]);
+    stash('quote-c2', 'This, all of it.');
+    stash('reply-c2', 'A reply in progress');
+    stash('reply-c1', 'Another reply in progress');
+
+    $screen = Native::visit('/log', platform: 'ios');
+
+    // The dots sit inside the buttons, so the row has the same actions as without them.
+    expect(array_values(array_filter(childRefs($screen, 'actions-c2'))))->toBe(['star-c2', 'pastel-c2', 'quote-c2', 'reply-to-c2', 'replies-c2', 'more-c2'])
+        ->and(array_values(array_filter(childRefs($screen, 'actions-c1'))))->toBe(['star-c1', 'pastel-c1', 'quote-c1', 'reply-to-c1', 'more-c1'])
+        ->and(showsRef($screen, 'quote-stash-c2'))->toBeTrue()
+        ->and(showsRef($screen, 'reply-stash-c2'))->toBeTrue()
+        ->and(showsRef($screen, 'reply-stash-c1'))->toBeTrue()
+        ->and(findNode(nodeByRef($screen, 'reply-to-c1'), fn (array $node): bool => ($node['type'] ?? null) === 'text')['props']['text'] ?? null)->toBe('Reply');
 });
 
 // ── Signing out ────────────────────────────────
