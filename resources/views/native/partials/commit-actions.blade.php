@@ -1,6 +1,7 @@
 {{--
-    The action row under a commit, in the web's order. On the left: the star and its count, Quote, Reply, and in Commit
-    Blue "› N replies" when the row has no thread under it already. On the right: More.
+    The action row under a commit, in the web's order. On the left: the star and its count, in pastéis mode the pastel
+    and its count, Quote, Reply, and in Commit Blue "› N replies" when the row has no thread under it already. On the
+    right: More.
 
     The web's right side has the bookmark, copy link and Report, and a phone has no room for all three: a profile row
     with "› 3 replies" would need about 356pt of the 330pt it has. So they share More, which opens the platform's own
@@ -11,6 +12,10 @@
     star, Quote or Save commit, and your own commit's star is just its count, since you can't star it.
 
     Quote opens a sheet to write the quote in, over the commit being quoted (see commit-sheet).
+
+    The pastel is the web's: the pastel de nata and how many the commit was given, always, even 0. On someone else's
+    published commit it gives one more per tap; on your own, or one that isn't published, it's just the count. It
+    only shows in pastéis mode ($pasteis).
 
     Each action is at least 44pt wide and 36pt tall to tap, as Apple asks, with the row pulled in by the extra height so
     the commit keeps its rhythm. EDGE makes a pressable's whole box tappable, so the box is the target. Off the log,
@@ -35,6 +40,10 @@
 @php($canReact = $commit->isApproved() || $isOwn)
 @php($hasThread = $expandable && $commit->replyPreview !== null)
 @php($showsReplies = $withReplies && ! $hasThread && $repliesCount > 0)
+@php($pasteis ??= app(\App\Devnull\Account::class)->pasteis())
+@php($canGivePastel = $pasteis !== null && $viewer !== null && ! $isOwn && $commit->isApproved())
+@php($pastelLabel = \App\Devnull\Display::count($commit->pasteisCount, 'pastel', 'pastéis'))
+@php($pastelSize = $compact ? 18 : 20)
 @php($starLabel = ($commit->starred ? 'Unstar commit' : 'Star commit').($commit->starsCount > 0 ? ', '.\App\Devnull\Display::count($commit->starsCount, 'star', 'stars') : ''))
 <native:row ref="actions-{{ $commit->id }}" class="w-full -ml-2 -my-[6] items-center">
     @if ($canReact && $isOwn)
@@ -54,6 +63,20 @@
                 @endif
             </native:row>
         </native:pressable>
+    @endif
+
+    @if ($canGivePastel)
+        <native:pressable ref="pastel-{{ $commit->id }}" @press="givePastel('{{ $commit->id }}')" a11y-label="Give a pastel, {{ $pastelLabel }}, {{ $pasteis->left() }} left today">
+            <native:row class="min-w-[44] h-[36] px-2 gap-1 items-center">
+                <native:image :src="\App\Devnull\Data\Pasteis::Image" :width="$pastelSize" :height="$pastelSize" :fit="1" />
+                <native:text font="mono" class="{{ $labelSize }} text-theme-ink-muted">{{ $commit->pasteisCount }}</native:text>
+            </native:row>
+        </native:pressable>
+    @elseif ($pasteis !== null)
+        <native:row ref="pastel-count-{{ $commit->id }}" class="min-w-[44] h-[36] px-2 gap-1 items-center" a11y-label="{{ $pastelLabel }}">
+            <native:image :src="\App\Devnull\Data\Pasteis::Image" :width="$pastelSize" :height="$pastelSize" :fit="1" />
+            <native:text font="mono" class="{{ $labelSize }} text-theme-ink-muted">{{ $commit->pasteisCount }}</native:text>
+        </native:row>
     @endif
 
     @if ($withQuote && $canReact)

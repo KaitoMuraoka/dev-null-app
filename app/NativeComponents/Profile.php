@@ -2,6 +2,7 @@
 
 namespace App\NativeComponents;
 
+use App\Devnull\Account;
 use App\Devnull\Data\Commit;
 use App\Devnull\Data\Page;
 use App\Devnull\Data\Profile as ProfileData;
@@ -723,6 +724,7 @@ class Profile extends NativeComponent
             'pages' => $pages,
             'pageIndex' => array_search($this->tab, self::Tabs, true),
             'tabs' => array_values(self::Labels),
+            'pasteis' => app(Account::class)->pasteis(),
         ]);
     }
 

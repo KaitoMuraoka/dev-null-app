@@ -1,7 +1,7 @@
 {{--
     The profile's header, which the pager draws above its tabs (see profile.blade.php): the avatar ringed in their
-    lane, Follow or Edit on GitHub, who they are, what GitHub says about them, their counts, then their activity,
-    streaks and achievements. It scrolls up with the tab you're on until the tabs pin under the nav bar.
+    lane, Follow or Edit on GitHub, who they are, what GitHub says about them, their counts and, in pastéis mode, the
+    pastéis they've been given, then their activity, streaks and achievements. It scrolls up with the tab you're on until the tabs pin under the nav bar.
 --}}
 <native:column class="w-full bg-theme-surface">
     <native:column ref="profile-header" class="w-full px-4 pt-6 pb-4 gap-4">
@@ -94,6 +94,15 @@
                 @endif
             @endforeach
         </native:row>
+        @endif
+
+        {{-- In pastéis mode, as on the web: how many pastéis they have been given. --}}
+        @if (! $sketched && ($pasteis ?? null) !== null && $profile->pasteisReceived !== null)
+            <native:row ref="pasteis-received" class="w-full gap-[6] items-center" a11y-label="{{ $profile->pasteisReceived }} pastéis received">
+                <native:image :src="\App\Devnull\Data\Pasteis::Image" :width="20" :height="20" :fit="1" />
+                <native:text font="mono-medium" class="text-sm text-theme-ink">{{ $profile->pasteisReceived }}</native:text>
+                <native:text class="text-sm text-theme-ink-muted">pastéis received</native:text>
+            </native:row>
         @endif
     </native:column>
     <native:column class="w-full h-[1] bg-theme-hairline" />

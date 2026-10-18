@@ -26,8 +26,8 @@ use SensitiveParameter;
 /**
  * Your account, reached from your own profile, laid out like the web's profile
  * settings: your profile as devnull mirrors it from GitHub, with a sync, your
- * colour, the people you mute and block, then this phone's fingerprint,
- * signing out and deleting the account.
+ * colour, pastéis mode, the people you mute and block, then this phone's
+ * fingerprint, signing out and deleting the account.
  * Where the app talks to only shows when it isn't dev-null.sh.
  *
  * It opens on you as devnull last said (or as this phone remembers you) and
@@ -80,6 +80,15 @@ class ThisDevice extends NativeComponent
     public bool $savingLane = false;
 
     public ?string $laneError = null;
+
+    public bool $savingPasteisMode = false;
+
+    public ?string $pasteisModeError = null;
+
+    /**
+     * What the web says when the switch couldn't be saved.
+     */
+    public const string PasteisModeFailed = 'Could not save pastéis mode. Please try again.';
 
     /**
      * Whether devnull has an Apple ID linked to you, or null until it says.
@@ -199,6 +208,53 @@ class ThisDevice extends NativeComponent
     public function openSafety(): void
     {
         $this->navigate('/profile/safety');
+    }
+
+    /**
+     * Switches pastéis mode, as the web's switch does. The switch, and every
+     * screen's commits, take it at once, and devnull is told from the
+     * background. Flipped again before devnull answers, it's saved again once
+     * it has, so the last flip wins. When devnull says no, the switch goes
+     * back to what devnull has and the section says so in the web's words.
+     */
+    public function setPasteisMode(bool $enabled): void
+    {
+        if ($this->current === null || $this->current->pasteisMode === $enabled) {
+            return;
+        }
+
+        $this->pasteisModeError = null;
+        $this->current = $this->current->withPasteisMode($enabled);
+        app(Account::class)->rememberPasteis($this->current->pasteis());
+
+        if (! $this->savingPasteisMode) {
+            $this->savePasteisMode($enabled);
+        }
+    }
+
+    private function savePasteisMode(bool $enabled): void
+    {
+        $this->savingPasteisMode = true;
+
+        $this->writeInBackground('PUT', Client::PasteisModePath, ['enabled' => $enabled], function (array $json) use ($enabled): void {
+            $this->savingPasteisMode = false;
+
+            if ($this->current !== null && $this->current->pasteisMode !== $enabled) {
+                $this->savePasteisMode($this->current->pasteisMode);
+
+                return;
+            }
+
+            $this->takeMe($json);
+        }, function () use ($enabled): void {
+            $this->savingPasteisMode = false;
+            $this->pasteisModeError = self::PasteisModeFailed;
+
+            if ($this->current !== null) {
+                $this->current = $this->current->withPasteisMode(! $enabled);
+                app(Account::class)->rememberPasteis($this->current->pasteis());
+            }
+        });
     }
 
     /**
@@ -329,6 +385,7 @@ class ThisDevice extends NativeComponent
             'previewLane' => $this->chosenLane ?? $current?->automaticLane,
             'lanes' => $current === null ? [] : $this->laneOptions($current),
             'laneChanged' => $current !== null && $this->chosenLane !== $current->preferredLane,
+            'pasteisMode' => $current?->pasteisMode ?? false,
             'remote' => self::remote(),
             'offersApple' => AppleSignIn::isAvailable(),
             'appleStatus' => match ($this->appleLinked) {
@@ -385,8 +442,9 @@ class ThisDevice extends NativeComponent
 
     /**
      * Shows you as devnull sent you. A colour picked and not saved yet stays
-     * picked; otherwise the picker follows the one devnull has. Whether Apple
-     * is linked only comes with `GET /me`, so it's left to the refresh.
+     * picked; otherwise the picker follows the one devnull has. While the
+     * pastéis switch is saving, it keeps what it shows. Whether Apple is
+     * linked only comes with `GET /me`, so it's left to the refresh.
      *
      * @param  array<string, mixed>  $json
      */
@@ -400,6 +458,10 @@ class ThisDevice extends NativeComponent
 
         if ($this->current === null || $this->chosenLane === $this->current->preferredLane) {
             $this->chosenLane = $current->preferredLane;
+        }
+
+        if ($this->savingPasteisMode && $this->current !== null) {
+            $current = $current->withPasteisMode($this->current->pasteisMode);
         }
 
         return $this->current = $current;
@@ -419,6 +481,7 @@ class ThisDevice extends NativeComponent
 
         app(Account::class)->remember($current->user);
         app(Account::class)->rememberUnreadNotifications($current->unreadNotificationsCount);
+        app(Account::class)->rememberPasteis($current->pasteis());
         app(ResponseCache::class)->meChanged($json);
     }
 

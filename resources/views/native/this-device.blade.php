@@ -106,6 +106,24 @@
                     @endif
                 </native:column>
             </native:column>
+
+            {{--
+                The web's pastéis mode section, word for word: its heading and two lines, with the switch beside them.
+                The switch is the system's own (a UISwitch on iOS), which takes taps since NativePHP/mobile-air#545.
+            --}}
+            <native:column ref="pasteis-mode" class="w-full pt-10">
+                <native:row class="w-full px-4 gap-6 items-start">
+                    <native:column class="flex-1 gap-2">
+                        <native:text font="semibold" class="text-lg text-theme-ink">Pastéis mode</native:text>
+                        <native:text class="text-sm leading-relaxed text-theme-ink-muted">A little appreciation, fresh daily. Get 10 pastéis to give to other people’s commits, one per click. Your allowance resets at 00:00 UTC.</native:text>
+                        <native:text class="text-sm leading-relaxed text-theme-ink-muted">When off, all pastéis controls and counters are hidden. You still receive pastéis from others.</native:text>
+                    </native:column>
+                    <native:toggle ref="pasteis-mode-switch" :value="$pasteisMode" @change="setPasteisMode" a11y-label="Pastéis mode" />
+                </native:row>
+                @if ($pasteisModeError)
+                    <native:text ref="pasteis-mode-error" class="w-full px-4 pt-2 text-sm text-theme-destructive">{{ $pasteisModeError }}</native:text>
+                @endif
+            </native:column>
         @endif
 
         <native:column ref="safety" class="w-full pt-10">

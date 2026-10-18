@@ -29,10 +29,15 @@ composer setup
 
 For now the app tracks unreleased branches, which Composer pulls straight from GitHub:
 
-- `nativephp/mobile` on `feat/custom-icons`, which adds custom SVG icons ([NativePHP/mobile-air#544](https://github.com/NativePHP/mobile-air/pull/544)).
-- `nativephp/mobile-ui` on `combined/dev-null-app`, a branch just for this app. It's `feat/custom-icons` ([NativePHP/mobile-ui#132](https://github.com/NativePHP/mobile-ui/pull/132)) plus the fix that lets a swiping pager's lists run under the tab bar ([NativePHP/mobile-ui#134](https://github.com/NativePHP/mobile-ui/pull/134)).
+- `nativephp/mobile` on `combined/dev-null-app`, a branch just for this app. It's `feat/custom-icons`, which adds custom SVG icons ([NativePHP/mobile-air#544](https://github.com/NativePHP/mobile-air/pull/544)), plus the fix that stops the keyboard-dismiss tap swallowing taps on UIKit controls such as `native:toggle` and the Sign in with Apple button ([NativePHP/mobile-air#545](https://github.com/NativePHP/mobile-air/pull/545)).
+- `nativephp/mobile-ui` on `combined/dev-null-app`, a branch just for this app. It's `feat/custom-icons` ([NativePHP/mobile-ui#132](https://github.com/NativePHP/mobile-ui/pull/132)) plus:
+  - opening the iOS pager at its start page ([#131](https://github.com/NativePHP/mobile-ui/pull/131)) and running a swiping pager's lists under the tab bar ([#134](https://github.com/NativePHP/mobile-ui/pull/134)),
+  - a pager that reports its page once the swipe settles ([#135](https://github.com/NativePHP/mobile-ui/pull/135)) and draws its tabs natively ([#136](https://github.com/NativePHP/mobile-ui/pull/136)),
+  - button variants named after a theme colour ([#137](https://github.com/NativePHP/mobile-ui/pull/137)),
+  - a sticky header for lists ([#138](https://github.com/NativePHP/mobile-ui/pull/138)),
+  - a pager header that scrolls with the page showing ([#139](https://github.com/NativePHP/mobile-ui/pull/139)).
 
-Once those are released, the app goes back to tagged versions and the combined branch can be deleted.
+Once those are released, the app goes back to tagged versions and the combined branches can be deleted.
 
 ### Without plugin credentials
 
@@ -74,4 +79,4 @@ php artisan test
 
 ## License
 
-MIT. Geist and Geist Mono are under the SIL Open Font License, see `resources/fonts/OFL.txt`. The icons in `resources/icons` are from [Lucide](https://lucide.dev), as on the web, under the ISC License, see `resources/icons/LICENSE`.
+MIT. Geist and Geist Mono are under the SIL Open Font License, see `resources/fonts/OFL.txt`. The icons in `resources/icons` are from [Lucide](https://lucide.dev), as on the web, under the ISC License, see `resources/icons/LICENSE`. The pastel de nata in `public/images` is drawn from the web's own `public/pastel-de-nata.svg`.
