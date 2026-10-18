@@ -2,9 +2,14 @@
 
 namespace App\NativeComponents\Concerns;
 
+use App\Devnull\Account;
 use App\Devnull\Client;
 use App\Devnull\Data\Commit;
+use App\Devnull\Data\Pasteis;
 use App\Devnull\Data\User;
+use App\Devnull\ErrorCode;
+use App\Devnull\Exceptions\ApiException;
+use App\Devnull\ResponseCache;
 use Closure;
 use Native\Mobile\Attributes\On;
 use Native\Mobile\Events\Alert\ButtonPressed;
@@ -13,11 +18,12 @@ use Native\Mobile\Facades\Dialog;
 use Native\Mobile\Facades\Share;
 
 /**
- * The actions under a commit: the star, Quote, Reply, and the More menu's
- * Save commit, Share link, Report commit and Delete commit (Quote and Report
- * open a sheet, see OpensCommitSheet), plus opening its link preview or images
- * in the in-app browser, and "Show more" on a long one. Taps name the commit
- * rather than a URL, so a URL is never rebuilt from an attribute.
+ * The actions under a commit: the star, the pastel in pastéis mode, Quote,
+ * Reply, and the More menu's Save commit, Share link, Report commit and Delete
+ * commit (Quote and Report open a sheet, see OpensCommitSheet), plus opening
+ * its link preview or images in the in-app browser, and "Show more" on a long
+ * one. Taps name the commit rather than a URL, so a URL is never rebuilt from
+ * an attribute.
  *
  * A commit can be tapped where a row nests it too: the commit a row quotes,
  * and the replies a feed shows under a commit.
@@ -25,6 +31,7 @@ use Native\Mobile\Facades\Share;
 trait ShowsCommits
 {
     use OpensCommitSheet;
+    use WritesInBackground;
 
     public const string DeleteAlert = 'delete-commit';
 
@@ -119,6 +126,37 @@ trait ShowsCommits
     }
 
     /**
+     * Gives the commit a pastel, as the web's pastel button does in pastéis
+     * mode: one per tap, from the ten you get each day, on someone else's
+     * published commit. Its count goes up and your allowance down at once,
+     * and the pastel goes from the background, so you can keep tapping. When
+     * devnull turns one down, it comes back, and a toast says why in the web's
+     * words. With none left, the toast says so without asking devnull.
+     */
+    public function givePastel(string $id): void
+    {
+        $commit = $this->shownCommit($id);
+        $pasteis = app(Account::class)->pasteis();
+
+        if ($commit === null || $pasteis === null || ! $this->canStar($commit)) {
+            return;
+        }
+
+        if ($pasteis->left() === 0) {
+            Dialog::toast(Pasteis::Exhausted);
+
+            return;
+        }
+
+        app(Account::class)->rememberPasteis($pasteis->afterGiving());
+        $this->replaceShownCommit($commit->withMorePasteis(1));
+
+        $this->writeInBackground('POST', Client::pastelPath($id), null, fn (array $json) => $this->pastelGiven($id, $json), function (string $message, ?ApiException $exception = null) use ($id): void {
+            $this->pastelTurnedDown($id, $exception);
+        });
+    }
+
+    /**
      * Saves or unsaves the commit privately, the same way.
      */
     public function toggleBookmark(string $id): void
@@ -203,6 +241,38 @@ trait ShowsCommits
     }
 
     /**
+     * devnull took the pastel: the commit shows at least the count it sent,
+     * since others may still be on their way, and so does every kept copy.
+     *
+     * @param  array<string, mixed>  $json
+     */
+    private function pastelGiven(string $id, array $json): void
+    {
+        $fresh = Commit::fromArray(is_array($json['data'] ?? null) ? $json['data'] : []);
+        $shown = $this->shownCommit($id);
+
+        if ($shown !== null && $fresh->pasteisCount > $shown->pasteisCount) {
+            $this->replaceShownCommit($shown->withMorePasteis($fresh->pasteisCount - $shown->pasteisCount));
+        }
+
+        app(ResponseCache::class)->pastelGiven($json);
+
+        $pasteis = app(Account::class)->pasteis();
+        $remaining = $json['pasteis_remaining'] ?? null;
+
+        if ($pasteis === null || ! is_int($remaining)) {
+            return;
+        }
+
+        $pasteis = $pasteis->settledWith($remaining, Commit::date($json['pasteis_resets_at'] ?? null));
+        app(Account::class)->rememberPasteis($pasteis);
+
+        if ($pasteis->left() === 0) {
+            Dialog::toast(Pasteis::Exhausted);
+        }
+    }
+
+    /**
      * Deletes your commit on devnull, which takes it out of every list kept on
      * this phone, then the screen lets it go (see showDeleted()).
      */
@@ -233,6 +303,33 @@ trait ShowsCommits
     protected function showDeleted(string $id): void
     {
         $this->onResume();
+    }
+
+    /**
+     * devnull turned the pastel down, so it comes back off the commit. With
+     * none left today, you have none until the reset. A rate limit says so in
+     * devnull's words; anything else in the web's.
+     */
+    private function pastelTurnedDown(string $id, ?ApiException $exception): void
+    {
+        $shown = $this->shownCommit($id);
+
+        if ($shown !== null) {
+            $this->replaceShownCommit($shown->withMorePasteis(-1));
+        }
+
+        $exhausted = $exception?->is(ErrorCode::PasteisExhausted) === true;
+        $pasteis = app(Account::class)->pasteis();
+
+        if ($pasteis !== null) {
+            app(Account::class)->rememberPasteis($exhausted ? $pasteis->exhausted() : $pasteis->afterTakingBack());
+        }
+
+        Dialog::toast(match (true) {
+            $exhausted => Pasteis::Exhausted,
+            $exception?->is(ErrorCode::RateLimited) === true => $exception->firstError(),
+            default => Pasteis::CouldNotGive,
+        });
     }
 
     private function canReactTo(Commit $commit): bool

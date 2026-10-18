@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "5a87d12e362f405fff8841e0c4c7a81e",
+    "content-hash": "db9e34f24e114a45a188e38b4d6524f8",
     "packages": [
         {
             "name": "bacon/bacon-qr-code",
@@ -2717,16 +2717,16 @@
         },
         {
             "name": "nativephp/mobile",
-            "version": "dev-feat/custom-icons",
+            "version": "dev-combined/dev-null-app",
             "source": {
                 "type": "git",
                 "url": "https://github.com/NativePHP/mobile-air.git",
-                "reference": "ebfb62b73c62a94c48bdbd8d8de53005f855cb77"
+                "reference": "8c53c6b097fbc050686f8e23dfd55d7d8146bd1a"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/NativePHP/mobile-air/zipball/ebfb62b73c62a94c48bdbd8d8de53005f855cb77",
-                "reference": "ebfb62b73c62a94c48bdbd8d8de53005f855cb77",
+                "url": "https://api.github.com/repos/NativePHP/mobile-air/zipball/8c53c6b097fbc050686f8e23dfd55d7d8146bd1a",
+                "reference": "8c53c6b097fbc050686f8e23dfd55d7d8146bd1a",
                 "shasum": ""
             },
             "require": {
@@ -2833,10 +2833,10 @@
                 "nativephp"
             ],
             "support": {
-                "source": "https://github.com/NativePHP/mobile-air/tree/feat/custom-icons",
+                "source": "https://github.com/NativePHP/mobile-air/tree/combined/dev-null-app",
                 "issues": "https://github.com/NativePHP/mobile-air/issues"
             },
-            "time": "2026-10-16T13:13:23+00:00"
+            "time": "2026-10-18T16:49:53+00:00"
         },
         {
             "name": "nativephp/mobile-browser",
@@ -11075,7 +11075,7 @@
     "aliases": [
         {
             "package": "nativephp/mobile",
-            "version": "dev-feat/custom-icons",
+            "version": "dev-combined/dev-null-app",
             "alias": "4.6.0",
             "alias_normalized": "4.6.0.0"
         },
