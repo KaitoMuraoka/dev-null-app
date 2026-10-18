@@ -6,6 +6,7 @@ use App\Devnull\Data\Commit;
 use App\Devnull\Data\Page;
 use App\Devnull\ResponseCache;
 use App\Devnull\ShownTabs;
+use App\Devnull\Stash;
 use App\Devnull\Timeline;
 use App\NativeComponents\Concerns\ExpandsThreads;
 use App\NativeComponents\Concerns\OpensInTab;
@@ -233,9 +234,11 @@ class Saved extends NativeComponent
     public function render(): View
     {
         $lastCommit = $this->commits[array_key_last($this->commits) ?? -1] ?? null;
+        $viewer = $this->me();
 
         return view('native.saved', [
-            'viewer' => $this->me(),
+            'viewer' => $viewer,
+            'stashed' => app(Stash::class)->names($viewer?->id),
             'myColour' => $this->myColour(),
             'rows' => Timeline::feed($this->commits),
             'lastCommit' => $lastCommit,

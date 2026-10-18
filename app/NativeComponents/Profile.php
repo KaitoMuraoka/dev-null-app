@@ -10,6 +10,7 @@ use App\Devnull\Data\User;
 use App\Devnull\ErrorCode;
 use App\Devnull\Exceptions\ApiException;
 use App\Devnull\ShownTabs;
+use App\Devnull\Stash;
 use App\Devnull\Timeline;
 use App\Icons\Lucide;
 use App\NativeComponents\Concerns\ExpandsThreads;
@@ -721,6 +722,7 @@ class Profile extends NativeComponent
             'isMe' => $this->isMe(),
             'newCommitsLabel' => $this->newCommitsLabel(),
             'viewer' => $this->me(),
+            'stashed' => app(Stash::class)->names($this->me()?->id),
             'pages' => $pages,
             'pageIndex' => array_search($this->tab, self::Tabs, true),
             'tabs' => array_values(self::Labels),

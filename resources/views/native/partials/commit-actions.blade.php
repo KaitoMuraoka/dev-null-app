@@ -17,6 +17,10 @@
     published commit it gives one more per tap; on your own, or one that isn't published, it's just the count. It
     only shows in pastéis mode ($pasteis).
 
+    A commit with a quote or a reply you started and didn't send marks that button, as the web does with stash@{0}
+    beside its label. That doesn't fit the row, so here it's a dot after the icon or label, inside the button's 44pt.
+    The screen passes the names of the drafts it has kept ($stashed, see App\Devnull\Stash).
+
     Each action is at least 44pt wide and 36pt tall to tap, as Apple asks, with the row pulled in by the extra height so
     the commit keeps its rhythm. EDGE makes a pressable's whole box tappable, so the box is the target. Off the log,
     "› N replies" sits beside Reply, and both won't fit on a phone with their labels, so Reply is just its icon there.
@@ -36,6 +40,9 @@
 @php($iconSize = $compact ? 14 : 16)
 @php($labelSize = $compact ? 'text-xs' : 'text-[13px]')
 @php($viewer ??= app(\App\Devnull\Account::class)->user())
+@php($stashed ??= [])
+@php($hasQuoteStash = in_array('quote-'.$commit->id, $stashed, true))
+@php($hasReplyStash = in_array('reply-'.$commit->id, $stashed, true))
 @php($isOwn = $commit->author->id === $viewer?->id)
 @php($canReact = $commit->isApproved() || $isOwn)
 @php($hasThread = $expandable && $commit->replyPreview !== null)
@@ -80,20 +87,26 @@
     @endif
 
     @if ($withQuote && $canReact)
-        <native:pressable ref="quote-{{ $commit->id }}" @press="quoteCommit('{{ $commit->id }}')" a11y-label="Quote">
-            <native:column class="min-w-[44] h-[36] px-2 items-center justify-center">
+        <native:pressable ref="quote-{{ $commit->id }}" @press="quoteCommit('{{ $commit->id }}')" a11y-label="{{ $hasQuoteStash ? 'Quote, you have an unsent quote here' : 'Quote' }}">
+            <native:row class="min-w-[44] h-[36] px-2 gap-[3] items-center justify-center">
                 <native:icon :ios="\App\Icons\Lucide::Quote->ios()" :android="\App\Icons\Lucide::Quote->android()" :size="$iconSize" class="text-theme-ink-muted" />
-            </native:column>
+                @if ($hasQuoteStash)
+                    <native:column ref="quote-stash-{{ $commit->id }}" class="w-[5] h-[5] rounded-full bg-theme-ink-muted" />
+                @endif
+            </native:row>
         </native:pressable>
     @endif
 
     @if ($withReply)
-        <native:pressable ref="reply-to-{{ $commit->id }}" @press="replyTo('{{ $commit->id }}')" a11y-label="Reply">
+        <native:pressable ref="reply-to-{{ $commit->id }}" @press="replyTo('{{ $commit->id }}')" a11y-label="{{ $hasReplyStash ? 'Reply, you have an unsent reply here' : 'Reply' }}">
             <native:row class="min-w-[44] h-[36] px-2 gap-[6] items-center {{ $showsReplies ? 'justify-center' : '' }}">
                 <native:icon :ios="\App\Icons\Lucide::MessageSquareReply->ios()" :android="\App\Icons\Lucide::MessageSquareReply->android()" :size="$iconSize" class="text-theme-ink-muted" />
                 @unless ($showsReplies)
                     <native:text class="{{ $labelSize }} text-theme-ink-muted">Reply</native:text>
                 @endunless
+                @if ($hasReplyStash)
+                    <native:column ref="reply-stash-{{ $commit->id }}" class="w-[5] h-[5] -ml-[3] rounded-full bg-theme-ink-muted" />
+                @endif
             </native:row>
         </native:pressable>
     @endif

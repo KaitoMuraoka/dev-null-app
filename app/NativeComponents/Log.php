@@ -9,6 +9,7 @@ use App\Devnull\Data\User;
 use App\Devnull\LastVisit;
 use App\Devnull\ResponseCache;
 use App\Devnull\ShownTabs;
+use App\Devnull\Stash;
 use App\Devnull\Timeline;
 use App\Icons\Android;
 use App\Icons\Ios;
@@ -38,6 +39,10 @@ use Native\Mobile\Edge\NativeComponent;
  * can't tell whether the composer is on screen. It always opens the composer
  * in a sheet (see OpensCommitSheet), which leaves the log where you were in
  * it, and the commit goes on top as one from the composer does.
+ *
+ * The composer's draft is stashed as you type, as on the web (see Stash), so
+ * it's there again when the Log opens, marked as restored. The sheet shares
+ * it, as the web's dialog does, and the composer takes what the sheet left.
  *
  * It opens on the log as it was last time, then asks devnull again in the
  * background, and every 30 seconds while it's showing, as the web polls.
@@ -155,8 +160,15 @@ class Log extends NativeComponent
      */
     public int $composerKey = 0;
 
+    /**
+     * Whether the draft in the composer was stashed when it opened, which it marks until you empty it or drop it.
+     */
+    public bool $draftRestored = false;
+
     public function mount(): void
     {
+        $this->body = app(Stash::class)->get($this->me()?->id, 'commit');
+        $this->draftRestored = $this->body !== '';
         $this->log = app(ShownTabs::class)->get($this->me()?->id, 'log', self::Logs, 'following');
         $this->lastVisitAt = $this->lastVisitSeenAt();
         $this->showKept();
@@ -427,6 +439,28 @@ class Log extends NativeComponent
         $this->composing = true;
     }
 
+    /**
+     * Stashes the draft as it changes. An empty field forgets it, and isn't restored any more.
+     */
+    public function updatedBody(): void
+    {
+        app(Stash::class)->put($this->me()?->id, 'commit', $this->body);
+
+        if ($this->body === '') {
+            $this->draftRestored = false;
+        }
+    }
+
+    /**
+     * The web's drop, beside a restored draft: it's thrown away, and a fresh field takes its place.
+     */
+    public function dropStash(): void
+    {
+        $this->body = '';
+        $this->updatedBody();
+        $this->composerKey++;
+    }
+
     public function remaining(): int
     {
         return Commit::MaxLength - mb_strlen($this->body);
@@ -456,9 +490,26 @@ class Log extends NativeComponent
         }
 
         $this->body = '';
+        $this->updatedBody();
         $this->composing = false;
         $this->composerKey++;
         $this->showCommitted($commit);
+    }
+
+    /**
+     * The sheet wrote to the composer's stash, so the composer takes the draft as the sheet left it, in a fresh field.
+     */
+    protected function composeSheetClosed(): void
+    {
+        $draft = app(Stash::class)->get($this->me()?->id, 'commit');
+
+        if ($draft === $this->body) {
+            return;
+        }
+
+        $this->body = $draft;
+        $this->draftRestored = $draft !== '';
+        $this->composerKey++;
     }
 
     /**
@@ -724,6 +775,7 @@ class Log extends NativeComponent
             'composerOpen' => $this->composing || $this->body !== '',
             'remaining' => $this->remaining(),
             'canCommit' => $this->canCommit(),
+            'stashed' => app(Stash::class)->names($viewer?->id),
             'newCommitsLabel' => $this->newCommitsLabel(),
             'pages' => $pages,
             'pageIndex' => array_search($this->log, self::Logs, true),

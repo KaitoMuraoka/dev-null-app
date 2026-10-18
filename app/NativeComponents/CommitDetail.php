@@ -7,6 +7,7 @@ use App\Devnull\Data\Commit;
 use App\Devnull\Data\CommitThread;
 use App\Devnull\Data\Page;
 use App\Devnull\Display;
+use App\Devnull\Stash;
 use App\Devnull\Timeline;
 use App\Icons\Lucide;
 use App\NativeComponents\Concerns\OpensInTab;
@@ -30,6 +31,10 @@ use Native\Mobile\Edge\NativeComponent;
  *
  * It opens on the commit as it was last time, or opened from a row, on what
  * the row knew of it, then asks devnull for the rest behind it and fills it in.
+ *
+ * The reply is stashed as you type, per commit, as on the web (see Stash), so
+ * leaving the page keeps it, and it's in the reply bar again, marked as
+ * restored, when you come back to the commit.
  */
 class CommitDetail extends NativeComponent
 {
@@ -72,6 +77,11 @@ class CommitDetail extends NativeComponent
     public string $reply = '';
 
     /**
+     * Whether the reply was stashed when the page opened, which the bar marks until you empty it or drop it.
+     */
+    public bool $replyRestored = false;
+
+    /**
      * Whether the ancestors show above the commit, rather than "↑ N earlier commits".
      */
     public bool $earlierShown = false;
@@ -95,6 +105,8 @@ class CommitDetail extends NativeComponent
     public function mount(): void
     {
         $this->focusReply = $this->data('reply', false) === true;
+        $this->reply = app(Stash::class)->get($this->me()?->id, $this->replyStashName());
+        $this->replyRestored = $this->reply !== '';
         $this->showKept();
         $this->revalidate();
     }
@@ -229,8 +241,30 @@ class CommitDetail extends NativeComponent
         }
 
         $this->reply = '';
+        $this->updatedReply();
         $this->replies = [...$this->replies, $reply];
         $this->repliesShown = true;
+    }
+
+    /**
+     * Stashes the reply as it changes. An empty field forgets it, and isn't restored any more.
+     */
+    public function updatedReply(): void
+    {
+        app(Stash::class)->put($this->me()?->id, $this->replyStashName(), $this->reply);
+
+        if ($this->reply === '') {
+            $this->replyRestored = false;
+        }
+    }
+
+    /**
+     * The web's drop, beside a restored reply: it's thrown away, and the field starts again empty.
+     */
+    public function dropReplyStash(): void
+    {
+        $this->reply = '';
+        $this->updatedReply();
     }
 
     /**
@@ -315,6 +349,11 @@ class CommitDetail extends NativeComponent
         $this->repliesLoaded = true;
     }
 
+    private function replyStashName(): string
+    {
+        return 'reply-'.$this->id;
+    }
+
     private function threadPath(): string
     {
         return 'commits/'.rawurlencode($this->id);
@@ -337,10 +376,12 @@ class CommitDetail extends NativeComponent
     public function render(): View
     {
         $earlier = $this->earlierShown ? [] : $this->ancestors;
+        $viewer = $this->me();
 
         return view('native.commit-detail', [
             'myColour' => $this->myColour(),
-            'viewer' => $this->me(),
+            'viewer' => $viewer,
+            'stashed' => app(Stash::class)->names($viewer?->id),
             'pasteis' => app(Account::class)->pasteis(),
             'rows' => $this->commit === null ? [] : Timeline::thread(
                 [...($this->earlierShown ? $this->ancestors : []), $this->commit, ...$this->series],

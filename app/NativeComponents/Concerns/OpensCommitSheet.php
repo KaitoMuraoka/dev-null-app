@@ -5,6 +5,7 @@ namespace App\NativeComponents\Concerns;
 use App\Devnull\Client;
 use App\Devnull\Data\Commit;
 use App\Devnull\ReportReason;
+use App\Devnull\Stash;
 use Closure;
 
 /**
@@ -18,9 +19,13 @@ use Closure;
  * it. Once devnull has the commit the sheet goes, and a screen that lists
  * your new commits puts it in place (see showCommitted()).
  *
+ * What you write in it is stashed as you type, as on the web (see Stash): a
+ * quote per commit quoted, and a new commit as the Log's composer's draft,
+ * which the sheet shares, as the web's dialog does. Opened again, it starts
+ * from the draft, marked as restored. It's forgotten once it's sent.
+ *
  * The sheet keeps its commit while it slides away, so it doesn't empty on the
- * way down, and forgets it and any draft once iOS says it's gone, however it
- * was closed.
+ * way down, and lets go of it once iOS says it's gone, however it was closed.
  */
 trait OpensCommitSheet
 {
@@ -51,6 +56,11 @@ trait OpensCommitSheet
      * The commit you're writing in the sheet, quoting its commit or not.
      */
     public string $sheetBody = '';
+
+    /**
+     * Whether the sheet opened on a stashed draft, which it marks until you empty it or drop it.
+     */
+    public bool $sheetRestored = false;
 
     /**
      * Why devnull didn't take the report or the commit, shown in the sheet.
@@ -113,6 +123,7 @@ trait OpensCommitSheet
         $this->sheetCommit = $commit;
         $this->sheetView = 'quote';
         $this->sheetOpen = true;
+        $this->restoreSheetDraft();
     }
 
     /**
@@ -123,6 +134,34 @@ trait OpensCommitSheet
         $this->forgetCommitSheet();
         $this->sheetView = 'compose';
         $this->sheetOpen = true;
+        $this->restoreSheetDraft();
+    }
+
+    /**
+     * Stashes the draft as it changes. An empty field forgets it, and isn't restored any more.
+     */
+    public function updatedSheetBody(): void
+    {
+        $name = $this->sheetStashName();
+
+        if (! $this->sheetOpen || $name === null) {
+            return;
+        }
+
+        app(Stash::class)->put($this->me()?->id, $name, $this->sheetBody);
+
+        if ($this->sheetBody === '') {
+            $this->sheetRestored = false;
+        }
+    }
+
+    /**
+     * The web's drop, beside a restored draft: it's thrown away, and the field starts again empty.
+     */
+    public function dropSheetStash(): void
+    {
+        $this->sheetBody = '';
+        $this->updatedSheetBody();
     }
 
     /**
@@ -132,9 +171,10 @@ trait OpensCommitSheet
     public function commitFromSheet(): void
     {
         $quoted = $this->sheetView === 'quote' ? $this->sheetCommit : null;
+        $stashName = $this->sheetStashName();
         $body = trim($this->sheetBody);
 
-        if (($quoted === null && $this->sheetView !== 'compose') || mb_strlen($body) < Commit::MinLength || mb_strlen($body) > Commit::MaxLength) {
+        if ($stashName === null || mb_strlen($body) < Commit::MinLength || mb_strlen($body) > Commit::MaxLength) {
             return;
         }
 
@@ -144,6 +184,7 @@ trait OpensCommitSheet
             return;
         }
 
+        app(Stash::class)->put($this->me()?->id, $stashName, '');
         $this->sheetOpen = false;
         $this->showCommitted($commit);
     }
@@ -157,11 +198,26 @@ trait OpensCommitSheet
     }
 
     /**
-     * iOS says the sheet has gone, swiped away or closed from here. What was drafted in it goes with it.
+     * iOS says the sheet has gone, swiped away or closed from here. What was drafted in it stays stashed.
      */
     public function commitSheetClosed(): void
     {
+        $composed = $this->sheetView === 'compose';
+
         $this->forgetCommitSheet();
+
+        if ($composed) {
+            $this->composeSheetClosed();
+        }
+    }
+
+    /**
+     * The sheet's new commit has gone, sent or stashed. The Log's composer shares its draft, so it takes it as the
+     * sheet left it.
+     */
+    protected function composeSheetClosed(): void
+    {
+        //
     }
 
     /**
@@ -194,7 +250,28 @@ trait OpensCommitSheet
         $this->reportReason = '';
         $this->reportDetails = '';
         $this->sheetBody = '';
+        $this->sheetRestored = false;
         $this->sheetError = null;
+    }
+
+    /**
+     * The draft the sheet stashes, by the web's name for it, or null when it isn't a composer.
+     */
+    private function sheetStashName(): ?string
+    {
+        return match (true) {
+            $this->sheetView === 'compose' => 'commit',
+            $this->sheetView === 'quote' && $this->sheetCommit !== null => 'quote-'.$this->sheetCommit->id,
+            default => null,
+        };
+    }
+
+    private function restoreSheetDraft(): void
+    {
+        $name = $this->sheetStashName();
+
+        $this->sheetBody = $name === null ? '' : app(Stash::class)->get($this->me()?->id, $name);
+        $this->sheetRestored = $this->sheetBody !== '';
     }
 
     /**
