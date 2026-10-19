@@ -32,6 +32,20 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Image cache
+    |--------------------------------------------------------------------------
+    |
+    | Avatars, commit images and link preview images are downloaded in the
+    | background the first time an answer from devnull carries them, then drawn
+    | from the device for this many hours instead of being fetched again each
+    | time they scroll into view. 0 turns the cache off.
+    |
+    */
+
+    'image_cache_hours' => (int) env('DEVNULL_IMAGE_CACHE_HOURS', 24),
+
+    /*
+    |--------------------------------------------------------------------------
     | Sign in with Apple
     |--------------------------------------------------------------------------
     |

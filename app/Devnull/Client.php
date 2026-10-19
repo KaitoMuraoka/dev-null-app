@@ -410,6 +410,7 @@ final readonly class Client
     {
         $json = $this->json($this->send('GET', $path, $query));
         $this->cache->put($path, $query, $json);
+        ImageCache::prefetch($json);
 
         return $json;
     }
