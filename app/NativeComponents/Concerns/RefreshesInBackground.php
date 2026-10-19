@@ -9,6 +9,7 @@ use App\Devnull\Exceptions\ApiException;
 use App\Devnull\Exceptions\KeychainUnavailable;
 use App\Devnull\Exceptions\Unauthenticated;
 use App\Devnull\FetchInBackground;
+use App\Devnull\ImageCache;
 use App\Devnull\ResponseCache;
 use Closure;
 use Throwable;
@@ -177,6 +178,7 @@ trait RefreshesInBackground
             $json = is_array($result['json'] ?? null) ? $result['json'] : [];
 
             app(ResponseCache::class)->put($path, $query, $json);
+            ImageCache::prefetch($json);
             $this->refreshFailed = false;
             $this->error = null;
             $apply($json);
