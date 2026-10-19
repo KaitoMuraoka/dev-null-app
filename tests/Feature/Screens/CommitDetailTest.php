@@ -456,16 +456,29 @@ it('lets a drag that starts on an ancestor or a reply scroll the thread', functi
     expect(pressFeedbackInScroller($screen))->toBe([]);
 });
 
-it('paints the reply bar solid, with its hairline, so the replies never show through', function () {
+it('paints the reply bar solid on Android, with its hairline, so the replies never show through', function () {
+    fakeThread();
+
+    $screen = Native::visit('/log/commits/c2', platform: 'android');
+    $bar = findNode($screen->tree(), fn (array $node): bool => ($node['type'] ?? null) === 'bottom_bar');
+
+    expect($bar['children'][0]['ref'] ?? null)->toBe('reply-bar')
+        ->and($bar['children'][0]['style']['bg_color'] ?? null)->toBe(config('native-ui.theme.light.surface'))
+        ->and($bar['children'][0]['props']['dark_bg_color'] ?? null)->toBe(config('native-ui.theme.dark.surface'))
+        ->and($bar['children'][0]['children'][0]['style']['bg_color'] ?? null)->toBe(config('native-ui.theme.light.hairline'))
+        ->and(nodeByRef($screen, 'reply-field')['props']['glass'] ?? null)->toBeNull();
+});
+
+it('leaves the reply bar bare on iOS and floats the field on Liquid Glass', function () {
     fakeThread();
 
     $screen = Native::visit('/log/commits/c2', platform: 'ios');
     $bar = findNode($screen->tree(), fn (array $node): bool => ($node['type'] ?? null) === 'bottom_bar');
 
     expect($bar['children'][0]['ref'] ?? null)->toBe('reply-bar')
-        ->and($bar['children'][0]['style']['bg_color'] ?? null)->toBe(config('native-ui.theme.light.surface'))
-        ->and($bar['children'][0]['props']['dark_bg_color'] ?? null)->toBe(config('native-ui.theme.dark.surface'))
-        ->and($bar['children'][0]['children'][0]['style']['bg_color'] ?? null)->toBe(config('native-ui.theme.light.hairline'));
+        ->and($bar['children'][0]['style']['bg_color'] ?? null)->toBeNull()
+        ->and($bar['children'][0]['children'][0]['style']['bg_color'] ?? null)->toBeNull()
+        ->and(nodeByRef($screen, 'reply-field')['props']['glass'] ?? null)->toBe(1);
 });
 
 it('ends the page above the reply bar, and further as the draft grows', function () {

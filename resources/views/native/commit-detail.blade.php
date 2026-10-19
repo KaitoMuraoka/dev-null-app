@@ -102,14 +102,16 @@
     @if ($commit)
         {{--
             The bar is painted from its first child's background: native:bottom-bar takes no classes of its own, so
-            the surface and the hairline above it belong to this column, or the replies show through.
+            the surface and the hairline above it belong to this column, or the replies show through. On iOS the bar
+            is bare and the field is a Liquid Glass plate instead, the way the HIG floats controls over content; the
+            hairline stays as a clear 1pt so the bar keeps the height Display::ReplyBarHeight counts on.
         --}}
         <native:bottom-bar>
-            <native:column ref="reply-bar" class="w-full bg-theme-surface">
-                <native:column class="w-full h-[1] bg-theme-hairline" />
+            <native:column ref="reply-bar" class="w-full android:bg-theme-surface">
+                <native:column class="w-full h-[1] android:bg-theme-hairline" />
                 <native:row class="w-full px-4 py-2 gap-3 items-center">
                     {{-- EDGE sends no focus event, so a press on the field is how the page learns you're replying. --}}
-                    <native:column ref="reply-field" class="flex-1" @pressUp="replyTapped">
+                    <native:column ref="reply-field" class="flex-1 ios:px-4 ios:rounded-[18] ios:glass" @pressUp="replyTapped">
                         <native:bare-text-input
                             ref="reply-input"
                             class="w-full py-2 text-theme-ink"
