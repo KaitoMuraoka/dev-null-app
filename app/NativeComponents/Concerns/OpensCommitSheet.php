@@ -180,7 +180,7 @@ trait OpensCommitSheet
         $stashName = $this->sheetStashName();
         $body = trim($this->sheetBody);
 
-        if ($stashName === null || $this->sheetIssue !== null || mb_strlen($body) < Commit::MinLength || mb_strlen($body) > Commit::MaxLength) {
+        if ($stashName === null || $this->sheetIssue !== null || ! Commit::fits($body)) {
             return;
         }
 
@@ -196,7 +196,8 @@ trait OpensCommitSheet
     }
 
     /**
-     * Done: the sheet goes.
+     * Done, after a report, and Cancel, in the composer's bar: the sheet goes. A draft in it stays stashed, as when
+     * it's swiped away, so this mustn't forget it.
      */
     public function hideCommitSheet(): void
     {

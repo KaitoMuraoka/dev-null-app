@@ -22,18 +22,17 @@
 <native:bottom-sheet ref="sheet" :visible="$sheetOpen" :detents="in_array($sheetView, ['reported', 'issued'], true) ? '0.3' : 'large'" @dismiss="commitSheetClosed">
     @if ($sheetCommit || in_array($sheetView, ['compose', 'issued'], true))
         @if (in_array($sheetView, ['quote', 'compose'], true))
-            @php($sheetLength = mb_strlen(trim($sheetBody)))
             @php($quoting = $sheetView === 'quote')
             @php($issueCommand = $sheetIssue === null ? null : \App\Devnull\IssueCommand::from($sheetIssue))
             <native:column class="w-full flex-1">
                 <native:row class="w-full px-3 ios:mt-4 min-h-[56] items-center gap-2">
-                    <native:button ref="sheet-cancel" variant="ghost" class="min-w-[96] ios:glass" @press="hideCommitSheet">Cancel</native:button>
+                    <native:button ref="sheet-cancel" variant="ghost" class="min-w-[96] ios:glass" a11y-hint="Keeps your draft for next time" @press="hideCommitSheet">Cancel</native:button>
                     <native:text font="semibold" class="flex-1 text-center text-base android:text-lg text-theme-ink" :max-lines="1">{{ $quoting ? 'Quote '.$sheetCommit->author->handle() : 'New commit' }}</native:text>
                     @if ($issueCommand)
                         {{-- The label stays put while it spins, so the button keeps its size. --}}
-                        <native:button ref="sheet-open-issue" :variant="\Native\Mobile\Platform::isIos() ? $myColour : 'ghost'" class="min-w-[96] ios:glass:prominent" :loading="$openingIssue" :disabled="$openingIssue || $sheetLength < \App\Devnull\Data\Commit::MinLength || $sheetLength > \App\Devnull\Data\Commit::MaxLength" @press="openIssueFromSheet">Open issue</native:button>
+                        <native:button ref="sheet-open-issue" :variant="\Native\Mobile\Platform::isIos() ? $myColour : 'ghost'" class="min-w-[96] ios:glass:prominent" :loading="$openingIssue" :disabled="$openingIssue || ! \App\Devnull\Data\Commit::fits($sheetBody)" @press="openIssueFromSheet">Open issue</native:button>
                     @else
-                        <native:button ref="sheet-commit" :variant="\Native\Mobile\Platform::isIos() ? $myColour : 'ghost'" class="min-w-[96] ios:glass:prominent" :disabled="$sheetLength < \App\Devnull\Data\Commit::MinLength || $sheetLength > \App\Devnull\Data\Commit::MaxLength" @press="commitFromSheet">Commit</native:button>
+                        <native:button ref="sheet-commit" :variant="\Native\Mobile\Platform::isIos() ? $myColour : 'ghost'" class="min-w-[96] ios:glass:prominent" :disabled="! \App\Devnull\Data\Commit::fits($sheetBody)" @press="commitFromSheet">Commit</native:button>
                     @endif
                 </native:row>
                 <native:column class="w-full h-[1] bg-theme-hairline" />

@@ -123,7 +123,7 @@ trait DraftsIssues
         $command = $this->sheetIssue === null ? null : IssueCommand::tryFrom($this->sheetIssue);
         $body = trim($this->sheetBody);
 
-        if ($command === null || $this->openingIssue || ! $this->canDraftIssue() || mb_strlen($body) < Commit::MinLength || mb_strlen($body) > Commit::MaxLength) {
+        if ($command === null || $this->openingIssue || ! $this->canDraftIssue() || ! Commit::fits($body)) {
             return;
         }
 
