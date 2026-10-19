@@ -66,7 +66,38 @@ final readonly class Client
      */
     public const string PasteisModePath = 'me/pasteis-mode';
 
+    /**
+     * Your Remotes inbox, and where Remotes are switched on and off and their settings saved, as on the web.
+     */
+    public const string RemotesPath = 'remotes';
+
+    public const string RemotesSwitchPath = 'me/remotes';
+
+    public const string RemotePreferencesPath = 'me/remote-preferences';
+
+    /** Who you could start a remote or an org with, as the web's pickers ask. */
+    public const string RemoteCandidatesPath = 'remotes/candidates';
+
+    public const string OrgsPath = 'remotes/orgs';
+
     public function __construct(private DeviceKey $deviceKey, private string $baseUrl, private ResponseCache $cache) {}
+
+    /**
+     * Where a Remotes thread lives: with a person, by their username, or an org, by its id. Its messages are pushed
+     * to the same path, and its read, typing and stash live beside it.
+     */
+    public static function threadPath(string $username = '', ?string $orgId = null): string
+    {
+        return $orgId === null ? 'remotes/@'.rawurlencode($username) : 'remotes/orgs/'.rawurlencode($orgId);
+    }
+
+    /**
+     * Where a message's reactions are left and taken back.
+     */
+    public static function reactionsPath(int $messageId): string
+    {
+        return 'remotes/messages/'.$messageId.'/reactions';
+    }
 
     /**
      * Where a pastel is given to a commit, one per request.
@@ -210,6 +241,61 @@ final readonly class Client
     public function saved(?string $cursor = null): Page
     {
         return Page::fromArray($this->get('saved', ['cursor' => $cursor]), Commit::fromArray(...));
+    }
+
+    /**
+     * A page of your Remotes inbox, newest first, for the web's Open, Fetched
+     * or Stashed tab, continuing before a conversation.
+     *
+     * @return array<string, mixed>
+     */
+    public function remotes(?string $tab = null, ?string $before = null): array
+    {
+        return $this->get(self::RemotesPath, ['tab' => $tab, 'before' => $before]);
+    }
+
+    /**
+     * People matching a term, each with the web's reason you can't message
+     * them, or add them to a new org, when there is one. Never kept: who you
+     * can reach changes as people follow, block and turn Remotes off.
+     *
+     * @return list<array{user: User, reason: string|null}>
+     */
+    public function remoteCandidates(string $term, string $for): array
+    {
+        $candidates = $this->json($this->send('GET', self::RemoteCandidatesPath, ['q' => $term, 'for' => $for]))['candidates'] ?? null;
+
+        return array_values(array_map(
+            fn (array $candidate): array => [
+                'user' => User::fromArray($candidate['user']),
+                'reason' => is_string($candidate['reason'] ?? null) ? $candidate['reason'] : null,
+            ],
+            array_filter(is_array($candidates) ? $candidates : [], fn (mixed $candidate): bool => is_array($candidate) && is_array($candidate['user'] ?? null)),
+        ));
+    }
+
+    /**
+     * Starts an org, as the web's New org does: you maintain it, and the
+     * people named contribute. Answers its id.
+     *
+     * @param  list<string>  $members
+     */
+    public function createOrg(?string $name, array $members): string
+    {
+        $org = $this->json($this->send('POST', self::OrgsPath, payload: ['name' => $name, 'members' => $members]))['org'] ?? null;
+
+        return is_array($org) && is_string($org['id'] ?? null) ? $org['id'] : '';
+    }
+
+    /**
+     * The messages of a Remotes thread before one, as the web loads them when
+     * you scroll back.
+     *
+     * @return array<string, mixed>
+     */
+    public function olderMessages(string $threadPath, int $before): array
+    {
+        return $this->get($threadPath.'/messages', ['before' => (string) $before]);
     }
 
     /**

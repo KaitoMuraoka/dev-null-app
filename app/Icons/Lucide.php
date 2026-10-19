@@ -22,6 +22,7 @@ enum Lucide
 {
     case GitCommitVertical;
     case Bell;
+    case MessagesSquare;
     case UserRound;
     case Settings2;
     case MessageSquareReply;
@@ -55,6 +56,13 @@ enum Lucide
     case VolumeX;
     case Volume2;
     case Ban;
+    case Archive;
+    case ArchiveRestore;
+    case SquarePen;
+    case UsersRound;
+    case Search;
+    case Reply;
+    case SmilePlus;
 
     // The achievement badges, named as devnull names their icons (see forBadge()).
     case Terminal;
@@ -114,6 +122,7 @@ enum Lucide
         $name = match ($this) {
             self::GitCommitVertical => 'git-commit-vertical',
             self::Bell => 'bell',
+            self::MessagesSquare => 'messages-square',
             self::UserRound => 'user-round',
             self::Settings2 => 'settings-2',
             self::MessageSquareReply => 'message-square-reply',
@@ -136,6 +145,13 @@ enum Lucide
             self::VolumeX => 'volume-x',
             self::Volume2 => 'volume-2',
             self::Ban => 'ban',
+            self::Archive => 'archive',
+            self::ArchiveRestore => 'archive-restore',
+            self::SquarePen => 'square-pen',
+            self::UsersRound => 'users-round',
+            self::Search => 'search',
+            self::Reply => 'reply',
+            self::SmilePlus => 'smile-plus',
             self::Terminal => 'terminal',
             self::FileCode => 'file-code',
             self::Flame => 'flame',
