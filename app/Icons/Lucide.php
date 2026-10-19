@@ -63,6 +63,8 @@ enum Lucide
     case Search;
     case Reply;
     case SmilePlus;
+    case Lightbulb;
+    case Bug;
 
     // The achievement badges, named as devnull names their icons (see forBadge()).
     case Terminal;
@@ -152,6 +154,8 @@ enum Lucide
             self::Search => 'search',
             self::Reply => 'reply',
             self::SmilePlus => 'smile-plus',
+            self::Lightbulb => 'lightbulb',
+            self::Bug => 'bug',
             self::Terminal => 'terminal',
             self::FileCode => 'file-code',
             self::Flame => 'flame',

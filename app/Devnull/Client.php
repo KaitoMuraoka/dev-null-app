@@ -80,6 +80,11 @@ final readonly class Client
 
     public const string OrgsPath = 'remotes/orgs';
 
+    /**
+     * Where a `/feature` or `/bug` draft goes, to be opened as an issue upstream.
+     */
+    public const string IssuesPath = 'issues';
+
     public function __construct(private DeviceKey $deviceKey, private string $baseUrl, private ResponseCache $cache) {}
 
     /**
