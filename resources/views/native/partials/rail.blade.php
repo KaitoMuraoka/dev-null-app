@@ -12,7 +12,6 @@
       null        no node; a $previous segment then runs the full height of the row
     $endsWithDot stops the $tail 20pt above the bottom at a lane dot, as the web ends a commit that's alone in its run.
     $replyTail runs a dashed line in the lane on down from the node, or from that dot, to the replies under the row.
-    It's $replyDashes long when it starts at the node, enough for the row, since PHP can't know its height.
     $avatarSize draws the avatar's ring smaller than its 48pt, centred in the same place.
 --}}
 @php($previous ??= null)
@@ -22,7 +21,6 @@
 @php($tailDashes ??= 3)
 @php($endsWithDot ??= false)
 @php($replyTail ??= false)
-@php($replyDashes ??= 40)
 @php($avatarSize ??= 48)
 @php($center = 32)
 @php($endDot = 20)
@@ -48,9 +46,9 @@
     @endif
 
     @if ($replyTail && $endsWithDot)
-        @include('native.partials.dashed-line', ['position' => 'bottom-0 h-['.$endDot.']', 'left' => 31.5, 'colour' => $segment($lane), 'dashes' => 3])
+        @include('native.partials.dashed-line', ['position' => 'bottom-0 h-['.$endDot.']', 'left' => 31.5, 'lane' => $lane])
     @elseif ($replyTail)
-        @include('native.partials.dashed-line', ['position' => 'top-['.($node === 'dot' ? $center - 9 : $center).'] bottom-0', 'left' => 31.5, 'colour' => $segment($lane), 'dashes' => $replyDashes])
+        @include('native.partials.dashed-line', ['position' => 'top-['.($node === 'dot' ? $center - 9 : $center).'] bottom-0', 'left' => 31.5, 'lane' => $lane])
     @endif
 
     @if ($endsWithDot && $tail !== null)
@@ -81,7 +79,7 @@
                 @include('native.partials.rail-avatar', ['user' => $user, 'lane' => $lane, 'staged' => $node === 'staged'])
             @elseif ($node === 'tombstone')
                 <native:column :width="48" :height="48" class="rounded-full bg-theme-surface">
-                    @include('native.partials.dashed-ring', ['size' => 48, 'colour' => 'bg-theme-rail'])
+                    @include('native.partials.dashed-ring', ['size' => 48, 'lane' => \App\Devnull\Lane::Rail])
                 </native:column>
             @elseif ($node === 'skeleton')
                 <native:stack :width="48" :height="48" center class="rounded-full bg-theme-surface">

@@ -89,7 +89,7 @@
                                     <native:stack :width="38" :height="38" center class="rounded-full border-2 {{ $option['chosen'] ? 'border-theme-'.Lane::token($option['lane']) : 'border-transparent' }}">
                                         @if ($option['auto'])
                                             <native:column :width="28" :height="28">
-                                                @include('native.partials.dashed-ring', ['size' => 28, 'colour' => 'bg-theme-'.Lane::token($option['lane'])])
+                                                @include('native.partials.dashed-ring', ['size' => 28, 'lane' => $option['lane']])
                                                 <native:column class="absolute top-[9] left-[9] w-[10] h-[10] rounded-full bg-theme-{{ Lane::token($option['lane']) }}" />
                                             </native:column>
                                         @elseif ($option['lane'] === null)
