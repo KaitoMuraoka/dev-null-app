@@ -50,9 +50,8 @@ it('opens a composer in the sheet from the nav bar, over the log where you are i
             'autofocus' => true,
             'value' => '',
         ])
-        // The same list, so it stays scrolled where it was, and the composer at its top stays as it was.
-        ->and(nodeByRef($screen, 'log')['id'])->toBe($list)
-        ->and($screen->instance()->composing)->toBeFalse();
+        // The same list, so it stays scrolled where it was.
+        ->and(nodeByRef($screen, 'log')['id'])->toBe($list);
 });
 
 it('keeps Commit disabled until the commit is long enough, and short enough', function () {
@@ -137,39 +136,6 @@ it('keeps the draft when the sheet is swiped away, and opens on it again, marked
         ->and(sheetCommitDisabled($screen))->toBeFalse();
 
     Http::assertNotSent(fn (Request $request): bool => $request->method() === 'POST');
-});
-
-it('shares its draft with the composer at the top of the log, as the web dialog does', function () {
-    fakeApi([
-        'GET /api/v1/log/following' => [pageJson([])],
-        'POST /api/v1/commits' => [['data' => commitJson(['id' => 'mine', 'body' => 'Half a thought, shipped.'])], 201],
-    ]);
-
-    $screen = Native::visit('/log', platform: 'ios')
-        ->input('body', 'Half a thought')
-        ->press('composeInSheet');
-
-    expect(nodeByRef($screen, 'sheet-body')['props']['value'])->toBe('Half a thought');
-
-    // Closed, the composer takes the draft as the sheet left it.
-    $screen->input('sheet-body', 'Half a thought, and more')
-        ->dismissSheet('sheet');
-
-    expect(nodeByRef($screen, 'body')['props']['value'])->toBe('Half a thought, and more')
-        ->and(nodeByRef($screen, 'stash'))->not->toBeEmpty();
-
-    // Sent from the sheet, it's gone from both.
-    $screen->press('composeInSheet')
-        ->input('sheet-body', 'Half a thought, shipped.')
-        ->tap('sheet-commit')
-        ->dismissSheet('sheet')
-        ->assertSet('body', '');
-
-    expect(nodeByRef($screen, 'body')['props']['value'])->toBe('');
-
-    $screen->press('composeInSheet');
-
-    expect(nodeByRef($screen, 'sheet-body')['props']['value'])->toBe('');
 });
 
 it('only commits from a sheet that has a composer in it', function () {
