@@ -92,7 +92,6 @@
     'tail' => ($inFeed ? $continuesNext || ! $continuesRun : $withTail) ? $commit->lane() : null,
     'endsWithDot' => $endsWithDot,
     'replyTail' => $threadBelow && ! ($inFeed && $continuesNext),
-    'replyDashes' => \App\Devnull\Display::dashesFor($commit),
     'node' => $continuesRun ? 'dot' : 'avatar',
     'avatarSize' => $muted ? 36 : 48,
     'user' => $author,

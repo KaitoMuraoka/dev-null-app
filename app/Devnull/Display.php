@@ -2,7 +2,6 @@
 
 namespace App\Devnull;
 
-use App\Devnull\Data\Commit;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 
@@ -37,11 +36,9 @@ final class Display
 
     /**
      * How far below the top of a reply's row its elbow comes level with the
-     * middle of the reply's avatar, and the radius of the elbow's corner.
+     * middle of the reply's avatar.
      */
     public const int ElbowLevel = 22;
-
-    public const int ElbowRadius = 12;
 
     public static function relativeTime(?CarbonInterface $date, ?CarbonInterface $now = null): string
     {
@@ -144,65 +141,6 @@ final class Display
         $parts[1] = substr($parts[1], 0, 10).str_repeat('•', 12);
 
         return implode(' ', $parts);
-    }
-
-    /**
-     * Enough 4pt dashes, with 3pt gaps, to run a dashed line down a commit's
-     * row, which is clipped where the row ends. PHP can't know how tall the
-     * row is drawn, so this errs long from the text, media and actions in it.
-     */
-    public static function dashesFor(Commit $commit): int
-    {
-        $text = $commit->isFolded() ? Commit::PreviewLength : mb_strlen($commit->body);
-        $lines = (int) ceil($text / 32) + substr_count($commit->isFolded() ? '' : $commit->body, "\n");
-        $height = 110 + $lines * 26
-            + ($commit->images === [] ? 0 : 210)
-            + ($commit->poll === null ? 0 : 50 + 46 * count($commit->poll->options))
-            + ($commit->isQuote() ? 230 : 0)
-            + ($commit->linkPreview === null ? 0 : 80);
-
-        return min(250, (int) ceil($height / 7));
-    }
-
-    /**
-     * The dashes of a thread's elbow, as the web's from #121: down the line at
-     * $from, round a 12pt corner, and across to the reply's avatar at $to,
-     * level with its middle. They keep the 4pt dash and 3pt gap all the way
-     * round, with one on the middle of the bend so the corner reads the same
-     * from either side, and the ones on the bend turned to follow it. The last
-     * one may run past 1pt short of the avatar, where the elbow is cut off, as
-     * a dashed border would be.
-     *
-     * @return list<array{x: float, y: float, rotate: float}> each dash's middle, and how far it's turned from upright, in degrees
-     */
-    public static function elbowDashes(float $from, float $to): array
-    {
-        $line = $from + 0.5;
-        $down = self::ElbowLevel - self::ElbowRadius;
-        $bend = M_PI * self::ElbowRadius / 2;
-        $length = $down + $bend + ($to - 1) - ($line + self::ElbowRadius);
-
-        $dashes = [];
-
-        for ($middle = fmod($down + $bend / 2, 7); $middle - 2 < $length; $middle += 7) {
-            if ($middle < 2) {
-                continue;
-            }
-
-            $turn = min(M_PI / 2, max(0, ($middle - $down) / self::ElbowRadius));
-
-            $dashes[] = match (true) {
-                $middle <= $down => ['x' => $line, 'y' => round($middle, 2), 'rotate' => 0.0],
-                $middle >= $down + $bend => ['x' => round($line + self::ElbowRadius + $middle - $down - $bend, 2), 'y' => (float) self::ElbowLevel, 'rotate' => -90.0],
-                default => [
-                    'x' => round($line + self::ElbowRadius - self::ElbowRadius * cos($turn), 2),
-                    'y' => round($down + self::ElbowRadius * sin($turn), 2),
-                    'rotate' => round(-rad2deg($turn), 2),
-                ],
-            };
-        }
-
-        return $dashes;
     }
 
     /**

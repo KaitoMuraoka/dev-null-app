@@ -34,15 +34,15 @@ function previewedJson(array $replies, bool $more = false, array $overrides = []
 }
 
 /**
- * The colours of the dashes in a node, in order.
+ * The colours of the dashed lines in a node, in order.
  *
  * @return list<string>
  */
 function dashColours(array $node): array
 {
     return array_values(array_unique(array_map(
-        fn (array $dash): string => $dash['style']['bg_color'] ?? '',
-        findNodes($node, fn (array $child): bool => in_array([$child['layout']['width'] ?? null, $child['layout']['height'] ?? null], [[1.0, 4.0], [4.0, 1.0]], true)),
+        fn (array $line): string => $line['style']['border_color'] ?? '',
+        findNodes($node, fn (array $child): bool => ($child['props']['border_style'] ?? null) === 1),
     )));
 }
 
@@ -62,6 +62,9 @@ it('hangs the newest reply under a commit, on a dashed elbow in its lane, instea
 
     expect($elbow)->not->toBeNull()
         ->and(dashColours($elbow))->toBe([config('native-ui.theme.light.lane-1')])
+        // One dashed border down from the rail, round a 12pt corner and across to 1pt short of the avatar.
+        ->and($elbow['props'])->toMatchArray(['border_l' => 1.0, 'border_b' => 1.0, 'border_t' => 0.0, 'border_r' => 0.0, 'radius_bl' => 12.0])
+        ->and($elbow['layout'])->toMatchArray(['width' => 31.5, 'height' => 22.5, 'position' => [0.0, 0.0, 0.0, 31.5]])
         // A reply's own actions: the star and Reply, but no Quote.
         ->and(findNode($reply, fn (array $node): bool => ($node['ref'] ?? null) === 'reply-to-r9'))->not->toBeNull()
         ->and(findNode($reply, fn (array $node): bool => ($node['ref'] ?? null) === 'quote-r9'))->toBeNull();

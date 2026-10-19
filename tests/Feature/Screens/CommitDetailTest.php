@@ -279,10 +279,10 @@ it('keeps deleted ancestors on the rail as tombstones', function () {
 
     // A dashed Rail Gray ring where the avatar was, as on the web, and a Rail Gray segment running on from it.
     $tombstone = nodeByRef($screen, 'tombstone-c1');
-    $dashes = findNodes($tombstone, fn (array $node): bool => isset($node['props']['rotate']));
+    $rings = findNodes($tombstone, fn (array $node): bool => ($node['props']['border_style'] ?? null) === 1);
 
-    expect($dashes)->toHaveCount(16)
-        ->and(array_unique(array_map(fn (array $dash): ?string => $dash['style']['bg_color'] ?? null, $dashes)))->toBe([$rail])
+    expect($rings)->toHaveCount(1)
+        ->and($rings[0]['style'])->toMatchArray(['border_width' => 2.0, 'border_color' => $rail, 'border_radius' => 9999.0])
         ->and(findNode($tombstone, fn (array $node): bool => ($node['type'] ?? null) === 'stack' && ($node['layout']['width'] ?? null) === 40.0))->toBeNull();
 });
 

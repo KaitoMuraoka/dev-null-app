@@ -7,7 +7,7 @@
 @php($size ??= 48)
 @if ($staged)
     <native:column ref="staged-avatar" :width="48" :height="48" class="rounded-full bg-theme-surface">
-        @include('native.partials.dashed-ring', ['size' => 48, 'colour' => 'bg-theme-'.\App\Devnull\Lane::token($lane)])
+        @include('native.partials.dashed-ring', ['size' => 48, 'lane' => $lane])
         <native:column class="absolute top-[4] left-[4]">
             @include('native.partials.avatar', ['user' => $user, 'size' => 40])
         </native:column>
