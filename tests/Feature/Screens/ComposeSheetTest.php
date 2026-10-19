@@ -138,6 +138,30 @@ it('keeps the draft when the sheet is swiped away, and opens on it again, marked
     Http::assertNotSent(fn (Request $request): bool => $request->method() === 'POST');
 });
 
+it('closes the sheet from Cancel in its bar, keeping the draft as a swipe does', function () {
+    $screen = composeSheetOnLog()->input('sheet-body', 'Half a thought')->tap('sheet-cancel');
+
+    expect(nodeByRef($screen, 'sheet')['props']['visible'])->toBeFalse();
+
+    $screen->dismissSheet('sheet')->press('composeInSheet');
+
+    expect(nodeByRef($screen, 'sheet-body')['props']['value'])->toBe('Half a thought')
+        ->and(nodeByRef($screen, 'sheet-stash'))->not->toBeEmpty();
+});
+
+it('draws the bar on Liquid Glass on iOS, and as a full-screen dialog header on Android', function () {
+    $commit = nodeByRef(composeSheetOnLog(), 'sheet-commit');
+
+    expect($commit['props']['glass'] ?? null)->toBe(3)
+        ->and($commit['props']['label'])->toBe('Commit');
+
+    fakeApi(['GET /api/v1/log/following' => [pageJson([])]]);
+    $android = Native::visit('/log', platform: 'android')->press('composeInSheet');
+
+    expect(nodeByRef($android, 'sheet-commit')['props'])->toMatchArray(['label' => 'Commit', 'variant' => 'ghost'])
+        ->and(nodeByRef($android, 'sheet-commit')['props'])->not->toHaveKey('glass');
+});
+
 it('only commits from a sheet that has a composer in it', function () {
     fakeApi(['GET /api/v1/log/following' => [pageJson([commitJson(['id' => 'c1', 'author' => userJson(['id' => 'u2', 'username' => 'ada'])])])]]);
 
