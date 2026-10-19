@@ -24,11 +24,16 @@ use Closure;
  * Opened again, it starts from the draft, marked as restored. It's forgotten
  * once it's sent.
  *
+ * A new commit's draft can become a `/feature` or `/bug` issue, as on the web
+ * (see DraftsIssues).
+ *
  * The sheet keeps its commit while it slides away, so it doesn't empty on the
  * way down, and lets go of it once iOS says it's gone, however it was closed.
  */
 trait OpensCommitSheet
 {
+    use DraftsIssues;
+
     /**
      * Whether the sheet is up, or on its way up.
      */
@@ -142,6 +147,7 @@ trait OpensCommitSheet
      */
     public function updatedSheetBody(): void
     {
+        $this->typeIssueCommand();
         $name = $this->sheetStashName();
 
         if (! $this->sheetOpen || $name === null) {
@@ -174,7 +180,7 @@ trait OpensCommitSheet
         $stashName = $this->sheetStashName();
         $body = trim($this->sheetBody);
 
-        if ($stashName === null || mb_strlen($body) < Commit::MinLength || mb_strlen($body) > Commit::MaxLength) {
+        if ($stashName === null || $this->sheetIssue !== null || mb_strlen($body) < Commit::MinLength || mb_strlen($body) > Commit::MaxLength) {
             return;
         }
 
@@ -237,6 +243,7 @@ trait OpensCommitSheet
         $this->sheetBody = '';
         $this->sheetRestored = false;
         $this->sheetError = null;
+        $this->forgetIssueDraft();
     }
 
     /**
