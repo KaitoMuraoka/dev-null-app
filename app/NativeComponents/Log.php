@@ -13,6 +13,7 @@ use App\Devnull\Stash;
 use App\Devnull\Timeline;
 use App\Icons\Android;
 use App\Icons\Ios;
+use App\NativeComponents\Concerns\DrawsSkeletonFirst;
 use App\NativeComponents\Concerns\ExpandsThreads;
 use App\NativeComponents\Concerns\HoldsNewCommits;
 use App\NativeComponents\Concerns\OpensInTab;
@@ -66,6 +67,7 @@ use Native\Mobile\Edge\NativeComponent;
  */
 class Log extends NativeComponent
 {
+    use DrawsSkeletonFirst;
     use ExpandsThreads;
     use HoldsNewCommits;
     use OpensInTab;
@@ -94,9 +96,12 @@ class Log extends NativeComponent
     public const string Ranked = 'trending';
 
     /**
-     * How many kept commits a log you're not on shows, enough to fill the screen while you swipe to it.
+     * How many kept commits the log beside yours shows, enough for the top of
+     * the screen while you swipe to it. The log two swipes away shows skeleton
+     * rows until you're beside it: every row sent is one the phone builds, and
+     * on a slow Android phone the off-screen pages were a third of the frame.
      */
-    public const int PreviewCommits = 5;
+    public const int PreviewCommits = 3;
 
     public string $log = 'following';
 
@@ -142,8 +147,7 @@ class Log extends NativeComponent
     {
         $this->log = app(ShownTabs::class)->get($this->me()?->id, 'log', self::Logs, 'following');
         $this->lastVisitAt = $this->lastVisitSeenAt();
-        $this->showKept();
-        $this->open();
+        $this->fillInAfterFirstFrame('open');
     }
 
     /**
@@ -260,13 +264,14 @@ class Log extends NativeComponent
 
     /**
      * A log you're not on: the first few commits kept for it, as it will
-     * open, or skeleton rows with nothing kept.
+     * open, or skeleton rows with nothing kept, or while it's two swipes away.
      *
      * @return array<string, mixed>
      */
     private function previewState(string $log): array
     {
-        $json = $this->cached('log/'.$log);
+        $beside = abs(array_search($log, self::Logs, true) - array_search($this->log, self::Logs, true)) === 1;
+        $json = $beside && ! $this->skeletonFrame ? $this->cached('log/'.$log) : null;
         $kept = is_array($json['data'] ?? null) ? $json['data'] : [];
         $page = $json === null ? null : Page::fromArray(['data' => array_slice($kept, 0, self::PreviewCommits)] + $json, Commit::fromArray(...));
 
