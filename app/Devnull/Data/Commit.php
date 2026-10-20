@@ -172,6 +172,16 @@ final readonly class Commit
     }
 
     /**
+     * Whether a body is long enough to commit and short enough for devnull, once trimmed.
+     */
+    public static function fits(string $body): bool
+    {
+        $length = mb_strlen(trim($body));
+
+        return $length >= self::MinLength && $length <= self::MaxLength;
+    }
+
+    /**
      * Whether a list would show only the start of a body, as the web's composer
      * works it out: more than PreviewLength characters or PreviewLines lines,
      * once blank lines in a run are counted as one.
