@@ -8,6 +8,7 @@ use App\Devnull\Data\Conversation as ConversationData;
 use App\Devnull\Exceptions\ApiException;
 use App\Devnull\ShownTabs;
 use App\Icons\Lucide;
+use App\NativeComponents\Concerns\DrawsSkeletonFirst;
 use App\NativeComponents\Concerns\OpensInTab;
 use App\NativeComponents\Concerns\RefreshesInBackground;
 use App\NativeComponents\Concerns\TalksToDevnull;
@@ -41,6 +42,7 @@ use Native\Mobile\Edge\Transition;
  */
 class Remotes extends NativeComponent
 {
+    use DrawsSkeletonFirst;
     use OpensInTab;
     use RefreshesInBackground;
     use TalksToDevnull;
@@ -99,8 +101,7 @@ class Remotes extends NativeComponent
     {
         $this->off = app(Account::class)->remotes() === null;
         $this->tab = app(ShownTabs::class)->get($this->me()?->id, 'remotes', array_keys($this->tabs()), 'open');
-        $this->showKept();
-        $this->revalidate();
+        $this->fillInAfterFirstFrame('revalidate');
     }
 
     /**
@@ -410,7 +411,7 @@ class Remotes extends NativeComponent
      */
     private function preview(string $tab): array
     {
-        $json = $this->off ? null : $this->cached(Client::RemotesPath, $this->query($tab));
+        $json = $this->off || $this->skeletonFrame ? null : $this->cached(Client::RemotesPath, $this->query($tab));
 
         return $this->page($tab, array_slice($json === null ? [] : self::conversationsFrom($json), 0, self::PreviewRows), $json !== null, false, null, $this->listKeys[$tab] ?? 0);
     }

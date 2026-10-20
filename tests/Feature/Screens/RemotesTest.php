@@ -219,3 +219,16 @@ it('wears the unread count on the Remotes tab', function () {
 
     expect($tab['props']['badge'] ?? null)->toBe('3');
 });
+
+it('opens on skeleton rows, and fills in what it kept straight after, so a tab tap shows at once', function () {
+    config(['devnull.skeleton_first' => true]);
+    holdRefreshes();
+    keep('remotes', remotesInboxJson([conversationJson()]));
+    serveApi(['GET /api/v1/remotes' => [remotesInboxJson([conversationJson()])]]);
+
+    $screen = Native::visit('/remotes')->assertSet('skeletonFrame', true)->assertDontSee('Ada Lovelace');
+
+    expect(showsLoading($screen->tree()))->toBeTrue();
+
+    finishRefreshes($screen)->assertSet('skeletonFrame', false)->assertSee('Ada Lovelace');
+});
