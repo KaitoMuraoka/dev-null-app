@@ -60,7 +60,7 @@
         <native:pressable ref="star-{{ $commit->id }}" @press="toggleStar('{{ $commit->id }}')" class="flex-row min-w-[44] h-[36] px-2 gap-1 items-center" a11y-label="{{ $starLabel }}">
             <native:icon :ios="\App\Icons\Lucide::Star->ios($commit->starred)" :android="\App\Icons\Lucide::Star->android($commit->starred)" :size="$iconSize" class="{{ $commit->starred ? 'text-theme-primary' : 'text-theme-ink-muted' }}" />
             @if ($commit->starsCount > 0)
-                <native:text font="mono" class="{{ $labelSize }} {{ $commit->starred ? 'text-theme-primary' : 'text-theme-ink-muted' }}">{{ $commit->starsCount }}</native:text>
+                <native:text font="mono" class="{{ $labelSize }} {{ $commit->starred ? 'text-theme-primary' : 'text-theme-ink-muted' }}">{{ \App\Devnull\Display::compactCount($commit->starsCount) }}</native:text>
             @endif
         </native:pressable>
     @endif
@@ -68,12 +68,12 @@
     @if ($canGivePastel)
         <native:pressable ref="pastel-{{ $commit->id }}" @press="givePastel('{{ $commit->id }}')" class="flex-row min-w-[44] h-[36] px-2 gap-1 items-center" a11y-label="Give a pastel, {{ $pastelLabel }}, {{ $pasteis->left() }} left today">
             <native:image :src="\App\Devnull\Data\Pasteis::Image" :width="$pastelSize" :height="$pastelSize" :fit="1" />
-            <native:text font="mono" class="{{ $labelSize }} text-theme-ink-muted">{{ $commit->pasteisCount }}</native:text>
+            <native:text font="mono" class="{{ $labelSize }} text-theme-ink-muted">{{ \App\Devnull\Display::compactCount($commit->pasteisCount) }}</native:text>
         </native:pressable>
     @elseif ($pasteis !== null)
         <native:row ref="pastel-count-{{ $commit->id }}" class="min-w-[44] h-[36] px-2 gap-1 items-center" a11y-label="{{ $pastelLabel }}">
             <native:image :src="\App\Devnull\Data\Pasteis::Image" :width="$pastelSize" :height="$pastelSize" :fit="1" />
-            <native:text font="mono" class="{{ $labelSize }} text-theme-ink-muted">{{ $commit->pasteisCount }}</native:text>
+            <native:text font="mono" class="{{ $labelSize }} text-theme-ink-muted">{{ \App\Devnull\Display::compactCount($commit->pasteisCount) }}</native:text>
         </native:row>
     @endif
 
